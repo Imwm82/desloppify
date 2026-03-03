@@ -81,7 +81,7 @@ def render_cluster_item(item: dict) -> None:
     else:
         type_label = _ACTION_TYPE_LABELS.get(action_type, "Grouped task")
     optional_tag = " — optional" if is_optional else ""
-    print(colorize(f"  ({type_label}, {member_count} findings{optional_tag})", "bold"))
+    print(colorize(f"  ({type_label}, {member_count} issues{optional_tag})", "bold"))
     print(colorize("  " + "─" * 60, "dim"))
     print(f"  {colorize(item.get('summary', ''), 'yellow')}")
 

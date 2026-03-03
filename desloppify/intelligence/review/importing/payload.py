@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from desloppify.intelligence.review.importing.contracts import (
-    ReviewFindingPayload,
+    ReviewIssuePayload,
     ReviewImportPayload,
 )
 
@@ -15,7 +15,7 @@ from desloppify.intelligence.review.importing.contracts import (
 class ReviewImportEnvelope:
     """Validated shared payload shape for review imports."""
 
-    findings: list[ReviewFindingPayload]
+    issues: list[ReviewIssuePayload]
     assessments: dict[str, Any] | None
     reviewed_files: list[str]
 
@@ -50,15 +50,16 @@ def parse_review_import_payload(
     if not isinstance(data, dict):
         raise ValueError(f"{mode_name} review import payload must be a JSON object")
 
-    if "findings" not in data:
-        raise ValueError(f"{mode_name} review import payload must contain 'findings'")
-    findings = data["findings"]
-    if not isinstance(findings, list):
-        raise ValueError(f"{mode_name} review import payload 'findings' must be a list")
-    for idx, finding in enumerate(findings):
-        if not isinstance(finding, dict):
+    # Accept both "issues" (canonical) and "findings" (legacy)
+    issues_list = data.get("issues") if "issues" in data else data.get("findings")
+    if issues_list is None:
+        raise ValueError(f"{mode_name} review import payload must contain 'issues'")
+    if not isinstance(issues_list, list):
+        raise ValueError(f"{mode_name} review import payload 'issues' must be a list")
+    for idx, entry in enumerate(issues_list):
+        if not isinstance(entry, dict):
             raise ValueError(
-                f"{mode_name} review import payload 'findings[{idx}]' must be an object"
+                f"{mode_name} review import payload 'issues[{idx}]' must be an object"
             )
 
     assessments = data.get("assessments")
@@ -67,7 +68,7 @@ def parse_review_import_payload(
             f"{mode_name} review import payload 'assessments' must be an object"
         )
     return ReviewImportEnvelope(
-        findings=findings,
+        issues=issues_list,
         assessments=assessments,
         reviewed_files=extract_reviewed_files(data),
     )

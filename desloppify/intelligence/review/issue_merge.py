@@ -1,4 +1,4 @@
-"""Shared finding-merge primitives.
+"""Shared issue-merge primitives.
 
 Both ``app/commands/review/merge.py`` (post-import CLI) and
 ``app/commands/review/batch_core.py`` (batch accumulation) need the same

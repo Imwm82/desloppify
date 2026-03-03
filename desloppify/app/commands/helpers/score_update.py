@@ -58,7 +58,7 @@ def print_score_update(
     if new.strict is not None and prev.strict is not None and new.strict < prev.strict:
         print(colorize(
             "  Score dropped — this is normal after structural fixes. "
-            "New findings may surface; keep working the queue.",
+            "New issues may surface; keep working the queue.",
             "yellow",
         ))
 

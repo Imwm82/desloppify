@@ -19,7 +19,7 @@ from desloppify.state import empty_state
 
 def _review_finding(
     *,
-    finding_id: str,
+    issue_id: str,
     dimension: str,
     status: str,
     summary: str,
@@ -29,7 +29,7 @@ def _review_finding(
     last_seen: str = "2026-02-24T10:00:00+00:00",
 ) -> dict:
     return {
-        "id": finding_id,
+        "id": issue_id,
         "detector": "review",
         "file": ".",
         "tier": 3,
@@ -55,27 +55,27 @@ def _review_finding(
 def test_issue_history_returns_flat_recent_issues():
     state = empty_state()
     f_open = _review_finding(
-        finding_id="review::.::holistic::abstraction_fitness::task_param_bag::11111111",
+        issue_id="review::.::holistic::abstraction_fitness::task_param_bag::11111111",
         dimension="abstraction_fitness",
         status="open",
         summary="Task builders rely on oversized parameter bags.",
     )
     f_fixed = _review_finding(
-        finding_id="review::.::holistic::abstraction_fitness::task_param_bag::22222222",
+        issue_id="review::.::holistic::abstraction_fitness::task_param_bag::22222222",
         dimension="abstraction_fitness",
         status="fixed",
         summary="Task builders rely on oversized parameter bags.",
         resolved_at="2026-02-24T11:00:00+00:00",
     )
     f_wontfix = _review_finding(
-        finding_id="review::.::holistic::high_level_elegance::legacy_surface::33333333",
+        issue_id="review::.::holistic::high_level_elegance::legacy_surface::33333333",
         dimension="high_level_elegance",
         status="wontfix",
         summary="Legacy compatibility surface remains primary.",
         note="blocked by migration dependency",
         resolved_at="2026-02-24T12:00:00+00:00",
     )
-    state["findings"] = {
+    state["issues"] = {
         f_open["id"]: f_open,
         f_fixed["id"]: f_fixed,
         f_wontfix["id"]: f_wontfix,
@@ -115,14 +115,14 @@ def test_issue_history_strips_auto_resolve_notes():
     """Auto-resolve boilerplate notes should be stripped to empty string."""
     state = empty_state()
     f = _review_finding(
-        finding_id="review::.::holistic::abstraction_fitness::test::11111111",
+        issue_id="review::.::holistic::abstraction_fitness::test::11111111",
         dimension="abstraction_fitness",
         status="auto_resolved",
         summary="Some issue.",
         note="not reported in latest holistic re-import",
         resolved_at="2026-02-24T11:00:00+00:00",
     )
-    state["findings"] = {f["id"]: f}
+    state["issues"] = {f["id"]: f}
 
     history = build_issue_history_context(state)
     assert history["recent_issues"][0]["note"] == ""
@@ -130,16 +130,16 @@ def test_issue_history_strips_auto_resolve_notes():
 
 def test_issue_history_respects_max_issues():
     state = empty_state()
-    state["findings"] = {}
+    state["issues"] = {}
     for idx in range(10):
         f = _review_finding(
-            finding_id=f"review::.::holistic::abstraction_fitness::issue_{idx}::{idx:08x}",
+            issue_id=f"review::.::holistic::abstraction_fitness::issue_{idx}::{idx:08x}",
             dimension="abstraction_fitness",
             status="open",
             summary=f"Issue number {idx}",
             last_seen=f"2026-02-{20 + idx % 5}T10:00:00+00:00",
         )
-        state["findings"][f["id"]] = f
+        state["issues"][f["id"]] = f
 
     history = build_issue_history_context(
         state, options=ReviewHistoryOptions(max_issues=5)
@@ -150,21 +150,21 @@ def test_issue_history_respects_max_issues():
 def test_issue_history_sorted_by_last_seen():
     state = empty_state()
     f_old = _review_finding(
-        finding_id="review::.::holistic::abstraction_fitness::old::11111111",
+        issue_id="review::.::holistic::abstraction_fitness::old::11111111",
         dimension="abstraction_fitness",
         status="open",
         summary="Old issue.",
         last_seen="2026-02-01T10:00:00+00:00",
     )
     f_new = _review_finding(
-        finding_id="review::.::holistic::abstraction_fitness::new::22222222",
+        issue_id="review::.::holistic::abstraction_fitness::new::22222222",
         dimension="abstraction_fitness",
         status="open",
         summary="New issue.",
         last_seen="2026-02-24T10:00:00+00:00",
     )
     state = empty_state()
-    state["findings"] = {f_old["id"]: f_old, f_new["id"]: f_new}
+    state["issues"] = {f_old["id"]: f_old, f_new["id"]: f_new}
 
     history = build_issue_history_context(state)
     issues = history["recent_issues"]
@@ -181,9 +181,9 @@ def test_issue_history_empty_state():
 
 def test_prepare_holistic_review_optional_issue_history_payload():
     state = empty_state()
-    state["findings"] = {
+    state["issues"] = {
         "review::.::holistic::error_consistency::mixed_error_channels_console_vs_pipeline::9a9a9a9a": _review_finding(
-            finding_id="review::.::holistic::error_consistency::mixed_error_channels_console_vs_pipeline::9a9a9a9a",
+            issue_id="review::.::holistic::error_consistency::mixed_error_channels_console_vs_pipeline::9a9a9a9a",
             dimension="error_consistency",
             status="open",
             summary="Mixed error channels produce inconsistent diagnostics.",

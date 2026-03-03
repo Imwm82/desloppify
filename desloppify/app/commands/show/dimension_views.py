@@ -38,22 +38,22 @@ def _render_subjective_dimension(
     print(
         colorize(
             f"  '{pattern_raw.strip()}' is a subjective dimension "
-            "— its score comes from design reviews, not code findings.",
+            "— its score comes from design reviews, not code issues.",
             "yellow",
         )
     )
     dim_reviews = [
-        finding
-        for finding in (state.get("findings") or {}).values()
-        if finding.get("detector") == "review"
-        and finding.get("status") == "open"
+        issue
+        for issue in (state.get("issues") or {}).values()
+        if issue.get("detector") == "review"
+        and issue.get("status") == "open"
         and lowered
-        in str(finding.get("detail", {}).get("dimension", "")).lower().replace(" ", "_")
+        in str(issue.get("detail", {}).get("dimension", "")).lower().replace(" ", "_")
     ]
     if dim_reviews:
         print(
             colorize(
-                f"  {len(dim_reviews)} open review finding(s). "
+                f"  {len(dim_reviews)} open review issue(s). "
                 "Run `show review --status open`.",
                 "dim",
             )
@@ -65,13 +65,13 @@ def _render_subjective_dimension(
 
 
 def _render_clean_mechanical_dimension(state: dict, entity) -> None:
-    """Show score + 'no open findings' for a mechanical dimension with zero findings."""
+    """Show score + 'no open issues' for a mechanical dimension with zero issues."""
     dim_data, display_name = _lookup_dimension_score(state, entity.display_name)
     _print_dimension_score(dim_data, display_name)
     det_list = ", ".join(entity.detectors) if entity.detectors else "none"
     print(
         colorize(
-            f"  No open findings for {entity.display_name}. Detectors: {det_list}",
+            f"  No open issues for {entity.display_name}. Detectors: {det_list}",
             "green",
         )
     )
@@ -82,7 +82,7 @@ def _load_dimension_findings(
     entity,
     status_filter: str,
 ) -> list[dict]:
-    """Load findings for all detectors in a mechanical dimension."""
+    """Load issues for all detectors in a mechanical dimension."""
     all_matches: list[dict] = []
     for detector in entity.detectors:
         matches = load_matches(
@@ -92,23 +92,23 @@ def _load_dimension_findings(
     seen: set[str] = set()
     unique: list[dict] = []
     for item in all_matches:
-        finding_id = item.get("id", "")
-        if finding_id not in seen:
-            seen.add(finding_id)
+        issue_id = item.get("id", "")
+        if issue_id not in seen:
+            seen.add(issue_id)
             unique.append(item)
     return unique
 
 
 def _render_no_matches(entity, pattern, status_filter, narrative, state, config):
-    """Handle no-findings case for normal and subjective views."""
-    print(colorize(f"No {status_filter} findings matching: {pattern}", "yellow"))
+    """Handle no-issues case for normal and subjective views."""
+    print(colorize(f"No {status_filter} issues matching: {pattern}", "yellow"))
     write_query(
         {
             "command": "show",
             "query": pattern,
             "status_filter": status_filter,
             "total": 0,
-            "findings": [],
+            "issues": [],
             "narrative": narrative,
         }
     )
@@ -135,7 +135,7 @@ def _render_subjective_views_guide(entity) -> None:
         "subjective_review",
     ):
         print(colorize("  Related views:", "dim"))
-        print(colorize("    `show review --status open`            Per-file design review findings", "dim"))
+        print(colorize("    `show review --status open`            Per-file design review issues", "dim"))
         print(colorize("    `show subjective_review --status open`  Files needing re-review", "dim"))
 
 

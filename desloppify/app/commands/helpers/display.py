@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 
-def short_finding_id(fid: str) -> str:
-    """Extract the 8-char hash suffix from a finding ID for compact display.
+def short_issue_id(fid: str) -> str:
+    """Extract the 8-char hash suffix from a issue ID for compact display.
 
-    Finding IDs look like ``review::.::holistic::dim::identifier::abcdef12``.
+    Issue IDs look like ``review::.::holistic::dim::identifier::abcdef12``.
     Commands accept the hash suffix as a shorthand for the full ID.
     """
     if "::" in fid:
@@ -16,4 +16,4 @@ def short_finding_id(fid: str) -> str:
     return fid
 
 
-__all__ = ["short_finding_id"]
+__all__ = ["short_issue_id"]

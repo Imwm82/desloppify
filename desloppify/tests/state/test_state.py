@@ -1,4 +1,4 @@
-"""Tests for desloppify.state — finding lifecycle, persistence, and merge logic."""
+"""Tests for desloppify.state — issue lifecycle, persistence, and merge logic."""
 
 import json
 from pathlib import Path
@@ -8,17 +8,17 @@ import pytest
 from desloppify.engine._state import filtering as state_query_mod
 from desloppify.state import (
     MergeScanOptions,
-    apply_finding_noise_budget,
+    apply_issue_noise_budget,
     empty_state,
     ensure_state_defaults,
     load_state,
-    make_finding,
-    resolve_finding_noise_budget,
-    resolve_finding_noise_global_budget,
-    resolve_finding_noise_settings,
+    make_issue,
+    resolve_issue_noise_budget,
+    resolve_issue_noise_global_budget,
+    resolve_issue_noise_settings,
     save_state,
     suppression_metrics,
-    upsert_findings,
+    upsert_issues,
     validate_state_invariants,
 )
 from desloppify.state import (
@@ -53,7 +53,7 @@ def _make_raw_finding(
     lang=None,
     zone=None,
 ):
-    """Build a minimal finding dict with explicit ID (bypasses rel())."""
+    """Build a minimal issue dict with explicit ID (bypasses rel())."""
     now = "2025-01-01T00:00:00+00:00"
     f = {
         "id": fid,
@@ -78,33 +78,33 @@ def _make_raw_finding(
 
 
 # ---------------------------------------------------------------------------
-# apply_finding_noise_budget
+# apply_issue_noise_budget
 # ---------------------------------------------------------------------------
 
 
-class TestApplyFindingNoiseBudget:
+class TestApplyIssueNoiseBudget:
     def test_budget_zero_keeps_all(self):
-        findings = [
+        issues = [
             _make_raw_finding("unused::a.py::x", detector="unused"),
             _make_raw_finding("unused::b.py::y", detector="unused"),
         ]
-        surfaced, hidden = apply_finding_noise_budget(findings, budget=0)
+        surfaced, hidden = apply_issue_noise_budget(issues, budget=0)
         assert len(surfaced) == 2
         assert hidden == {}
 
     def test_caps_per_detector_and_reports_hidden(self):
-        findings = [
+        issues = [
             _make_raw_finding("unused::a.py::x", detector="unused"),
             _make_raw_finding("unused::b.py::y", detector="unused"),
             _make_raw_finding("unused::c.py::z", detector="unused"),
             _make_raw_finding("smells::d.py::w", detector="smells"),
         ]
-        surfaced, hidden = apply_finding_noise_budget(findings, budget=2)
+        surfaced, hidden = apply_issue_noise_budget(issues, budget=2)
         assert len(surfaced) == 3
         assert hidden == {"unused": 1}
 
     def test_global_budget_round_robins_across_detectors(self):
-        findings = [
+        issues = [
             _make_raw_finding(
                 "unused::a.py::x1", detector="unused", tier=1, confidence="high"
             ),
@@ -121,8 +121,8 @@ class TestApplyFindingNoiseBudget:
                 "smells::b.py::y2", detector="smells", tier=2, confidence="medium"
             ),
         ]
-        surfaced, hidden = apply_finding_noise_budget(
-            findings, budget=0, global_budget=3
+        surfaced, hidden = apply_issue_noise_budget(
+            issues, budget=0, global_budget=3
         )
         detectors = [f["detector"] for f in surfaced]
         assert detectors.count("unused") == 2
@@ -131,50 +131,50 @@ class TestApplyFindingNoiseBudget:
 
 
 # ---------------------------------------------------------------------------
-# resolve_finding_noise_budget
+# resolve_issue_noise_budget
 # ---------------------------------------------------------------------------
 
 
-class TestResolveFindingNoiseBudget:
+class TestResolveIssueNoiseBudget:
     def test_uses_default_when_config_missing(self):
-        assert resolve_finding_noise_budget(None) == 10
+        assert resolve_issue_noise_budget(None) == 10
 
     def test_reads_valid_int_from_config(self):
-        assert resolve_finding_noise_budget({"finding_noise_budget": 25}) == 25
+        assert resolve_issue_noise_budget({"finding_noise_budget": 25}) == 25
 
     def test_invalid_value_falls_back_to_default(self):
-        assert resolve_finding_noise_budget({"finding_noise_budget": "oops"}) == 10
+        assert resolve_issue_noise_budget({"finding_noise_budget": "oops"}) == 10
 
     def test_negative_value_clamps_to_zero(self):
-        assert resolve_finding_noise_budget({"finding_noise_budget": -5}) == 0
+        assert resolve_issue_noise_budget({"finding_noise_budget": -5}) == 0
 
 
-class TestResolveFindingNoiseGlobalBudget:
+class TestResolveIssueNoiseGlobalBudget:
     def test_uses_default_when_config_missing(self):
-        assert resolve_finding_noise_global_budget(None) == 0
+        assert resolve_issue_noise_global_budget(None) == 0
 
     def test_reads_valid_int_from_config(self):
         assert (
-            resolve_finding_noise_global_budget({"finding_noise_global_budget": 25})
+            resolve_issue_noise_global_budget({"finding_noise_global_budget": 25})
             == 25
         )
 
     def test_invalid_value_falls_back_to_default(self):
         assert (
-            resolve_finding_noise_global_budget({"finding_noise_global_budget": "oops"})
+            resolve_issue_noise_global_budget({"finding_noise_global_budget": "oops"})
             == 0
         )
 
     def test_negative_value_clamps_to_zero(self):
         assert (
-            resolve_finding_noise_global_budget({"finding_noise_global_budget": -5})
+            resolve_issue_noise_global_budget({"finding_noise_global_budget": -5})
             == 0
         )
 
 
-class TestResolveFindingNoiseSettings:
+class TestResolveIssueNoiseSettings:
     def test_returns_warning_for_invalid_values(self):
-        per, global_budget, warning = resolve_finding_noise_settings(
+        per, global_budget, warning = resolve_issue_noise_settings(
             {
                 "finding_noise_budget": "oops",
                 "finding_noise_global_budget": -2,
@@ -188,16 +188,16 @@ class TestResolveFindingNoiseSettings:
 
 
 # ---------------------------------------------------------------------------
-# make_finding
+# make_issue
 # ---------------------------------------------------------------------------
 
 
-class TestMakeFinding:
-    """make_finding creates a normalised finding dict with a stable ID."""
+class TestMakeIssue:
+    """make_issue creates a normalised issue dict with a stable ID."""
 
     def test_id_includes_name(self, monkeypatch):
         monkeypatch.setattr(state_query_mod, "rel", lambda p: p)
-        f = make_finding(
+        f = make_issue(
             "dead_code",
             "src/foo.py",
             "bar",
@@ -209,27 +209,27 @@ class TestMakeFinding:
 
     def test_id_excludes_name_when_empty(self, monkeypatch):
         monkeypatch.setattr(state_query_mod, "rel", lambda p: p)
-        f = make_finding(
+        f = make_issue(
             "lint", "src/foo.py", "", tier=3, confidence="low", summary="lint issue"
         )
         assert f["id"] == "lint::src/foo.py"
 
     def test_detail_defaults_to_empty_dict(self, monkeypatch):
         monkeypatch.setattr(state_query_mod, "rel", lambda p: p)
-        f = make_finding("x", "a.py", "y", tier=1, confidence="high", summary="s")
+        f = make_issue("x", "a.py", "y", tier=1, confidence="high", summary="s")
         assert f["detail"] == {}
 
     def test_detail_passed_through(self, monkeypatch):
         monkeypatch.setattr(state_query_mod, "rel", lambda p: p)
         d = {"lines": [1, 2, 3]}
-        f = make_finding(
+        f = make_issue(
             "x", "a.py", "y", tier=1, confidence="high", summary="s", detail=d
         )
         assert f["detail"] is d
 
     def test_default_field_values(self, monkeypatch):
         monkeypatch.setattr(state_query_mod, "rel", lambda p: p)
-        f = make_finding("d", "f.py", "n", tier=2, confidence="medium", summary="sum")
+        f = make_issue("d", "f.py", "n", tier=2, confidence="medium", summary="sum")
         assert f["status"] == "open"
         assert f["note"] is None
         assert f["resolved_at"] is None
@@ -258,7 +258,7 @@ class TestEmptyState:
         assert s["objective_score"] == 0
         assert s["strict_score"] == 0
         assert s["stats"] == {}
-        assert s["findings"] == {}
+        assert s["issues"] == {}
         assert s["subjective_integrity"] == {}
         assert "created" in s
 
@@ -272,7 +272,7 @@ class TestLoadState:
     def test_nonexistent_file_returns_empty_state(self, tmp_path):
         s = load_state(tmp_path / "missing.json")
         assert s["version"] == 1
-        assert s["findings"] == {}
+        assert s["issues"] == {}
 
     def test_valid_json_returns_parsed_data(self, tmp_path):
         p = tmp_path / "state.json"
@@ -286,12 +286,12 @@ class TestLoadState:
         p = tmp_path / "state.json"
         # Legacy/minimal state payload with missing keys.
         p.write_text(
-            json.dumps({"version": 1, "findings": {"x": {"id": "x", "tier": 3}}})
+            json.dumps({"version": 1, "issues": {"x": {"id": "x", "tier": 3}}})
         )
         s = load_state(p)
         assert s["scan_count"] == 0
         assert s["stats"] == {}
-        assert s["findings"]["x"]["status"] == "open"
+        assert s["issues"]["x"]["status"] == "open"
         validate_state_invariants(s)
 
     def test_corrupt_json_tries_backup(self, tmp_path):
@@ -309,7 +309,7 @@ class TestLoadState:
         p.write_text("{bad json!!")
         s = load_state(p)
         assert s["version"] == 1
-        assert s["findings"] == {}
+        assert s["issues"] == {}
 
     def test_corrupt_json_renames_file(self, tmp_path):
         p = tmp_path / "state.json"
@@ -325,7 +325,7 @@ class TestLoadState:
 
         s = load_state(p)
         assert s["version"] == 1
-        assert s["findings"] == {}
+        assert s["issues"] == {}
 
 
 # ---------------------------------------------------------------------------
@@ -365,7 +365,7 @@ class TestSaveState:
         """Even with special types (sets, Paths), the output is valid JSON."""
         p = tmp_path / "state.json"
         st = empty_state()
-        st["findings"] = {}
+        st["issues"] = {}
         st["custom_set"] = {3, 1, 2}
         st["custom_path"] = Path("/tmp/hello")
         save_state(st, p)
@@ -376,27 +376,27 @@ class TestSaveState:
     def test_invalid_status_gets_normalized_before_save(self, tmp_path):
         p = tmp_path / "state.json"
         st = empty_state()
-        st["findings"]["x"] = _make_raw_finding("x", status="oops")
+        st["issues"]["x"] = _make_raw_finding("x", status="oops")
         ensure_state_defaults(st)
         save_state(st, p)
         loaded = json.loads(p.read_text())
-        assert loaded["findings"]["x"]["status"] == "open"
+        assert loaded["issues"]["x"]["status"] == "open"
 
 
 # ---------------------------------------------------------------------------
-# _upsert_findings
+# _upsert_issues
 # ---------------------------------------------------------------------------
 
 
-class TestUpsertFindings:
-    """_upsert_findings merges a scan's findings into existing state."""
+class TestUpsertIssues:
+    """_upsert_issues merges a scan's issues into existing state."""
 
     def _call(self, existing, current, *, ignore=None, lang=None):
         now = "2025-06-01T00:00:00+00:00"
-        result = upsert_findings(existing, current, ignore or [], now, lang=lang)
+        result = upsert_issues(existing, current, ignore or [], now, lang=lang)
         return result[:5]  # backward compat — omit changed_detectors
 
-    # -- new findings --
+    # -- new issues --
 
     def test_new_finding_gets_added(self):
         existing = {}
@@ -407,7 +407,7 @@ class TestUpsertFindings:
         assert reopened == 0
         assert "det::a.py::fn" in ids
 
-    # -- existing open finding --
+    # -- existing open issue --
 
     def test_existing_open_finding_updated_last_seen(self):
         old = _make_raw_finding("det::a.py::fn", detector="det", file="a.py")
@@ -423,7 +423,7 @@ class TestUpsertFindings:
         assert existing["det::a.py::fn"]["last_seen"] == "2025-06-01T00:00:00+00:00"
         assert existing["det::a.py::fn"]["summary"] == "updated summary"
 
-    # -- resolved finding gets reopened --
+    # -- resolved issue gets reopened --
 
     def test_resolved_finding_gets_reopened(self):
         old = _make_raw_finding(
@@ -465,7 +465,7 @@ class TestUpsertFindings:
         self._call(existing, [current])
         assert existing["det::a.py::fn"]["reopen_count"] == 3
 
-    # -- wontfix finding is NOT reopened --
+    # -- wontfix issue is NOT reopened --
 
     def test_wontfix_finding_not_reopened(self):
         old = _make_raw_finding(
@@ -490,7 +490,7 @@ class TestUpsertFindings:
         self._call(existing, [current])
         assert existing["det::a.py::fn"]["zone"] == "production"
 
-    # -- ignored findings --
+    # -- ignored issues --
 
     def test_ignored_finding_not_added(self):
         existing = {}
@@ -572,7 +572,7 @@ class TestUpsertFindings:
         assert existing["subjective_review::a.py::holistic_stale"]["status"] == "open"
 
     def test_mechanical_auto_resolved_still_reopened(self):
-        """Non-subjective auto_resolved finding still reopens normally."""
+        """Non-subjective auto_resolved issue still reopens normally."""
         old = _make_raw_finding(
             "unused::a.py::x",
             detector="unused",
@@ -598,27 +598,27 @@ class TestUpsertFindings:
 
 
 # ---------------------------------------------------------------------------
-# Integration: _upsert_findings used via merge_scan resolves missing findings
+# Integration: _upsert_issues used via merge_scan resolves missing issues
 # ---------------------------------------------------------------------------
 
 
-class TestMissingFindingsResolved:
-    """Findings present in state but absent from scan get auto-resolved
+class TestMissingIssuesResolved:
+    """Issues present in state but absent from scan get auto-resolved
     (tested via merge_scan which calls auto_resolve_disappeared)."""
 
     def test_missing_finding_auto_resolved(self):
-        """A finding that existed before but is absent from the new scan
+        """A issue that existed before but is absent from the new scan
         should be auto-resolved."""
         st = empty_state()
         old = _make_raw_finding("det::a.py::fn", detector="det", file="a.py")
         old["lang"] = "python"
-        st["findings"]["det::a.py::fn"] = old
+        st["issues"]["det::a.py::fn"] = old
 
-        # Merge an empty scan — the old finding should disappear
+        # Merge an empty scan — the old issue should disappear
         diff = merge_scan(st, [], MergeScanOptions(lang="python", force_resolve=True))
         assert diff["auto_resolved"] >= 1
-        assert st["findings"]["det::a.py::fn"]["status"] == "auto_resolved"
-        assert st["findings"]["det::a.py::fn"]["resolved_at"] is not None
+        assert st["issues"]["det::a.py::fn"]["status"] == "auto_resolved"
+        assert st["issues"]["det::a.py::fn"]["resolved_at"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -627,13 +627,13 @@ class TestMissingFindingsResolved:
 
 
 class TestWontfixAutoResolution:
-    """Wontfix findings should be auto-resolved when the detector ran
-    (appears in potentials) but produced 0 findings for those files (#53)."""
+    """Wontfix issues should be auto-resolved when the detector ran
+    (appears in potentials) but produced 0 issues for those files (#53)."""
 
     def test_wontfix_resolved_when_detector_ran(self):
-        """Wontfix findings auto-resolve when detector is in potentials."""
+        """Wontfix issues auto-resolve when detector is in potentials."""
         st = empty_state()
-        # Pre-populate 3 open + 2 wontfix test_coverage findings
+        # Pre-populate 3 open + 2 wontfix test_coverage issues
         for i in range(3):
             f = _make_raw_finding(
                 f"test_coverage::mod{i}.py::untested_module",
@@ -641,7 +641,7 @@ class TestWontfixAutoResolution:
                 file=f"mod{i}.py",
                 lang="python",
             )
-            st["findings"][f["id"]] = f
+            st["issues"][f["id"]] = f
         for i in range(3, 5):
             f = _make_raw_finding(
                 f"test_coverage::mod{i}.py::untested_module",
@@ -650,21 +650,21 @@ class TestWontfixAutoResolution:
                 status="wontfix",
                 lang="python",
             )
-            st["findings"][f["id"]] = f
+            st["issues"][f["id"]] = f
 
-        # Simulate: user wrote tests for ALL files → 0 findings
+        # Simulate: user wrote tests for ALL files → 0 issues
         # test_coverage ran (in potentials) but found nothing
         diff = merge_scan(
             st, [], MergeScanOptions(lang="python", potentials={"test_coverage": 50, "smells": 100})
         )
         assert diff["auto_resolved"] == 5
-        for _fid, finding in st["findings"].items():
-            assert finding["status"] == "auto_resolved"
+        for _fid, issue in st["issues"].items():
+            assert issue["status"] == "auto_resolved"
 
     def test_wontfix_not_resolved_when_detector_suspect(self):
-        """Wontfix findings survive when detector didn't run (not in potentials)."""
+        """Wontfix issues survive when detector didn't run (not in potentials)."""
         st = empty_state()
-        # 4 open findings (>=3 triggers suspect detection)
+        # 4 open issues (>=3 triggers suspect detection)
         for i in range(4):
             f = _make_raw_finding(
                 f"test_coverage::mod{i}.py::untested_module",
@@ -672,8 +672,8 @@ class TestWontfixAutoResolution:
                 file=f"mod{i}.py",
                 lang="python",
             )
-            st["findings"][f["id"]] = f
-        # 1 wontfix finding
+            st["issues"][f["id"]] = f
+        # 1 wontfix issue
         wf = _make_raw_finding(
             "test_coverage::mod4.py::untested_module",
             detector="test_coverage",
@@ -681,19 +681,19 @@ class TestWontfixAutoResolution:
             status="wontfix",
             lang="python",
         )
-        st["findings"][wf["id"]] = wf
+        st["issues"][wf["id"]] = wf
 
         # test_coverage NOT in potentials → suspect → wontfix preserved
         diff = merge_scan(st, [], MergeScanOptions(lang="python", potentials={"smells": 100}))
         assert "test_coverage" in diff["suspect_detectors"]
         assert (
-            st["findings"]["test_coverage::mod4.py::untested_module"]["status"]
+            st["issues"]["test_coverage::mod4.py::untested_module"]["status"]
             == "wontfix"
         )
 
     def test_wontfix_resolved_when_some_findings_remain(self):
-        """Wontfix findings for fixed files are resolved even when other
-        findings remain (detector not suspect because it produced findings)."""
+        """Wontfix issues for fixed files are resolved even when other
+        issues remain (detector not suspect because it produced issues)."""
         st = empty_state()
         # 2 wontfix + 2 open
         for i in range(2):
@@ -704,7 +704,7 @@ class TestWontfixAutoResolution:
                 status="wontfix",
                 lang="python",
             )
-            st["findings"][f["id"]] = f
+            st["issues"][f["id"]] = f
         for i in range(2, 4):
             f = _make_raw_finding(
                 f"test_coverage::mod{i}.py::untested_module",
@@ -712,9 +712,9 @@ class TestWontfixAutoResolution:
                 file=f"mod{i}.py",
                 lang="python",
             )
-            st["findings"][f["id"]] = f
+            st["issues"][f["id"]] = f
 
-        # User wrote tests for wontfix files only — 2 findings remain (open ones)
+        # User wrote tests for wontfix files only — 2 issues remain (open ones)
         current = [
             _make_raw_finding(
                 f"test_coverage::mod{i}.py::untested_module",
@@ -724,22 +724,22 @@ class TestWontfixAutoResolution:
             for i in range(2, 4)
         ]
         _ = merge_scan(st, current, MergeScanOptions(lang="python", potentials={"test_coverage": 50}))
-        # The 2 wontfix findings should be auto-resolved
+        # The 2 wontfix issues should be auto-resolved
         assert (
-            st["findings"]["test_coverage::mod0.py::untested_module"]["status"]
+            st["issues"]["test_coverage::mod0.py::untested_module"]["status"]
             == "auto_resolved"
         )
         assert (
-            st["findings"]["test_coverage::mod1.py::untested_module"]["status"]
+            st["issues"]["test_coverage::mod1.py::untested_module"]["status"]
             == "auto_resolved"
         )
-        # The 2 open findings should still be open (they were re-emitted)
+        # The 2 open issues should still be open (they were re-emitted)
         assert (
-            st["findings"]["test_coverage::mod2.py::untested_module"]["status"]
+            st["issues"]["test_coverage::mod2.py::untested_module"]["status"]
             == "open"
         )
         assert (
-            st["findings"]["test_coverage::mod3.py::untested_module"]["status"]
+            st["issues"]["test_coverage::mod3.py::untested_module"]["status"]
             == "open"
         )
 
@@ -748,7 +748,7 @@ class TestWontfixAutoResolution:
         should not mark detectors suspect just because dict is falsy."""
         from desloppify.state import find_suspect_detectors
 
-        # Build a state with 3 open findings for a detector
+        # Build a state with 3 open issues for a detector
         existing = {}
         for i in range(3):
             f = _make_raw_finding(
@@ -825,14 +825,14 @@ class TestWontfixAutoResolution:
 class TestSuppressionAccounting:
     def test_merge_scan_records_ignored_metrics_in_history_and_diff(self):
         st = empty_state()
-        findings = [
+        issues = [
             _make_raw_finding("smells::a.py::x", detector="smells", file="a.py"),
             _make_raw_finding("smells::b.py::y", detector="smells", file="b.py"),
             _make_raw_finding("logs::c.py::z", detector="logs", file="c.py"),
         ]
 
         diff = merge_scan(
-            st, findings, MergeScanOptions(lang="python", ignore=["smells::*"], force_resolve=True)
+            st, issues, MergeScanOptions(lang="python", ignore=["smells::*"], force_resolve=True)
         )
 
         assert diff["ignored"] == 2
@@ -914,18 +914,18 @@ class TestScoreAntiGaming:
         assert reloaded["dimension_scores"]["Logic clarity"]["score"] == 0.0
 
     def test_manual_fixed_does_not_improve_verified_until_scan_confirms(self):
-        from desloppify.state import resolve_findings
+        from desloppify.state import resolve_issues
 
         st = empty_state()
-        finding = _make_raw_finding("unused::a.py::x", detector="unused", file="a.py")
+        issue = _make_raw_finding("unused::a.py::x", detector="unused", file="a.py")
         merge_scan(
             st,
-            [finding],
+            [issue],
             MergeScanOptions(lang="python", potentials={"unused": 1}, force_resolve=True),
         )
         before_verified = st["verified_strict_score"]
 
-        resolve_findings(
+        resolve_issues(
             st,
             "unused::a.py::x",
             "fixed",
@@ -943,19 +943,19 @@ class TestScoreAntiGaming:
         assert st["verified_strict_score"] > before_verified
 
     def test_ignore_pattern_suppresses_and_excludes_from_scoring(self):
-        from desloppify.state import remove_ignored_findings
+        from desloppify.state import remove_ignored_issues
 
         st = empty_state()
-        finding = _make_raw_finding("unused::a.py::x", detector="unused", file="a.py")
+        issue = _make_raw_finding("unused::a.py::x", detector="unused", file="a.py")
         merge_scan(
             st,
-            [finding],
+            [issue],
             MergeScanOptions(lang="python", potentials={"unused": 1}, force_resolve=True),
         )
         strict_before = st["strict_score"]
 
-        removed = remove_ignored_findings(st, "unused::*")
+        removed = remove_ignored_issues(st, "unused::*")
         assert removed == 1
-        assert st["findings"]["unused::a.py::x"]["suppressed"] is True
-        # Suppressed findings are invisible to scoring — score should improve
+        assert st["issues"]["unused::a.py::x"]["suppressed"] is True
+        # Suppressed issues are invisible to scoring — score should improve
         assert st["strict_score"] >= strict_before

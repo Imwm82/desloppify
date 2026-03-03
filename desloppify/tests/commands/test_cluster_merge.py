@@ -18,7 +18,7 @@ def _plan_with_clusters():
     ensure_plan_defaults(plan)
     plan["clusters"]["source-cluster"] = {
         "name": "source-cluster",
-        "finding_ids": ["f1", "f2", "f3"],
+        "issue_ids": ["f1", "f2", "f3"],
         "description": "Source description",
         "action_steps": ["step A", "step B"],
         "auto": False,
@@ -30,7 +30,7 @@ def _plan_with_clusters():
     }
     plan["clusters"]["target-cluster"] = {
         "name": "target-cluster",
-        "finding_ids": ["f4", "f5"],
+        "issue_ids": ["f4", "f5"],
         "description": "Target description",
         "action_steps": ["step X"],
         "auto": False,
@@ -49,14 +49,14 @@ def _plan_with_clusters():
 
 class TestMergeClusters:
     def test_merge_moves_findings(self):
-        """All source findings are moved to target."""
+        """All source issues are moved to target."""
         plan = _plan_with_clusters()
         added, source_ids = merge_clusters(plan, "source-cluster", "target-cluster")
 
         target = plan["clusters"]["target-cluster"]
-        assert "f1" in target["finding_ids"]
-        assert "f2" in target["finding_ids"]
-        assert "f3" in target["finding_ids"]
+        assert "f1" in target["issue_ids"]
+        assert "f2" in target["issue_ids"]
+        assert "f3" in target["issue_ids"]
         assert added == 3
         assert sorted(source_ids) == ["f1", "f2", "f3"]
 
@@ -105,22 +105,22 @@ class TestMergeClusters:
             merge_clusters(plan, "source-cluster", "nonexistent")
 
     def test_merge_deduplicates(self):
-        """Findings already in target are not duplicated."""
+        """Issues already in target are not duplicated."""
         plan = _plan_with_clusters()
         # Add f4 to source too (already in target)
-        plan["clusters"]["source-cluster"]["finding_ids"].append("f4")
+        plan["clusters"]["source-cluster"]["issue_ids"].append("f4")
 
         added, source_ids = merge_clusters(plan, "source-cluster", "target-cluster")
 
         target = plan["clusters"]["target-cluster"]
         # f4 should appear only once
-        assert target["finding_ids"].count("f4") == 1
+        assert target["issue_ids"].count("f4") == 1
         # 3 new (f1, f2, f3) — f4 already existed
         assert added == 3
         assert "f4" in source_ids
 
     def test_merge_updates_overrides(self):
-        """Finding overrides are updated to point to the target cluster."""
+        """Issue overrides are updated to point to the target cluster."""
         plan = _plan_with_clusters()
         merge_clusters(plan, "source-cluster", "target-cluster")
 

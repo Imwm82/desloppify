@@ -1,4 +1,4 @@
-"""Post-scan plan reconciliation — handle finding churn."""
+"""Post-scan plan reconciliation — handle issue churn."""
 
 from __future__ import annotations
 
@@ -25,46 +25,46 @@ class ReconcileResult:
 def _find_candidates(
     state: StateModel, detector: str, file: str
 ) -> list[str]:
-    """Find open findings that could be remaps for a disappeared finding."""
+    """Find open issues that could be remaps for a disappeared issue."""
     candidates: list[str] = []
-    for fid, finding in state.get("findings", {}).items():
-        if finding.get("status") != "open":
+    for fid, issue in state.get("issues", {}).items():
+        if issue.get("status") != "open":
             continue
-        if finding.get("detector") == detector and finding.get("file") == file:
+        if issue.get("detector") == detector and issue.get("file") == file:
             candidates.append(fid)
     return candidates
 
 
-def _is_finding_alive(state: StateModel, finding_id: str) -> bool:
-    """Return True if the finding exists and is open."""
-    finding = state.get("findings", {}).get(finding_id)
-    if finding is None:
+def _is_issue_alive(state: StateModel, issue_id: str) -> bool:
+    """Return True if the issue exists and is open."""
+    issue = state.get("issues", {}).get(issue_id)
+    if issue is None:
         return False
-    return finding.get("status") == "open"
+    return issue.get("status") == "open"
 
 
 def _supersede_id(
     plan: PlanModel,
     state: StateModel,
-    finding_id: str,
+    issue_id: str,
     now: str,
 ) -> bool:
-    """Move a disappeared finding to superseded. Returns True if changed."""
-    finding = state.get("findings", {}).get(finding_id)
+    """Move a disappeared issue to superseded. Returns True if changed."""
+    issue = state.get("issues", {}).get(issue_id)
     detector = ""
     file = ""
     summary = ""
-    if finding:
-        detector = finding.get("detector", "")
-        file = finding.get("file", "")
-        summary = finding.get("summary", "")
+    if issue:
+        detector = issue.get("detector", "")
+        file = issue.get("file", "")
+        summary = issue.get("summary", "")
 
     candidates = _find_candidates(state, detector, file) if detector else []
     # Don't include the original in candidates
-    candidates = [c for c in candidates if c != finding_id]
+    candidates = [c for c in candidates if c != issue_id]
 
     entry: SupersededEntry = {
-        "original_id": finding_id,
+        "original_id": issue_id,
         "original_detector": detector,
         "original_file": file,
         "original_summary": summary,
@@ -75,28 +75,28 @@ def _supersede_id(
     }
 
     # Preserve any existing override note
-    override = plan.get("overrides", {}).get(finding_id)
+    override = plan.get("overrides", {}).get(issue_id)
     if override and override.get("note"):
         entry["note"] = override["note"]
 
-    plan["superseded"][finding_id] = entry
+    plan["superseded"][issue_id] = entry
 
-    # Remove from queue_order, skipped, promoted_ids, cluster finding_ids
+    # Remove from queue_order, skipped, promoted_ids, cluster issue_ids
     order: list[str] = plan.get("queue_order", [])
     skipped: dict = plan.get("skipped", {})
     promoted: list[str] = plan.get("promoted_ids", [])
-    if finding_id in order:
-        order.remove(finding_id)
-    skipped.pop(finding_id, None)
-    if finding_id in promoted:
-        promoted.remove(finding_id)
+    if issue_id in order:
+        order.remove(issue_id)
+    skipped.pop(issue_id, None)
+    if issue_id in promoted:
+        promoted.remove(issue_id)
     for cluster in plan.get("clusters", {}).values():
-        ids = cluster.get("finding_ids", [])
-        if finding_id in ids:
-            ids.remove(finding_id)
+        ids = cluster.get("issue_ids", [])
+        if issue_id in ids:
+            ids.remove(issue_id)
 
     # Clear stale cluster reference from override
-    override = plan.get("overrides", {}).get(finding_id)
+    override = plan.get("overrides", {}).get(issue_id)
     if override and override.get("cluster"):
         override["cluster"] = None
         override["updated_at"] = now
@@ -143,14 +143,14 @@ def reconcile_plan_after_scan(
     now = utc_now()
     now_dt = datetime.now(UTC)
 
-    # Collect all finding IDs referenced by the plan
+    # Collect all issue IDs referenced by the plan
     referenced_ids: set[str] = set()
     referenced_ids.update(plan.get("queue_order", []))
     referenced_ids.update(plan.get("skipped", {}).keys())
     for override_id in plan.get("overrides", {}):
         referenced_ids.add(override_id)
     for cluster in plan.get("clusters", {}).values():
-        referenced_ids.update(cluster.get("finding_ids", []))
+        referenced_ids.update(cluster.get("issue_ids", []))
 
     # Exclude already-superseded IDs and synthetic IDs (managed by stale_dimensions)
     already_superseded = set(plan.get("superseded", {}).keys())
@@ -162,21 +162,21 @@ def reconcile_plan_after_scan(
 
     # Check each referenced ID
     for fid in sorted(referenced_ids):
-        if not _is_finding_alive(state, fid):
+        if not _is_issue_alive(state, fid):
             if _supersede_id(plan, state, fid, now):
                 result.superseded.append(fid)
                 result.changes += 1
 
-    # Reconcile epic clusters: remove dead findings, delete empty epics
+    # Reconcile epic clusters: remove dead issues, delete empty epics
     clusters = plan.get("clusters", {})
     epic_names_to_delete: list[str] = []
     for name, cluster in list(clusters.items()):
         if not name.startswith(EPIC_PREFIX):
             continue
-        finding_ids = cluster.get("finding_ids", [])
-        alive_ids = [fid for fid in finding_ids if _is_finding_alive(state, fid)]
-        if alive_ids != finding_ids:
-            cluster["finding_ids"] = alive_ids
+        issue_ids = cluster.get("issue_ids", [])
+        alive_ids = [fid for fid in issue_ids if _is_issue_alive(state, fid)]
+        if alive_ids != issue_ids:
+            cluster["issue_ids"] = alive_ids
             result.changes += 1
         if not alive_ids:
             epic_names_to_delete.append(name)
@@ -205,7 +205,7 @@ def reconcile_plan_after_scan(
         append_log_entry(
             plan,
             "reconcile",
-            finding_ids=result.superseded,
+            issue_ids=result.superseded,
             actor="system",
             detail={
                 "superseded_count": len(result.superseded),
@@ -232,8 +232,8 @@ def sync_plan_after_review_import(
 ) -> ReviewImportSyncResult | None:
     """Sync plan queue after review import. Pure engine function — no I/O.
 
-    Appends new finding IDs to queue_order and injects triage stages
-    if needed. Returns None when there are no new findings to sync.
+    Appends new issue IDs to queue_order and injects triage stages
+    if needed. Returns None when there are no new issues to sync.
     """
     from desloppify.engine._plan.stale_dimensions import (
         compute_new_finding_ids,
@@ -245,7 +245,7 @@ def sync_plan_after_review_import(
     if not new_ids:
         return None
 
-    # Add new finding IDs to end of queue_order so they have position
+    # Add new issue IDs to end of queue_order so they have position
     order: list[str] = plan["queue_order"]
     existing = set(order)
     added: list[str] = []

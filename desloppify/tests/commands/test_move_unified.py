@@ -1,4 +1,4 @@
-"""Tests for unified move — clusters, findings, and mixes."""
+"""Tests for unified move — clusters, issues, and mixes."""
 
 from __future__ import annotations
 
@@ -19,20 +19,20 @@ def _plan_with_queue(*ids: str) -> dict:
 
 
 def _state_with_findings(*ids: str, status: str = "open") -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
         parts = fid.split("::")
         detector = parts[0] if len(parts) > 1 else "test"
-        findings[fid] = {
+        issues[fid] = {
             "id": fid,
             "status": status,
             "detector": detector,
             "file": "test.py",
             "tier": 1,
             "confidence": "high",
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
         }
-    return {"findings": findings, "scan_count": 5}
+    return {"issues": issues, "scan_count": 5}
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ def test_resolve_cluster_name_to_member_ids():
     """Pattern 'my-cluster' expands to cluster members."""
     plan = _plan_with_queue("a", "b", "c")
     plan["clusters"] = {
-        "my-cluster": {"finding_ids": ["a", "b"]},
+        "my-cluster": {"issue_ids": ["a", "b"]},
     }
     state = _state_with_findings("a", "b", "c")
 
@@ -52,29 +52,29 @@ def test_resolve_cluster_name_to_member_ids():
 
 
 def test_resolve_mix_of_cluster_and_finding():
-    """Cluster name + finding pattern resolve together."""
+    """Cluster name + issue pattern resolve together."""
     plan = _plan_with_queue("a", "b", "c")
     plan["clusters"] = {
-        "my-cluster": {"finding_ids": ["a"]},
+        "my-cluster": {"issue_ids": ["a"]},
     }
     state = _state_with_findings("a", "b", "c")
 
     result = resolve_ids_from_patterns(state, ["my-cluster", "c"], plan=plan)
-    # "my-cluster" → ["a"], "c" → exact match on finding ID "c"
+    # "my-cluster" → ["a"], "c" → exact match on issue ID "c"
     assert "a" in result
     assert "c" in result
     assert len(result) == 2
 
 
 def test_resolve_cluster_deduplicates():
-    """Finding in both a cluster and a pattern isn't doubled."""
+    """Issue in both a cluster and a pattern isn't doubled."""
     plan = _plan_with_queue("a", "b", "c")
     plan["clusters"] = {
-        "my-cluster": {"finding_ids": ["a", "b"]},
+        "my-cluster": {"issue_ids": ["a", "b"]},
     }
     state = _state_with_findings("a", "b", "c")
 
-    # "a" matches as a finding ID, "my-cluster" expands to [a, b]
+    # "a" matches as a issue ID, "my-cluster" expands to [a, b]
     result = resolve_ids_from_patterns(state, ["a", "my-cluster"], plan=plan)
     # "a" from direct match, "b" from cluster (no dup of "a")
     assert result == ["a", "b"]
@@ -84,9 +84,9 @@ def test_finding_pattern_priority_over_cluster_name():
     """Detector match wins over same-named cluster."""
     plan = _plan_with_queue("review::file.py::naming", "other::x")
     plan["clusters"] = {
-        "review": {"finding_ids": ["other::x"]},
+        "review": {"issue_ids": ["other::x"]},
     }
-    # "review" detector matches the finding
+    # "review" detector matches the issue
     state = _state_with_findings("review::file.py::naming", "other::x")
 
     result = resolve_ids_from_patterns(state, ["review"], plan=plan)
@@ -104,7 +104,7 @@ def test_before_cluster_target():
     """`before my-cluster` resolves to first member in queue order."""
     plan = _plan_with_queue("x", "a", "b", "y")
     plan["clusters"] = {
-        "my-cluster": {"finding_ids": ["a", "b"]},
+        "my-cluster": {"issue_ids": ["a", "b"]},
     }
 
     resolved = resolve_target(plan, "my-cluster", "before")
@@ -115,7 +115,7 @@ def test_after_cluster_target():
     """`after my-cluster` resolves to last member in queue order."""
     plan = _plan_with_queue("x", "a", "b", "y")
     plan["clusters"] = {
-        "my-cluster": {"finding_ids": ["a", "b"]},
+        "my-cluster": {"issue_ids": ["a", "b"]},
     }
 
     resolved = resolve_target(plan, "my-cluster", "after")
@@ -134,7 +134,7 @@ def testresolve_target_non_cluster_passthrough():
 def testresolve_target_empty_cluster():
     """Empty cluster target is returned unchanged."""
     plan = _plan_with_queue("a", "b")
-    plan["clusters"] = {"empty": {"finding_ids": []}}
+    plan["clusters"] = {"empty": {"issue_ids": []}}
 
     assert resolve_target(plan, "empty", "before") == "empty"
 
@@ -147,15 +147,15 @@ def test_multi_cluster_move():
     """Moving 2 cluster names moves all members as one batch."""
     plan = _plan_with_queue("a", "b", "c", "d", "e")
     plan["clusters"] = {
-        "c1": {"finding_ids": ["a", "b"]},
-        "c2": {"finding_ids": ["d", "e"]},
+        "c1": {"issue_ids": ["a", "b"]},
+        "c2": {"issue_ids": ["d", "e"]},
     }
 
     # Collect all member IDs from both clusters
     seen: set[str] = set()
     all_ids: list[str] = []
     for name in ["c1", "c2"]:
-        for fid in plan["clusters"][name].get("finding_ids", []):
+        for fid in plan["clusters"][name].get("issue_ids", []):
             if fid not in seen:
                 seen.add(fid)
                 all_ids.append(fid)

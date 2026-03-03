@@ -69,11 +69,11 @@ def show_post_scan_analysis(
     warnings: list[str] = []
     if diff["reopened"] > 5:
         warnings.append(
-            f"{diff['reopened']} findings reopened — was a previous fix reverted?"
+            f"{diff['reopened']} issues reopened — was a previous fix reverted?"
         )
     if diff["new"] > 10 and diff["auto_resolved"] < 3:
         warnings.append(
-            f"{diff['new']} new findings with few resolutions — likely cascading."
+            f"{diff['new']} new issues with few resolutions — likely cascading."
         )
     chronic = diff.get("chronic_reopeners", [])
     chronic_count = len(chronic) if isinstance(chronic, list) else chronic
@@ -125,7 +125,7 @@ def show_post_scan_analysis(
 
 
 def show_score_integrity(state: dict, diff: dict):
-    """Show Score Integrity section — surfaces wontfix debt and ignored findings."""
+    """Show Score Integrity section — surfaces wontfix debt and ignored issues."""
     stats = state.get("stats", {})
     wontfix = stats.get("wontfix", 0)
     ignored = diff.get("ignored", 0)
@@ -145,7 +145,7 @@ def show_score_integrity(state: dict, diff: dict):
         round(overall - strict, 1) if overall is not None and strict is not None else 0
     )
 
-    # Wontfix % of actionable findings (open + wontfix + fixed + auto_resolved + false_positive)
+    # Wontfix % of actionable issues (open + wontfix + fixed + auto_resolved + false_positive)
     actionable = (
         stats.get("open", 0)
         + wontfix
@@ -161,7 +161,7 @@ def show_score_integrity(state: dict, diff: dict):
         if wontfix_pct > 50:
             style = "red"
             msg = (
-                f"  ❌ {wontfix} wontfix ({wontfix_pct}%) — over half of findings swept under rug. "
+                f"  ❌ {wontfix} wontfix ({wontfix_pct}%) — over half of issues swept under rug. "
                 f"Strict gap: {strict_gap} pts"
             )
         elif wontfix_pct > 25:
@@ -173,7 +173,7 @@ def show_score_integrity(state: dict, diff: dict):
         elif wontfix_pct > 10:
             style = "yellow"
             msg = (
-                f"  ⚠ {wontfix} wontfix findings ({wontfix_pct}%) — strict {strict_gap} "
+                f"  ⚠ {wontfix} wontfix issues ({wontfix_pct}%) — strict {strict_gap} "
                 "pts below lenient"
             )
         else:
@@ -202,13 +202,13 @@ def show_score_integrity(state: dict, diff: dict):
         print(
             colorize(
                 f"  ⚠ {ignore_patterns} ignore pattern{'s' if ignore_patterns != 1 else ''} "
-                f"suppressed {ignored} finding{'s' if ignored != 1 else ''} this scan",
+                f"suppressed {ignored} issue{'s' if ignored != 1 else ''} this scan",
                 style,
             )
         )
         print(
             colorize(
-                "    Suppressed findings still count against strict and verified scores",
+                "    Suppressed issues still count against strict and verified scores",
                 "dim",
             )
         )
@@ -216,7 +216,7 @@ def show_score_integrity(state: dict, diff: dict):
         print(
             colorize(
                 f"  {ignore_patterns} ignore pattern{'s' if ignore_patterns != 1 else ''} "
-                "active (0 findings suppressed this scan)",
+                "active (0 issues suppressed this scan)",
                 "dim",
             )
         )

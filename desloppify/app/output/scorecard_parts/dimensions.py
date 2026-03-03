@@ -37,14 +37,14 @@ def _lang_from_capabilities(state: dict) -> str | None:
 
 
 def _lang_from_findings(state: dict) -> str | None:
-    findings = state.get("findings")
-    if not isinstance(findings, dict):
+    issues = state.get("issues")
+    if not isinstance(issues, dict):
         return None
     counts: dict[str, int] = {}
-    for finding in findings.values():
-        if not isinstance(finding, dict):
+    for issue in issues.values():
+        if not isinstance(issue, dict):
             continue
-        lang = finding.get("lang")
+        lang = issue.get("lang")
         if not isinstance(lang, str) or not lang.strip():
             continue
         key = lang.strip().lower()

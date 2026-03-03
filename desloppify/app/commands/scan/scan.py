@@ -77,7 +77,7 @@ def _show_scan_visibility(noise, effective_include_slow: bool) -> None:
     if noise.hidden_total:
         print(
             colorize(
-                f"  * {noise.hidden_total} findings hidden (showing {noise.noise_budget}/detector). "
+                f"  * {noise.hidden_total} issues hidden (showing {noise.noise_budget}/detector). "
                 "Use `desloppify show <detector>` to see all.",
                 "dim",
             )
@@ -152,8 +152,8 @@ def cmd_scan(args: argparse.Namespace) -> None:
         )
     _show_coverage_preflight(runtime)
 
-    findings, potentials, codebase_metrics = orchestrator.generate()
-    merge = orchestrator.merge(findings, potentials, codebase_metrics)
+    issues, potentials, codebase_metrics = orchestrator.generate()
+    merge = orchestrator.merge(issues, potentials, codebase_metrics)
     _print_scan_complete_banner()
 
     noise = orchestrator.noise_snapshot()

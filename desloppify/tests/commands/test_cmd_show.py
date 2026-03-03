@@ -22,7 +22,7 @@ from desloppify.app.commands.show.render import show_subjective_followup
 
 
 class TestFormatDetail:
-    """format_detail builds display-ready parts from a finding detail dict."""
+    """format_detail builds display-ready parts from a issue detail dict."""
 
     def test_empty_detail(self):
         assert format_detail({}) == []
@@ -127,7 +127,7 @@ class TestFormatDetail:
 class TestBuildShowPayload:
     """build_show_payload produces structured JSON for query and --output."""
 
-    def _make_finding(
+    def _make_issue(
         self, fid, *, file="a.ts", detector="unused", tier=2, confidence="high"
     ):
         return {
@@ -136,7 +136,7 @@ class TestBuildShowPayload:
             "detector": detector,
             "tier": tier,
             "confidence": confidence,
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
             "detail": {},
         }
 
@@ -150,12 +150,12 @@ class TestBuildShowPayload:
 
 
 class TestSuppressedMatchEstimate:
-    def _make_finding(self, fid, *, file="a.ts", detector="unused",
+    def _make_issue(self, fid, *, file="a.ts", detector="unused",
                       tier=2, confidence="high"):
         return {
             "id": fid, "file": file, "detector": detector,
             "tier": tier, "confidence": confidence,
-            "summary": f"Finding {fid}", "detail": {},
+            "summary": f"Issue {fid}", "detail": {},
         }
 
     def test_detector_name(self):
@@ -168,8 +168,8 @@ class TestSuppressedMatchEstimate:
         assert suppressed_match_estimate("nope", {"smells": 3}) == 0
 
     def test_single_finding(self):
-        findings = [self._make_finding("unused::a.ts::foo")]
-        result = build_show_payload(findings, "a.ts", "open")
+        issues = [self._make_issue("unused::a.ts::foo")]
+        result = build_show_payload(issues, "a.ts", "open")
         assert result["total"] == 1
         assert result["summary"]["files"] == 1
         assert result["summary"]["by_tier"] == {"T2": 1}
@@ -178,18 +178,18 @@ class TestSuppressedMatchEstimate:
         assert len(result["by_file"]["a.ts"]) == 1
 
     def test_multiple_files_and_detectors(self):
-        findings = [
-            self._make_finding(
+        issues = [
+            self._make_issue(
                 "unused::a.ts::foo", file="a.ts", detector="unused", tier=2
             ),
-            self._make_finding(
+            self._make_issue(
                 "smells::b.ts::bar", file="b.ts", detector="smells", tier=3
             ),
-            self._make_finding(
+            self._make_issue(
                 "unused::a.ts::baz", file="a.ts", detector="unused", tier=2
             ),
         ]
-        result = build_show_payload(findings, "*", "open")
+        result = build_show_payload(issues, "*", "open")
         assert result["total"] == 3
         assert result["summary"]["files"] == 2
         assert result["summary"]["by_tier"] == {"T2": 2, "T3": 1}
@@ -197,31 +197,31 @@ class TestSuppressedMatchEstimate:
         assert result["summary"]["by_detector"]["smells"] == 1
 
     def test_by_file_sorted_by_count_descending(self):
-        findings = [
-            self._make_finding("a1", file="a.ts"),
-            self._make_finding("a2", file="a.ts"),
-            self._make_finding("a3", file="a.ts"),
-            self._make_finding("b1", file="b.ts"),
+        issues = [
+            self._make_issue("a1", file="a.ts"),
+            self._make_issue("a2", file="a.ts"),
+            self._make_issue("a3", file="a.ts"),
+            self._make_issue("b1", file="b.ts"),
         ]
-        result = build_show_payload(findings, "*", "open")
+        result = build_show_payload(issues, "*", "open")
         files = list(result["by_file"].keys())
-        # a.ts has 3 findings, b.ts has 1 -- a.ts should come first
+        # a.ts has 3 issues, b.ts has 1 -- a.ts should come first
         assert files[0] == "a.ts"
 
     def test_by_detector_sorted_by_count_descending(self):
-        findings = [
-            self._make_finding("a1", detector="alpha"),
-            self._make_finding("a2", detector="alpha"),
-            self._make_finding("b1", detector="beta"),
+        issues = [
+            self._make_issue("a1", detector="alpha"),
+            self._make_issue("a2", detector="alpha"),
+            self._make_issue("b1", detector="beta"),
         ]
-        result = build_show_payload(findings, "*", "open")
+        result = build_show_payload(issues, "*", "open")
         dets = list(result["summary"]["by_detector"].keys())
         assert dets[0] == "alpha"
 
     def test_payload_includes_hidden_metadata_when_provided(self):
-        findings = [self._make_finding("a1", detector="alpha")]
+        issues = [self._make_issue("a1", detector="alpha")]
         result = build_show_payload(
-            findings,
+            issues,
             "*",
             "open",
             meta=ShowPayloadMeta(
@@ -308,10 +308,10 @@ class TestCmdShowBackendIntegration:
             ),
         )
         monkeypatch.setattr(
-            state_mod, "resolve_finding_noise_settings", lambda _cfg: (10, 0, None)
+            state_mod, "resolve_issue_noise_settings", lambda _cfg: (10, 0, None)
         )
         monkeypatch.setattr(
-            state_mod, "apply_finding_noise_budget", lambda matches, **_k: (matches, {})
+            state_mod, "apply_issue_noise_budget", lambda matches, **_k: (matches, {})
         )
         monkeypatch.setattr(show_cmd_mod, "compute_narrative", lambda *a, **k: {})
         monkeypatch.setattr(show_cmd_mod, "resolve_lang", lambda _args: None)
@@ -319,7 +319,7 @@ class TestCmdShowBackendIntegration:
     def test_show_uses_shared_queue_for_pattern_filter(self, monkeypatch, capsys):
         self._patch_common(
             monkeypatch,
-            state={"last_scan": "2026-01-01", "findings": {}, "scan_path": "src"},
+            state={"last_scan": "2026-01-01", "issues": {}, "scan_path": "src"},
         )
         calls = []
         monkeypatch.setattr(show_cmd_mod, "write_query", lambda _payload: None)
@@ -330,7 +330,7 @@ class TestCmdShowBackendIntegration:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "detector": "smells",
                         "file": "src/a.py",
                         "tier": 3,
@@ -359,12 +359,12 @@ class TestCmdShowBackendIntegration:
         queue_options = calls[0]["options"]
         assert queue_options.scope == "src/a.py"
         assert queue_options.status == "open"
-        assert "1 open findings matching 'src/a.py'" in out
+        assert "1 open issues matching 'src/a.py'" in out
 
     def test_show_chronic_forces_open_status(self, monkeypatch):
         self._patch_common(
             monkeypatch,
-            state={"last_scan": "2026-01-01", "findings": {}, "scan_path": "."},
+            state={"last_scan": "2026-01-01", "issues": {}, "scan_path": "."},
         )
         monkeypatch.setattr(show_cmd_mod, "write_query", lambda _payload: None)
         captured = {}
@@ -394,7 +394,7 @@ class TestCmdShowBackendIntegration:
             monkeypatch,
             state={
                 "last_scan": "2026-01-01",
-                "findings": {},
+                "issues": {},
                 "scan_path": ".",
                 "dimension_scores": {
                     "Naming quality": {
@@ -425,12 +425,12 @@ class TestCmdShowBackendIntegration:
         assert "Naming quality" in out
 
     def test_show_subjective_dimension_by_key(self, monkeypatch, capsys):
-        """show naming_quality → shows score + subjective explanation, not 'No findings'."""
+        """show naming_quality → shows score + subjective explanation, not 'No issues'."""
         self._patch_common(
             monkeypatch,
             state={
                 "last_scan": "2026-01-01",
-                "findings": {
+                "issues": {
                     "review::src/a.py::1": {
                         "id": "review::src/a.py::1",
                         "detector": "review",
@@ -472,18 +472,18 @@ class TestCmdShowBackendIntegration:
         assert "Naming quality" in out
         assert "90.0%" in out
         assert "subjective dimension" in out
-        assert "No open findings matching" not in out
+        assert "No open issues matching" not in out
 
     def test_show_mechanical_dimension_not_labeled_subjective(
         self, monkeypatch, capsys
     ):
-        """show security with no open findings prints score + 'No open findings',
+        """show security with no open issues prints score + 'No open issues',
         NOT 'subjective dimension'."""
         self._patch_common(
             monkeypatch,
             state={
                 "last_scan": "2026-01-01",
-                "findings": {},
+                "issues": {},
                 "scan_path": ".",
                 "dimension_scores": {
                     "Security": {
@@ -515,14 +515,14 @@ class TestCmdShowBackendIntegration:
         cmd_show(args)
         out = capsys.readouterr().out
         assert "Security: 100.0% health" in out
-        assert "No open findings for Security" in out
+        assert "No open issues for Security" in out
         assert "subjective dimension" not in out
 
     def test_show_mechanical_dimension_with_findings(self, monkeypatch, capsys):
-        """show security with open findings from security AND cycles detectors shows both."""
+        """show security with open issues from security AND cycles detectors shows both."""
         security_finding = {
             "id": "security::src/a.py::xss",
-            "kind": "finding",
+            "kind": "issue",
             "detector": "security",
             "file": "src/a.py",
             "tier": 4,
@@ -533,7 +533,7 @@ class TestCmdShowBackendIntegration:
         }
         cycles_finding = {
             "id": "cycles::src/b.py::cycle",
-            "kind": "finding",
+            "kind": "issue",
             "detector": "cycles",
             "file": "src/b.py",
             "tier": 4,
@@ -546,7 +546,7 @@ class TestCmdShowBackendIntegration:
             monkeypatch,
             state={
                 "last_scan": "2026-01-01",
-                "findings": {
+                "issues": {
                     "security::src/a.py::xss": security_finding,
                     "cycles::src/b.py::cycle": cycles_finding,
                 },
@@ -580,8 +580,8 @@ class TestCmdShowBackendIntegration:
         )
         cmd_show(args)
         out = capsys.readouterr().out
-        # Should render findings from both detectors
-        assert "2 open findings matching 'Security'" in out
+        # Should render issues from both detectors
+        assert "2 open issues matching 'Security'" in out
         assert "subjective dimension" not in out
 
 

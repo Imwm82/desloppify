@@ -99,7 +99,7 @@ def import_based_mapping(
 
     # Facade expansion: if a directly-tested file has no testable logic (pure
     # re-export facade), promote its imports to directly tested.  This prevents
-    # false "transitive_only" findings for internal modules behind facades like
+    # false "transitive_only" issues for internal modules behind facades like
     # scoring.py -> _scoring/policy/core.py.
     has_logic = getattr(mod, "has_testable_logic", None)
     if callable(has_logic):

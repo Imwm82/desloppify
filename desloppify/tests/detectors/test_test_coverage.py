@@ -546,7 +546,7 @@ class TestDetectTestCoverage:
         assert potential == 0
 
     def test_zero_test_files_with_production(self, tmp_path):
-        """Production files but no tests → untested_module findings."""
+        """Production files but no tests → untested_module issues."""
         prod_f = _write_file(
             tmp_path, "app.py", "def main():\n    pass\n" + "# code\n" * 13
         )
@@ -603,7 +603,7 @@ class TestDetectTestCoverage:
         )
 
     def test_production_with_direct_test(self, tmp_path):
-        """Production file with a direct test → no untested finding."""
+        """Production file with a direct test → no untested issue."""
         prod_f = _write_file(tmp_path, "utils.py", "def foo():\n    return 1\n" * 10)
         test_f = _write_file(
             tmp_path,
@@ -618,7 +618,7 @@ class TestDetectTestCoverage:
         }
         entries, potential = detect_test_coverage(graph, zone_map, "python")
         assert potential > 0
-        # Should not have any untested_module or untested_critical findings
+        # Should not have any untested_module or untested_critical issues
         untested = [
             e
             for e in entries
@@ -627,7 +627,7 @@ class TestDetectTestCoverage:
         assert untested == []
 
     def test_transitive_only_finding(self, tmp_path):
-        """Production file covered only transitively → transitive_only finding."""
+        """Production file covered only transitively → transitive_only issue."""
         prod_a = _write_file(
             tmp_path, "a.py", "import b\ndef run():\n    pass\n" + "# code\n" * 13
         )
@@ -656,8 +656,8 @@ class TestDetectTestCoverage:
     def test_untested_critical_high_importers(self, tmp_path):
         """Untested file with >=10 importers → untested_critical (tier 2).
 
-        Must have at least one test file to enter _generate_findings path
-        (otherwise _no_tests_findings is used, which always emits untested_module).
+        Must have at least one test file to enter _generate_issues path
+        (otherwise _no_tests_issues is used, which always emits untested_module).
         """
         prod_f = _write_file(
             tmp_path, "core.py", "def process():\n    pass\n" + "# critical code\n" * 13
@@ -759,7 +759,7 @@ class TestDetectTestCoverage:
         assert entries == []
 
     def test_quality_finding_assertion_free(self, tmp_path):
-        """Directly tested file with assertion-free test → quality finding."""
+        """Directly tested file with assertion-free test → quality issue."""
         prod_f = _write_file(tmp_path, "utils.py", "def foo():\n    return 1\n" * 10)
         test_f = _write_file(
             tmp_path,
@@ -1298,7 +1298,7 @@ class TestTransitiveSemantics:
         assert trans[0]["tier"] == 3
 
     def test_transitive_summary_text(self, tmp_path):
-        """Transitive finding summary has clarified text."""
+        """Transitive issue summary has clarified text."""
         prod_a = _write_file(
             tmp_path, "a.py", "import b\ndef run():\n    pass\n" + "# code\n" * 13
         )
@@ -1668,7 +1668,7 @@ class TestHasTestableLogic:
     # ── Integration: non-testable files excluded from scorable set ──
 
     def test_type_only_ts_excluded_from_findings(self, tmp_path):
-        """Type-only TS file produces no test_coverage findings."""
+        """Type-only TS file produces no test_coverage issues."""
         type_file = _write_file(
             tmp_path,
             "types.ts",
@@ -1684,7 +1684,7 @@ class TestHasTestableLogic:
         assert potential == 0
 
     def test_barrel_ts_excluded_from_findings(self, tmp_path):
-        """Barrel TS file produces no test_coverage findings."""
+        """Barrel TS file produces no test_coverage issues."""
         barrel = _write_file(
             tmp_path,
             "index.ts",
@@ -1700,7 +1700,7 @@ class TestHasTestableLogic:
         assert potential == 0
 
     def test_py_constants_excluded_from_findings(self, tmp_path):
-        """Python constants-only file produces no test_coverage findings."""
+        """Python constants-only file produces no test_coverage issues."""
         const_file = _write_file(
             tmp_path,
             "constants.py",
@@ -1715,7 +1715,7 @@ class TestHasTestableLogic:
         assert potential == 0
 
     def test_runtime_file_still_produces_findings(self, tmp_path):
-        """File with runtime logic still produces findings (not excluded)."""
+        """File with runtime logic still produces issues (not excluded)."""
         prod = _write_file(
             tmp_path,
             "utils.ts",

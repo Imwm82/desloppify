@@ -173,7 +173,7 @@ def _build_template_payload(packet: dict[str, Any], *, session_id: str, token: s
             "token": token,
         },
         "assessments": {dim: 0 for dim in dimensions},
-        "findings": [],
+        "issues": [],
     }
 
 
@@ -201,8 +201,8 @@ def _build_claude_launch_prompt(
             "2. Start from the template JSON so `session.id` and `session.token` are preserved.",
             f"3. Keep `session.id` exactly `{session_id}`.",
             f"4. Keep `session.token` exactly `{token}`.",
-            "5. Output must be valid JSON with top-level keys: session, assessments, findings.",
-            "6. Every finding must include: dimension, identifier, summary, related_files, evidence, suggestion, confidence.",
+            "5. Output must be valid JSON with top-level keys: session, assessments, issues.",
+            "6. Every issue must include: dimension, identifier, summary, related_files, evidence, suggestion, confidence.",
             "7. Do not include provenance metadata (CLI injects canonical provenance).",
             "8. Return JSON only (no markdown fences).",
         ]
@@ -294,10 +294,10 @@ def do_external_start(args, state, lang, *, config: dict[str, Any] | None = None
             "3. Submit with the printed --external-submit command.",
             "",
             "Reviewer output requirements:",
-            "1. Return JSON with top-level keys: session, assessments, findings.",
+            "1. Return JSON with top-level keys: session, assessments, issues.",
             f"2. session.id must be `{session_id}`.",
             f"3. session.token must be `{token}`.",
-            "4. Include findings with required schema fields (dimension/identifier/summary/related_files/evidence/suggestion/confidence).",
+            "4. Include issues with required schema fields (dimension/identifier/summary/related_files/evidence/suggestion/confidence).",
             "5. Use the blind packet only (no score targets or prior context).",
         ]
     )
@@ -340,7 +340,7 @@ def _canonical_external_payload(
     if not isinstance(session_meta, dict):
         raise CommandError(
             "Error: external reviewer payload must include top-level `session` object."
-            ' Expected: {"session":{"id":"...","token":"..."},"assessments":{...},"findings":[...]}',
+            ' Expected: {"session":{"id":"...","token":"..."},"assessments":{...},"issues":[...]}',
         )
 
     payload_id = str(session_meta.get("id", "")).strip()
@@ -416,7 +416,7 @@ def do_external_submit(
         )
 
     findings_path = Path(import_file)
-    raw_payload = _load_json_object(findings_path, label="external findings")
+    raw_payload = _load_json_object(findings_path, label="external issues")
     canonical_payload = _canonical_external_payload(raw_payload, session=session)
 
     stamp = runner_helpers_mod.run_stamp()

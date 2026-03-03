@@ -1,4 +1,4 @@
-"""Finding prioritization/selection helpers for next items."""
+"""Issue prioritization/selection helpers for next items."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ def get_next_items(
     count: int = 1,
     scan_path: str | None = None,
 ) -> list[PlanItem]:
-    """Get the N highest-priority open findings.
+    """Get the N highest-priority open issues.
 
-    Legacy plan API intentionally returns only finding items (not synthetic
+    Legacy plan API intentionally returns only issue items (not synthetic
     subjective queue items) so existing planner consumers stay stable.
     The *tier* parameter is accepted for backward compatibility but ignored.
     """
@@ -30,7 +30,7 @@ def get_next_items(
             include_subjective=False,
         ),
     )
-    return [item for item in result["items"] if item.get("kind") == "finding"]
+    return [item for item in result["items"] if item.get("kind") == "issue"]
 
 
 def get_next_item(
@@ -38,6 +38,6 @@ def get_next_item(
     tier: int | None = None,
     scan_path: str | None = None,
 ) -> PlanItem | None:
-    """Get the highest-priority open finding."""
+    """Get the highest-priority open issue."""
     items = get_next_items(state, tier=tier, count=1, scan_path=scan_path)
     return items[0] if items else None

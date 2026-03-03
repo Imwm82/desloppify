@@ -136,7 +136,7 @@ def show_scorecard_subjective_measures(state: dict) -> None:
     stale_keys = [e["dimension_key"] for e in entries if e.get("stale")]
     has_open = any(
         f.get("status") == "open" and not f.get("suppressed")
-        for f in (state.get("findings") or {}).values()
+        for f in (state.get("issues") or {}).values()
     )
     if stale_keys and not has_open:
         n = len(stale_keys)

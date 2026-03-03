@@ -15,11 +15,11 @@ from desloppify.intelligence.narrative.types import (
     VerificationStep,
 )
 from desloppify.state import (
-    Finding,
+    Issue,
     StateModel,
     get_overall_score,
     get_strict_score,
-    path_scoped_findings,
+    path_scoped_issues,
 )
 
 _RISK_SEVERITY_ORDER = {
@@ -92,26 +92,26 @@ def compute_strict_target(strict_score: float | None, config: dict | None) -> St
     }
 
 
-def count_open_by_detector(findings: dict) -> dict[str, int]:
-    """Count open findings by detector, merging structural sub-detectors."""
+def count_open_by_detector(issues: dict) -> dict[str, int]:
+    """Count open issues by detector, merging structural sub-detectors."""
     by_detector: dict[str, int] = {}
-    for finding in findings.values():
-        if finding["status"] != "open" or finding.get("suppressed"):
+    for issue in issues.values():
+        if issue["status"] != "open" or issue.get("suppressed"):
             continue
-        detector = finding.get("detector", "unknown")
+        detector = issue.get("detector", "unknown")
         if detector in STRUCTURAL_MERGE:
             detector = "structural"
         by_detector[detector] = by_detector.get(detector, 0) + 1
-        if detector == "review" and finding.get("detail", {}).get("holistic"):
+        if detector == "review" and issue.get("detail", {}).get("holistic"):
             by_detector["review_holistic"] = by_detector.get("review_holistic", 0) + 1
     if by_detector.get("review", 0) > 0:
         by_detector["review_uninvestigated"] = sum(
             1
-            for finding in findings.values()
-            if finding.get("status") == "open"
-            and not finding.get("suppressed")
-            and finding.get("detector") == "review"
-            and not finding.get("detail", {}).get("investigation")
+            for issue in issues.values()
+            if issue.get("status") == "open"
+            and not issue.get("suppressed")
+            and issue.get("detector") == "review"
+            and not issue.get("detail", {}).get("investigation")
         )
     return by_detector
 
@@ -202,12 +202,12 @@ def compute_why_now(
     if primary_action and primary_action.get("description"):
         return str(primary_action["description"])
     phase_default = {
-        "first_scan": "Start with highest-impact findings to establish a clean baseline.",
+        "first_scan": "Start with highest-impact issues to establish a clean baseline.",
         "regression": "Recent regressions should be contained before new work.",
         "stagnation": "Current approach is stalling; tackle a different high-impact lane.",
         "maintenance": "Keep the codebase stable by resolving new risk quickly.",
     }
-    return phase_default.get(phase, "Address the highest-impact open findings first.")
+    return phase_default.get(phase, "Address the highest-impact open issues first.")
 
 
 def compute_verification_step(_command: str | None) -> VerificationStep:
@@ -228,9 +228,9 @@ def compute_risk_flags(state: StateModel, debt: dict) -> list[RiskFlag]:
     if suppressed_pct >= _HIGH_IGNORE_SUPPRESSION_THRESHOLD or ignored_count >= 100:
         severity = "high" if suppressed_pct >= 40.0 or ignored_count >= 200 else "medium"
         message = (
-            f"{suppressed_pct:.1f}% findings hidden by ignore patterns"
+            f"{suppressed_pct:.1f}% issues hidden by ignore patterns"
             if suppressed_pct > 0
-            else f"{ignored_count} findings hidden by ignore patterns"
+            else f"{ignored_count} issues hidden by ignore patterns"
         )
         flags.append(
             {
@@ -250,7 +250,7 @@ def compute_risk_flags(state: StateModel, debt: dict) -> list[RiskFlag]:
                 "severity": severity,
                 "message": (
                     f"Strict/lenient gap is {overall_gap:.1f} pts with "
-                    f"{wontfix_count} wontfix findings"
+                    f"{wontfix_count} wontfix issues"
                 ),
             }
         )
@@ -265,9 +265,9 @@ def history_for_lang(raw_history: list[dict], lang: str | None) -> list[dict]:
     return [entry for entry in raw_history if entry.get("lang") in (lang, None)]
 
 
-def scoped_findings(state: StateModel) -> dict[str, Finding]:
-    return path_scoped_findings(
-        state.get("findings", {}), state.get("scan_path")
+def scoped_issues(state: StateModel) -> dict[str, Issue]:
+    return path_scoped_issues(
+        state.get("issues", {}), state.get("scan_path")
     )
 
 
@@ -286,6 +286,6 @@ __all__ = [
     "history_for_lang",
     "resolve_target_strict_score",
     "score_snapshot",
-    "scoped_findings",
+    "scoped_issues",
 ]
 

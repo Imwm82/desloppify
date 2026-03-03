@@ -16,7 +16,7 @@ from desloppify.engine.policy.zones import FileZoneMap
 
 from .discovery import (
     _discover_scorable_and_tests,
-    _no_tests_findings,
+    _no_tests_issues,
     _normalize_graph_paths,
 )
 from .metrics import _COMPLEXITY_TIER_UPGRADE, _file_loc, _loc_weight
@@ -49,7 +49,7 @@ def detect_test_coverage(
         return [], 0
 
     if not test_files:
-        entries = _no_tests_findings(scorable, graph, lang_name, complexity_map)
+        entries = _no_tests_issues(scorable, graph, lang_name, complexity_map)
         return entries, potential
 
     directly_tested = import_based_mapping(
@@ -66,7 +66,7 @@ def detect_test_coverage(
 
     test_quality = analyze_test_quality(test_files, lang_name)
 
-    entries = _generate_findings(
+    entries = _generate_issues(
         scorable,
         directly_tested,
         transitively_tested,
@@ -79,7 +79,7 @@ def detect_test_coverage(
     return entries, potential
 
 
-def _generate_findings(
+def _generate_issues(
     scorable: set[str],
     directly_tested: set[str],
     transitively_tested: set[str],
@@ -111,20 +111,20 @@ def _generate_findings(
                 lang_name,
                 parsed_imports_by_test=parsed_imports_by_test,
             )
-            finding = _select_direct_test_quality_finding(
+            issue = _select_direct_test_quality_issue(
                 prod_file=filepath,
                 related_tests=related_tests,
                 test_quality=test_quality,
                 loc_weight=loc_weight,
             )
-            if finding:
-                entries.append(finding)
+            if issue:
+                entries.append(issue)
             continue
 
         complexity = cmap.get(filepath, 0)
         if filepath in transitively_tested:
             entries.append(
-                _transitive_coverage_gap_finding(
+                _transitive_coverage_gap_issue(
                     file_path=filepath,
                     loc=loc,
                     importer_count=importer_count,
@@ -135,7 +135,7 @@ def _generate_findings(
             continue
 
         entries.append(
-            _untested_module_finding(
+            _untested_module_issue(
                 file_path=filepath,
                 loc=loc,
                 importer_count=importer_count,
@@ -154,7 +154,7 @@ def _quality_issue_rank(quality_kind: object) -> int:
     return _QUALITY_ISSUE_PRIORITY.get(quality_kind, 0)
 
 
-def _select_direct_test_quality_finding(
+def _select_direct_test_quality_issue(
     *,
     prod_file: str,
     related_tests: list[str],
@@ -164,7 +164,7 @@ def _select_direct_test_quality_finding(
     """Return one representative quality issue for a directly-tested module.
 
     Avoid false positives from coverage-smoke suites by suppressing weak-test
-    findings when the module also has at least one adequate/thorough direct test.
+    issues when the module also has at least one adequate/thorough direct test.
     """
     has_adequate_direct_test = False
     selected: tuple[int, str, dict] | None = None
@@ -174,24 +174,24 @@ def _select_direct_test_quality_finding(
         if quality is None:
             continue
         quality_kind = quality.get("quality")
-        finding = _quality_issue_finding(
+        issue = _quality_issue_item(
             prod_file=prod_file,
             test_file=test_file,
             quality=quality,
             loc_weight=loc_weight,
         )
-        if finding is None:
+        if issue is None:
             if quality_kind in {"adequate", "thorough"}:
                 has_adequate_direct_test = True
             continue
 
         rank = _quality_issue_rank(quality_kind)
         if selected is None:
-            selected = (rank, test_file, finding)
+            selected = (rank, test_file, issue)
             continue
         prev_rank, prev_file, _ = selected
         if rank > prev_rank or (rank == prev_rank and test_file < prev_file):
-            selected = (rank, test_file, finding)
+            selected = (rank, test_file, issue)
 
     if has_adequate_direct_test:
         return None
@@ -200,7 +200,7 @@ def _select_direct_test_quality_finding(
     return selected[2]
 
 
-def _quality_issue_finding(
+def _quality_issue_item(
     *,
     prod_file: str,
     test_file: str,
@@ -299,7 +299,7 @@ def _quality_issue_finding(
             },
         }
     return None
-def _transitive_coverage_gap_finding(
+def _transitive_coverage_gap_issue(
     *,
     file_path: str,
     loc: int,
@@ -327,7 +327,7 @@ def _transitive_coverage_gap_finding(
         ),
         "detail": detail,
     }
-def _untested_module_finding(
+def _untested_module_issue(
     *,
     file_path: str,
     loc: int,

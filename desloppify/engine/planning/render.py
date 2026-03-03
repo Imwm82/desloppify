@@ -176,10 +176,10 @@ def _plan_dimension_table(state: PlanState) -> list[str]:
     return lines
 
 
-def _plan_item_sections(findings: dict, *, state: PlanState | None = None) -> list[str]:
+def _plan_item_sections(issues: dict, *, state: PlanState | None = None) -> list[str]:
     """Build per-file sections from the shared work-queue backend."""
 
-    queue_state: PlanState | dict = state or {"findings": findings}
+    queue_state: PlanState | dict = state or {"issues": issues}
     raw_target = (
         (state or {}).get("config", {}).get("target_strict_score", 95)
         if isinstance(state, dict)
@@ -190,8 +190,8 @@ def _plan_item_sections(findings: dict, *, state: PlanState | None = None) -> li
     except (TypeError, ValueError):
         subjective_threshold = 95.0
     subjective_threshold = max(0.0, min(100.0, subjective_threshold))
-    if "findings" not in queue_state:
-        queue_state = {**queue_state, "findings": findings}
+    if "issues" not in queue_state:
+        queue_state = {**queue_state, "issues": issues}
 
     queue = build_work_queue(
         queue_state,
@@ -223,7 +223,7 @@ def _plan_item_sections(findings: dict, *, state: PlanState | None = None) -> li
     )
     for filepath, file_items in sorted_files:
         display_path = "Codebase-wide" if filepath == "." else filepath
-        lines.append(f"### `{display_path}` ({len(file_items)} findings)")
+        lines.append(f"### `{display_path}` ({len(file_items)} issues)")
         lines.append("")
         for item in file_items:
             if item.get("kind") == "subjective_dimension":
@@ -248,7 +248,7 @@ def generate_plan_md(state: PlanState, plan: dict | None = None) -> str:
     items, clusters, skipped, and superseded sections are rendered.
     When no plan exists, output is identical to the previous behavior.
     """
-    findings = state["findings"]
+    issues = state["issues"]
     stats = state.get("stats", {})
 
     # Auto-load plan if not provided
@@ -300,12 +300,12 @@ def generate_plan_md(state: PlanState, plan: dict | None = None) -> str:
             lines.append(f"## Remaining (mechanical order, {len(remaining)} items)")
             lines.append("")
 
-        lines.extend(_plan_item_sections(findings, state=state))
+        lines.extend(_plan_item_sections(issues, state=state))
         lines.extend(_plan_skipped_section(all_items, plan))
         lines.extend(_plan_superseded_section(plan))
     else:
-        lines.extend(_plan_item_sections(findings, state=state))
+        lines.extend(_plan_item_sections(issues, state=state))
 
-    lines.extend(_addressed_section(findings))
+    lines.extend(_addressed_section(issues))
 
     return "\n".join(lines)

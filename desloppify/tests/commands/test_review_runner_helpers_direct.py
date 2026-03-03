@@ -60,7 +60,7 @@ def test_collect_batch_results_recovers_from_log_stdout_payload(tmp_path: Path) 
     payload = {
         "assessments": {"logic_clarity": 91.0},
         "dimension_notes": {"logic_clarity": {"evidence": ["recoverable path"]}},
-        "findings": [],
+        "issues": [],
     }
     log_path = logs_dir / "batch-1.log"
     log_path.write_text(
@@ -77,7 +77,7 @@ def test_collect_batch_results_recovers_from_log_stdout_payload(tmp_path: Path) 
         extract_payload_fn=lambda raw: json.loads(raw),
         normalize_result_fn=lambda parsed, _allowed: (
             parsed.get("assessments", {}),
-            parsed.get("findings", []),
+            parsed.get("issues", []),
             parsed.get("dimension_notes", {}),
             {},
         ),
@@ -92,7 +92,7 @@ def test_collect_batch_results_recovers_from_log_stdout_payload(tmp_path: Path) 
 
 def test_collect_batch_results_marks_failure_on_normalize_error(tmp_path: Path) -> None:
     raw_path = tmp_path / "batch-1.raw.txt"
-    raw_path.write_text(json.dumps({"assessments": {"logic_clarity": 50.0}, "findings": []}))
+    raw_path.write_text(json.dumps({"assessments": {"logic_clarity": 50.0}, "issues": []}))
 
     batch_results, failures = runner_helpers_mod.collect_batch_results(
         selected_indexes=[0],

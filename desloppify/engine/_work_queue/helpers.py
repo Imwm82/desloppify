@@ -5,13 +5,13 @@ from __future__ import annotations
 import re
 from fnmatch import fnmatch
 
-from desloppify.core.enums import finding_status_tokens
+from desloppify.core.enums import issue_status_tokens
 from desloppify.core.registry import DETECTORS
 from desloppify.intelligence.integrity import (
-    is_holistic_subjective_finding,
+    is_holistic_subjective_issue,
 )
 
-ALL_STATUSES = set(finding_status_tokens(include_all=True))
+ALL_STATUSES = set(issue_status_tokens(include_all=True))
 ACTION_TYPE_PRIORITY = {"auto_fix": 0, "refactor": 1, "manual_fix": 2, "reorganize": 3}
 ATTEST_EXAMPLE = (
     "I have actually [DESCRIBE THE CONCRETE CHANGE YOU MADE] "
@@ -20,7 +20,7 @@ ATTEST_EXAMPLE = (
 
 
 def detail_dict(item: dict) -> dict:
-    """Return finding detail as a dict; tolerate legacy/non-dict payloads."""
+    """Return issue detail as a dict; tolerate legacy/non-dict payloads."""
     detail = item.get("detail")
     return detail if isinstance(detail, dict) else {}
 
@@ -29,7 +29,7 @@ def status_matches(item_status: str, status_filter: str) -> bool:
     return status_filter == "all" or item_status == status_filter
 
 
-def is_subjective_finding(item: dict) -> bool:
+def is_subjective_issue(item: dict) -> bool:
     detector = item.get("detector")
     if detector in {"subjective_assessment"}:
         return True
@@ -38,7 +38,7 @@ def is_subjective_finding(item: dict) -> bool:
     return False
 
 
-def is_review_finding(item: dict) -> bool:
+def is_review_issue(item: dict) -> bool:
     return item.get("detector") == "review"
 
 
@@ -54,7 +54,7 @@ def is_subjective_queue_item(item: dict) -> bool:
     return False
 
 
-def review_finding_weight(item: dict) -> float:
+def review_issue_weight(item: dict) -> float:
     """Return review issue weight aligned with issues list ordering."""
     confidence = str(item.get("confidence", "low")).lower()
     weight_by_confidence = {
@@ -97,7 +97,7 @@ def scope_matches(item: dict, scope: str | None) -> bool:
             or lowered in summary.lower()
         )
 
-    # Hash suffix: 8+ hex chars matches the tail segment of a finding ID.
+    # Hash suffix: 8+ hex chars matches the tail segment of a issue ID.
     if len(lowered) >= 8 and re.fullmatch(r"[0-9a-f]+", lowered):
         return item_id.lower().endswith("::" + lowered)
 
@@ -132,7 +132,7 @@ def supported_fixers_for_item(state: dict, item: dict) -> set[str] | None:
     return {fixer for fixer in fixers if isinstance(fixer, str)}
 
 
-def primary_command_for_finding(
+def primary_command_for_issue(
     item: dict, *, supported_fixers: set[str] | None = None
 ) -> str:
     detector = item.get("detector", "")
@@ -146,7 +146,7 @@ def primary_command_for_finding(
         if available_fixers:
             return f"desloppify autofix {available_fixers[0]} --dry-run"
     if detector == "subjective_review":
-        if is_holistic_subjective_finding(item):
+        if is_holistic_subjective_issue(item):
             return "desloppify review --prepare"
         return "desloppify show subjective"
     return f'desloppify plan resolve "{item.get("id", "")}" --note "<what you did>" --confirm'
@@ -156,11 +156,11 @@ __all__ = [
     "ALL_STATUSES",
     "ATTEST_EXAMPLE",
     "detail_dict",
-    "is_review_finding",
-    "is_subjective_finding",
+    "is_review_issue",
+    "is_subjective_issue",
     "is_subjective_queue_item",
-    "primary_command_for_finding",
-    "review_finding_weight",
+    "primary_command_for_issue",
+    "review_issue_weight",
     "scope_matches",
     "slugify",
     "status_matches",

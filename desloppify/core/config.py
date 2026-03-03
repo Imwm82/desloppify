@@ -55,7 +55,7 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
         str, "scorecard.png", "Output path for scorecard image"
     ),
     "exclude": ConfigKey(list, [], "Path patterns to exclude from scanning"),
-    "ignore": ConfigKey(list, [], "Finding patterns to suppress"),
+    "ignore": ConfigKey(list, [], "Issue patterns to suppress"),
     "ignore_metadata": ConfigKey(dict, {}, "Ignore metadata {pattern: {note, added_at}}"),
     "zone_overrides": ConfigKey(
         dict, {}, "Manual zone overrides {rel_path: zone_name}"
@@ -78,12 +78,12 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
     "finding_noise_budget": ConfigKey(
         int,
         10,
-        "Max findings surfaced per detector in show/scan summaries (0 = unlimited)",
+        "Max issues surfaced per detector in show/scan summaries (0 = unlimited)",
     ),
     "finding_noise_global_budget": ConfigKey(
         int,
         0,
-        "Global cap for surfaced findings after per-detector budget (0 = unlimited)",
+        "Global cap for surfaced issues after per-detector budget (0 = unlimited)",
     ),
     "execution_log_max_entries": ConfigKey(
         int, 10000, "Max execution log entries in plan.json (0 = unlimited)"
@@ -105,7 +105,7 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
     ),
     "commit_message_template": ConfigKey(
         str,
-        "desloppify: {status} {count} finding(s) — {summary}",
+        "desloppify: {status} {count} issue(s) — {summary}",
         "Template for suggested commit messages",
     ),
 }

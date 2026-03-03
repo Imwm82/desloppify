@@ -24,7 +24,7 @@ class TestReviewImports:
             "ReviewContext",
             "build_review_context",
             "prepare_review",
-            "import_review_findings",
+            "import_review_issues",
             "select_files_for_review",
             "DIMENSIONS",
             "generate_remediation_plan",

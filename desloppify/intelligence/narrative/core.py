@@ -26,7 +26,7 @@ from desloppify.intelligence.narrative.signals import (
     count_open_by_detector as _count_open_by_detector,
     history_for_lang as _history_for_lang,
     score_snapshot as _score_snapshot,
-    scoped_findings as _scoped_findings,
+    scoped_issues as _scoped_findings,
 )
 from desloppify.intelligence.narrative.strategy_engine import compute_strategy
 from desloppify.intelligence.narrative.types import (
@@ -64,14 +64,14 @@ def compute_narrative(
     dim_scores = state.get("dimension_scores", {})
     stats = state.get("stats", {})
     strict_score, overall_score = _score_snapshot(state)
-    findings = _scoped_findings(state)
+    issues = _scoped_findings(state)
 
-    by_detector = _count_open_by_detector(findings)
+    by_detector = _count_open_by_detector(issues)
     badge = _compute_badge_status()
 
     phase = _detect_phase(history, strict_score)
     dimensions = _analyze_dimensions(dim_scores, history, state)
-    debt = _analyze_debt(dim_scores, findings, history)
+    debt = _analyze_debt(dim_scores, issues, history)
     milestone = _detect_milestone(state, None, history)
     clusters = plan.get("clusters") if isinstance(plan, dict) else None
     action_context = ActionContext(
@@ -83,7 +83,7 @@ def compute_narrative(
         clusters=clusters,
     )
     actions = [dict(action) for action in compute_actions(action_context)]
-    strategy = compute_strategy(findings, by_detector, actions, phase, lang)
+    strategy = compute_strategy(issues, by_detector, actions, phase, lang)
     tools = dict(compute_tools(by_detector, state, lang, badge))
     primary_action = _compute_primary_action(actions)
     why_now = _compute_why_now(phase, strategy, primary_action)

@@ -19,7 +19,7 @@ _SAMPLE_FINDING = {"detector": "review", "file": "test.py"}
 
 
 def test_suffix_match_8char_hex():
-    """8-char lowercase hex suffix matches a finding ID ending with ::suffix."""
+    """8-char lowercase hex suffix matches a issue ID ending with ::suffix."""
     assert _matches_pattern(_SAMPLE_ID, _SAMPLE_FINDING, "f41b3eb7") is True
 
 
@@ -39,21 +39,21 @@ def test_suffix_no_match_non_hex():
 
 
 def test_suffix_no_match_uppercase():
-    """Uppercase hex is not treated as suffix match (finding IDs use lowercase)."""
+    """Uppercase hex is not treated as suffix match (issue IDs use lowercase)."""
     assert _matches_pattern(_SAMPLE_ID, _SAMPLE_FINDING, "F41B3EB7") is False
 
 
 # ---------------------------------------------------------------------------
-# End-to-end through match_findings
+# End-to-end through match_issues
 # ---------------------------------------------------------------------------
 
 
-def test_match_findings_via_suffix():
-    """Suffix matching works through the match_findings() public API."""
-    from desloppify.engine._state.resolution import match_findings
+def test_match_issues_via_suffix():
+    """Suffix matching works through the match_issues() public API."""
+    from desloppify.engine._state.resolution import match_issues
 
     state = {
-        "findings": {
+        "issues": {
             _SAMPLE_ID: {
                 "id": _SAMPLE_ID,
                 "status": "open",
@@ -67,17 +67,17 @@ def test_match_findings_via_suffix():
         },
         "config": {},
     }
-    results = match_findings(state, "f41b3eb7")
+    results = match_issues(state, "f41b3eb7")
     assert len(results) == 1
     assert results[0]["id"] == _SAMPLE_ID
 
 
-def test_match_findings_suffix_no_match():
-    """Suffix that doesn't match any finding returns empty."""
-    from desloppify.engine._state.resolution import match_findings
+def test_match_issues_suffix_no_match():
+    """Suffix that doesn't match any issue returns empty."""
+    from desloppify.engine._state.resolution import match_issues
 
     state = {
-        "findings": {
+        "issues": {
             _SAMPLE_ID: {
                 "id": _SAMPLE_ID,
                 "status": "open",
@@ -91,7 +91,7 @@ def test_match_findings_suffix_no_match():
         },
         "config": {},
     }
-    results = match_findings(state, "deadbeef")
+    results = match_issues(state, "deadbeef")
     assert len(results) == 0
 
 
@@ -104,7 +104,7 @@ _NAME_SEG_FINDING = {"detector": "review", "file": "src/auth/login.py"}
 
 
 def test_name_segment_exact_match():
-    """Bare finding name matches the last ::segment of an ID."""
+    """Bare issue name matches the last ::segment of an ID."""
     assert _matches_pattern(_NAME_SEG_ID, _NAME_SEG_FINDING, "timing_attack") is True
 
 
@@ -144,8 +144,8 @@ def test_descriptive_name_no_partial():
 def test_second_to_last_only_when_hex_suffix():
     """Second-to-last match is skipped when last segment is NOT 8-char hex."""
     non_hex_id = "review::.::holistic::concerns::facade_hub_coupling::not_hex_"
-    finding = {"detector": "review", "file": "."}
+    issue = {"detector": "review", "file": "."}
     # "facade_hub_coupling" should NOT match because last segment isn't hex
-    assert _matches_pattern(non_hex_id, finding, "facade_hub_coupling") is False
+    assert _matches_pattern(non_hex_id, issue, "facade_hub_coupling") is False
     # But exact last-segment match still works
-    assert _matches_pattern(non_hex_id, finding, "not_hex_") is True
+    assert _matches_pattern(non_hex_id, issue, "not_hex_") is True

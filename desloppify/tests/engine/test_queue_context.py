@@ -19,14 +19,14 @@ from desloppify.engine._work_queue.context import (
 # ---------------------------------------------------------------------------
 
 def _minimal_state(**overrides) -> dict:
-    state: dict = {"findings": {}, "scan_count": 5}
+    state: dict = {"issues": {}, "scan_count": 5}
     state.update(overrides)
     return state
 
 
-def _state_with_findings(*findings: dict) -> dict:
+def _state_with_findings(*issues: dict) -> dict:
     return {
-        "findings": {f["id"]: f for f in findings},
+        "issues": {f["id"]: f for f in issues},
         "scan_count": 5,
     }
 
@@ -130,7 +130,7 @@ class TestQueueContextPolicy:
         assert ctx.policy.has_objective_backlog is False
 
     def test_policy_counts_objective_findings(self):
-        """Policy correctly counts open objective findings."""
+        """Policy correctly counts open objective issues."""
         state = _state_with_findings(
             _finding("f1"),
             _finding("f2"),
@@ -140,7 +140,7 @@ class TestQueueContextPolicy:
         assert ctx.policy.has_objective_backlog is True
 
     def test_policy_excludes_subjective_detectors(self):
-        """Findings from subjective detectors don't count as objective."""
+        """Issues from subjective detectors don't count as objective."""
         state = _state_with_findings(
             _finding("f1", detector="unused"),
             _finding("f2", detector="review"),

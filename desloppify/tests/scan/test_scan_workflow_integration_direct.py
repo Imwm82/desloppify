@@ -91,8 +91,8 @@ def test_merge_scan_results_persists_state_and_reconciles_plan(tmp_path):
         zone_overrides=None,
     )
 
-    findings = [
-        state_mod.make_finding(
+    issues = [
+        state_mod.make_issue(
             "structural",
             "src/new_module.py",
             "new_large_file",
@@ -105,7 +105,7 @@ def test_merge_scan_results_persists_state_and_reconciles_plan(tmp_path):
 
     merge = merge_scan_results(
         runtime,
-        findings,
+        issues,
         potentials={"structural": 1},
         codebase_metrics={"total_files": 1},
     )
@@ -115,7 +115,7 @@ def test_merge_scan_results_persists_state_and_reconciles_plan(tmp_path):
 
     persisted = state_mod.load_state(state_path)
     assert persisted["scan_path"] == rel(str(tmp_path))
-    assert findings[0]["id"] in persisted["findings"]
+    assert issues[0]["id"] in persisted["issues"]
 
     plan_after = load_plan(plan_path)
     assert stale_id not in plan_after.get("queue_order", [])

@@ -418,7 +418,7 @@ def detect_boolean_state_explosion(path: Path) -> tuple[list[dict], int]:
                         "prefix": prefix,
                     }
                 )
-                break  # one finding per file
+                break  # one issue per file
 
         # Also flag if there are 4+ boolean useState regardless of prefix pattern
         if not any(e["file"] == filepath for e in entries) and len(states) >= 4:

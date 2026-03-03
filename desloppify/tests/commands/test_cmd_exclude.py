@@ -22,7 +22,7 @@ def test_cmd_exclude_marks_config_stale_without_state_changes(
 
     config: dict = {}
     state = {
-        "findings": {},
+        "issues": {},
         "subjective_assessments": {"naming_quality": {"score": 72}},
     }
     runtime = CommandRuntime(config=config, state=state, state_path=state_file)
@@ -58,7 +58,7 @@ def test_cmd_exclude_prunes_matching_findings_and_plan(
     removed_id = "smells::.claude/worktrees/repo/a.py::debug_log"
     kept_id = "smells::src/main.py::debug_log"
     state = {
-        "findings": {
+        "issues": {
             removed_id: {"file": ".claude/worktrees/repo/a.py"},
             kept_id: {"file": "src/main.py"},
         },
@@ -78,7 +78,7 @@ def test_cmd_exclude_prunes_matching_findings_and_plan(
 
     plan = {
         "queue_order": [removed_id, kept_id],
-        "clusters": {"cleanup": {"name": "cleanup", "finding_ids": [removed_id]}},
+        "clusters": {"cleanup": {"name": "cleanup", "issue_ids": [removed_id]}},
         "promoted_ids": [removed_id],
     }
     monkeypatch.setattr(exclude_mod, "load_plan", lambda path=None: plan)
@@ -91,15 +91,15 @@ def test_cmd_exclude_prunes_matching_findings_and_plan(
 
     exclude_mod.cmd_exclude(_args(".claude", runtime))
 
-    assert removed_id not in state["findings"]
-    assert kept_id in state["findings"]
+    assert removed_id not in state["issues"]
+    assert kept_id in state["issues"]
     assert state["subjective_assessments"]["naming_quality"]["score"] == 81
     assert saved_state["path"] == state_file
 
     assert removed_id not in plan["queue_order"]
-    assert removed_id not in plan["clusters"]["cleanup"]["finding_ids"]
+    assert removed_id not in plan["clusters"]["cleanup"]["issue_ids"]
     assert saved_plan["path"] == exclude_mod.plan_path_for_state(state_file)
 
     out = capsys.readouterr().out
-    assert "Removed 1 matching findings from state." in out
+    assert "Removed 1 matching issues from state." in out
     assert "Plan updated: 1 item(s) removed from queue." in out

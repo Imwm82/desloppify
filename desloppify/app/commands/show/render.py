@@ -16,7 +16,7 @@ from desloppify.app.commands.scan import (
 from desloppify.core.output_api import colorize
 from desloppify.core.paths_api import read_code_snippet
 from desloppify.core.fallbacks import print_write_error
-from desloppify.core.enums import canonical_finding_status
+from desloppify.core.enums import canonical_issue_status
 from desloppify.engine.planning import CONFIDENCE_ORDER
 from desloppify.core.discovery_api import safe_write_text
 
@@ -27,7 +27,7 @@ def write_show_output_file(output_file: str, payload: dict, surfaced_count: int)
     """Write serialized show payload to file."""
     try:
         safe_write_text(output_file, json.dumps(payload, indent=2) + "\n")
-        print(colorize(f"Wrote {surfaced_count} findings to {output_file}", "green"))
+        print(colorize(f"Wrote {surfaced_count} issues to {output_file}", "green"))
     except OSError as exc:
         payload["output_error"] = str(exc)
         print_write_error(output_file, exc, label="show output")
@@ -36,16 +36,16 @@ def write_show_output_file(output_file: str, payload: dict, surfaced_count: int)
 
 
 def group_matches_by_file(matches: list[dict]) -> list[tuple[str, list]]:
-    """Group findings by file and sort by descending count."""
+    """Group issues by file and sort by descending count."""
     by_file: dict[str, list] = defaultdict(list)
-    for finding in matches:
-        by_file[finding["file"]].append(finding)
+    for issue in matches:
+        by_file[issue["file"]].append(issue)
     return sorted(by_file.items(), key=lambda item: -len(item[1]))
 
 
-def _print_single_finding(finding: dict, *, show_code: bool) -> None:
-    """Render a single finding to terminal."""
-    normalized_status = canonical_finding_status(finding.get("status"))
+def _print_single_finding(issue: dict, *, show_code: bool) -> None:
+    """Render a single issue to terminal."""
+    normalized_status = canonical_issue_status(issue.get("status"))
     status_icon = {
         "open": "○",
         "fixed": "✓",
@@ -53,34 +53,34 @@ def _print_single_finding(finding: dict, *, show_code: bool) -> None:
         "false_positive": "✗",
         "auto_resolved": "◌",
     }.get(normalized_status, "?")
-    zone = finding.get("zone", "production")
+    zone = issue.get("zone", "production")
     zone_tag = colorize(f" [{zone}]", "dim") if zone != "production" else ""
     print(
-        f"    {status_icon} T{finding['tier']} [{finding['confidence']}] {finding['summary']}{zone_tag}"
+        f"    {status_icon} T{issue['tier']} [{issue['confidence']}] {issue['summary']}{zone_tag}"
     )
 
-    detail_parts = format_detail(finding.get("detail", {}))
+    detail_parts = format_detail(issue.get("detail", {}))
     if detail_parts:
         print(colorize(f"      {' · '.join(detail_parts)}", "dim"))
     if show_code:
-        detail = finding.get("detail", {})
+        detail = issue.get("detail", {})
         target_line = (
             detail.get("line") or (detail.get("lines", [None]) or [None])[0]
         )
-        if target_line and finding["file"] not in (".", ""):
-            snippet = read_code_snippet(finding["file"], target_line)
+        if target_line and issue["file"] not in (".", ""):
+            snippet = read_code_snippet(issue["file"], target_line)
             if snippet:
                 print(snippet)
-    if finding.get("reopen_count", 0) >= 2:
+    if issue.get("reopen_count", 0) >= 2:
         print(
             colorize(
-                f"      ⟳ reopened {finding['reopen_count']} times — fix properly or wontfix",
+                f"      ⟳ reopened {issue['reopen_count']} times — fix properly or wontfix",
                 "red",
             )
         )
-    if finding.get("note"):
-        print(colorize(f"      note: {finding['note']}", "dim"))
-    print(colorize(f"      {finding['id']}", "dim"))
+    if issue.get("note"):
+        print(colorize(f"      note: {issue['note']}", "dim"))
+    print(colorize(f"      {issue['id']}", "dim"))
 
 
 def render_findings(
@@ -96,11 +96,11 @@ def render_findings(
     global_noise_budget: int,
     budget_warning: str | None,
 ) -> None:
-    """Render grouped findings and rollup summary to terminal."""
+    """Render grouped issues and rollup summary to terminal."""
     sorted_files = group_matches_by_file(matches)
     print(
         colorize(
-            f"\n  {len(matches)} {status_filter} findings matching '{pattern}'\n",
+            f"\n  {len(matches)} {status_filter} issues matching '{pattern}'\n",
             "bold",
         )
     )
@@ -128,21 +128,21 @@ def render_findings(
     remaining_files = sorted_files[top:]
     remaining_findings = sum(len(files) for _, files in remaining_files)
 
-    for filepath, findings in shown_files:
-        findings.sort(
-            key=lambda finding: (
-                finding["tier"],
-                CONFIDENCE_ORDER.get(finding["confidence"], 9),
+    for filepath, issues in shown_files:
+        issues.sort(
+            key=lambda issue: (
+                issue["tier"],
+                CONFIDENCE_ORDER.get(issue["confidence"], 9),
             )
         )
         display_path = "Codebase-wide" if filepath == "." else filepath
         print(
             colorize(f"  {display_path}", "cyan")
-            + colorize(f"  ({len(findings)} findings)", "dim")
+            + colorize(f"  ({len(issues)} issues)", "dim")
         )
 
-        for finding in findings:
-            _print_single_finding(finding, show_code=show_code)
+        for issue in issues:
+            _print_single_finding(issue, show_code=show_code)
         print()
 
     if remaining_findings:
@@ -150,7 +150,7 @@ def render_findings(
             colorize(
                 (
                     f"  ... and {len(remaining_files)} more files "
-                    f"({remaining_findings} findings). "
+                    f"({remaining_findings} issues). "
                     f"Use --top {top + 20} to see more.\n"
                 ),
                 "dim",
@@ -159,9 +159,9 @@ def render_findings(
 
     by_detector: dict[str, int] = defaultdict(int)
     by_tier: dict[int, int] = defaultdict(int)
-    for finding in matches:
-        by_detector[finding["detector"]] += 1
-        by_tier[finding["tier"]] += 1
+    for issue in matches:
+        by_detector[issue["detector"]] += 1
+        by_tier[issue["tier"]] += 1
 
     print(colorize("  Summary:", "bold"))
     print(
@@ -208,7 +208,7 @@ def render_findings(
 def show_agent_plan(
     narrative: dict, matches: list[dict], *, plan: dict | None = None
 ) -> None:
-    """Render a compact plan from current findings and narrative actions.
+    """Render a compact plan from current issues and narrative actions.
 
     When a living *plan* is active, renders plan focus/progress instead.
     """

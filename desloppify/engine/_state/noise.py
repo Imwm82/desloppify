@@ -1,18 +1,18 @@
-"""Finding noise budget parsing and filtering."""
+"""Issue noise budget parsing and filtering."""
 
 from __future__ import annotations
 
 __all__ = [
-    "DEFAULT_FINDING_NOISE_BUDGET",
-    "DEFAULT_FINDING_NOISE_GLOBAL_BUDGET",
-    "resolve_finding_noise_budget",
-    "resolve_finding_noise_global_budget",
-    "resolve_finding_noise_settings",
-    "apply_finding_noise_budget",
+    "DEFAULT_ISSUE_NOISE_BUDGET",
+    "DEFAULT_ISSUE_NOISE_GLOBAL_BUDGET",
+    "resolve_issue_noise_budget",
+    "resolve_issue_noise_global_budget",
+    "resolve_issue_noise_settings",
+    "apply_issue_noise_budget",
 ]
 
-DEFAULT_FINDING_NOISE_BUDGET = 10
-DEFAULT_FINDING_NOISE_GLOBAL_BUDGET = 0
+DEFAULT_ISSUE_NOISE_BUDGET = 10
+DEFAULT_ISSUE_NOISE_GLOBAL_BUDGET = 0
 _CONFIDENCE_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
@@ -27,8 +27,8 @@ def _resolve_non_negative_int(raw_value: object, default: int) -> tuple[int, boo
     return value, True
 
 
-def resolve_finding_noise_budget(
-    config: dict | None, *, default: int = DEFAULT_FINDING_NOISE_BUDGET
+def resolve_issue_noise_budget(
+    config: dict | None, *, default: int = DEFAULT_ISSUE_NOISE_BUDGET
 ) -> int:
     """Resolve per-detector noise budget from config with safe fallback."""
     if not config:
@@ -39,8 +39,8 @@ def resolve_finding_noise_budget(
     return budget
 
 
-def resolve_finding_noise_global_budget(
-    config: dict | None, *, default: int = DEFAULT_FINDING_NOISE_GLOBAL_BUDGET
+def resolve_issue_noise_global_budget(
+    config: dict | None, *, default: int = DEFAULT_ISSUE_NOISE_GLOBAL_BUDGET
 ) -> int:
     """Resolve global noise budget from config with safe fallback."""
     if not config:
@@ -52,11 +52,11 @@ def resolve_finding_noise_global_budget(
     return budget
 
 
-def resolve_finding_noise_settings(
+def resolve_issue_noise_settings(
     config: dict | None,
     *,
-    per_default: int = DEFAULT_FINDING_NOISE_BUDGET,
-    global_default: int = DEFAULT_FINDING_NOISE_GLOBAL_BUDGET,
+    per_default: int = DEFAULT_ISSUE_NOISE_BUDGET,
+    global_default: int = DEFAULT_ISSUE_NOISE_GLOBAL_BUDGET,
 ) -> tuple[int, int, str | None]:
     """Resolve per-detector/global budgets and return an optional warning."""
     if not config:
@@ -82,30 +82,30 @@ def resolve_finding_noise_settings(
     return per_budget, global_budget, warning
 
 
-def _finding_priority_key(finding: dict) -> tuple[int, int, str]:
+def _finding_priority_key(issue: dict) -> tuple[int, int, str]:
     """Sort by actionable priority (tier/confidence/id)."""
     return (
-        finding.get("tier", 3),
-        _CONFIDENCE_ORDER.get(finding.get("confidence", "low"), 9),
-        finding.get("id", ""),
+        issue.get("tier", 3),
+        _CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9),
+        issue.get("id", ""),
     )
 
 
-def _finding_display_key(finding: dict) -> tuple[str, int, int, str]:
+def _finding_display_key(issue: dict) -> tuple[str, int, int, str]:
     """Sort by file/tier/confidence/id for deterministic display order."""
     return (
-        finding.get("file", ""),
-        finding.get("tier", 3),
-        _CONFIDENCE_ORDER.get(finding.get("confidence", "low"), 9),
-        finding.get("id", ""),
+        issue.get("file", ""),
+        issue.get("tier", 3),
+        _CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9),
+        issue.get("id", ""),
     )
 
 
-def _group_findings_by_detector(findings: list[dict]) -> dict[str, list[dict]]:
+def _group_findings_by_detector(issues: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {}
-    for finding in findings:
-        detector = finding.get("detector", "unknown")
-        grouped.setdefault(detector, []).append(finding)
+    for issue in issues:
+        detector = issue.get("detector", "unknown")
+        grouped.setdefault(detector, []).append(issue)
     return grouped
 
 
@@ -172,16 +172,16 @@ def _sort_hidden_counts(hidden_by_detector: dict[str, int]) -> dict[str, int]:
     )
 
 
-def apply_finding_noise_budget(
-    findings: list[dict],
-    budget: int = DEFAULT_FINDING_NOISE_BUDGET,
-    global_budget: int = DEFAULT_FINDING_NOISE_GLOBAL_BUDGET,
+def apply_issue_noise_budget(
+    issues: list[dict],
+    budget: int = DEFAULT_ISSUE_NOISE_BUDGET,
+    global_budget: int = DEFAULT_ISSUE_NOISE_GLOBAL_BUDGET,
 ) -> tuple[list[dict], dict[str, int]]:
-    """Cap surfaced findings per detector and return hidden counts."""
+    """Cap surfaced issues per detector and return hidden counts."""
     if budget <= 0 and global_budget <= 0:
-        return list(findings), {}
+        return list(issues), {}
 
-    grouped = _group_findings_by_detector(findings)
+    grouped = _group_findings_by_detector(issues)
     capped_by_detector, hidden_by_detector = _cap_detector_groups(grouped, budget)
 
     if global_budget > 0:

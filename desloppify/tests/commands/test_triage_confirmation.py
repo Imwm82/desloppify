@@ -14,19 +14,19 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # ---------------------------------------------------------------------------
 
 def _state_with_review_findings(*ids: str) -> dict:
-    """Build minimal state with open review findings."""
-    findings = {}
+    """Build minimal state with open review issues."""
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Review finding {fid}",
+            "summary": f"Review issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {"dimension": "abstraction_fitness"},
         }
-    return {"findings": findings, "scan_count": 5, "dimension_scores": {}}
+    return {"issues": issues, "scan_count": 5, "dimension_scores": {}}
 
 
 def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
@@ -41,11 +41,11 @@ def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
             "report": f"A sufficiently long report for {name} stage that meets minimum length requirements and more text",
             "cited_ids": [],
             "timestamp": "2025-06-01T00:00:00Z",
-            "finding_count": 5,
+            "issue_count": 5,
         }
         if confirmed:
             stages[name]["confirmed_at"] = "2025-06-01T00:01:00Z"
-            stages[name]["confirmed_text"] = "I have thoroughly reviewed all the findings in this stage"
+            stages[name]["confirmed_text"] = "I have thoroughly reviewed all the issues in this stage"
     return plan
 
 
@@ -123,7 +123,7 @@ class TestConfirmObserve:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p, *a, **kw: saved_plans.append(True))
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
 
-        attestation = "I have thoroughly reviewed all 2 findings across abstraction_fitness dimension and identified root causes in modules"
+        attestation = "I have thoroughly reviewed all 2 issues across abstraction_fitness dimension and identified root causes in modules"
         args = _fake_args(confirm="observe", attestation=attestation)
         triage_mod.cmd_plan_triage(args)
         out = capsys.readouterr().out
@@ -161,7 +161,7 @@ class TestReflectGate:
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
 
-        report = "A sufficiently long report about strategy and comparing findings against completed work and more text"
+        report = "A sufficiently long report about strategy and comparing issues against completed work and more text"
         args = _fake_args(stage="reflect", report=report)
         triage_mod.cmd_plan_triage(args)
         out = capsys.readouterr().out
@@ -177,7 +177,7 @@ class TestReflectGate:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p, *a, **kw: None)
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
 
-        report = "A sufficiently long report about strategy and comparing findings against completed work and more text"
+        report = "A sufficiently long report about strategy and comparing issues against completed work and more text"
         args = _fake_args(stage="reflect", report=report)
         triage_mod.cmd_plan_triage(args)
         out = capsys.readouterr().out
@@ -244,7 +244,7 @@ class TestConfirmOrganize:
         plan["clusters"]["fix-naming"] = {
             "name": "fix-naming",
             "description": "Fix naming conventions",
-            "finding_ids": ["r1", "r2"],
+            "issue_ids": ["r1", "r2"],
             "action_steps": ["step 1", "step 2"],
         }
         state = _state_with_review_findings("r1", "r2")
@@ -273,7 +273,7 @@ class TestCompleteGate:
         plan["clusters"]["fix-names"] = {
             "name": "fix-names",
             "description": "Fix naming",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "action_steps": ["step 1"],
         }
         state = _state_with_review_findings("r1")
@@ -302,7 +302,7 @@ class TestConfirmExistingRequiresConfirmed:
         plan["clusters"]["fix-names"] = {
             "name": "fix-names",
             "description": "Fix naming",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "action_steps": ["step 1"],
         }
         state = _state_with_review_findings("r1")

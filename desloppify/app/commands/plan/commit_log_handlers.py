@@ -44,19 +44,19 @@ def _cmd_commit_log_status(plan: dict) -> None:
         print(f"  PR:      #{pr}")
 
     uncommitted = get_uncommitted_findings(plan)
-    print(f"\n  Uncommitted:  {summary['uncommitted']} finding(s)")
+    print(f"\n  Uncommitted:  {summary['uncommitted']} issue(s)")
     for fid in uncommitted[:10]:
         print(f"    {fid}")
     if len(uncommitted) > 10:
         print(f"    ... and {len(uncommitted) - 10} more")
 
     commit_log = plan.get("commit_log", [])
-    committed_count = sum(len(r.get("finding_ids", [])) for r in commit_log)
-    print(f"  Committed:    {committed_count} finding(s) in {len(commit_log)} commit(s)")
+    committed_count = sum(len(r.get("issue_ids", [])) for r in commit_log)
+    print(f"  Committed:    {committed_count} issue(s) in {len(commit_log)} commit(s)")
 
     if not uncommitted and not commit_log:
         print(colorize("\n  No commit tracking data yet.", "dim"))
-        print(colorize("  Resolve findings with `desloppify resolve` or `desloppify plan resolve` to start.", "dim"))
+        print(colorize("  Resolve issues with `desloppify resolve` or `desloppify plan resolve` to start.", "dim"))
 
 
 def _cmd_commit_log_record(args: argparse.Namespace, plan: dict) -> None:
@@ -78,39 +78,39 @@ def _cmd_commit_log_record(args: argparse.Namespace, plan: dict) -> None:
             print(colorize("  Cannot detect HEAD. Use --sha to specify.", "red"))
             return
 
-    # Determine which findings to record
+    # Determine which issues to record
     uncommitted = get_uncommitted_findings(plan)
     if not uncommitted:
-        print(colorize("  No uncommitted findings to record.", "yellow"))
+        print(colorize("  No uncommitted issues to record.", "yellow"))
         return
 
     if only_patterns:
-        finding_ids = filter_finding_ids_by_pattern(uncommitted, only_patterns)
-        if not finding_ids:
-            print(colorize("  No uncommitted findings match --only patterns.", "yellow"))
+        issue_ids = filter_finding_ids_by_pattern(uncommitted, only_patterns)
+        if not issue_ids:
+            print(colorize("  No uncommitted issues match --only patterns.", "yellow"))
             return
     else:
-        finding_ids = None  # record all
+        issue_ids = None  # record all
 
     record = record_commit(
         plan,
         sha=sha,
         branch=branch,
-        finding_ids=finding_ids,
+        issue_ids=issue_ids,
         note=note,
     )
     append_log_entry(
         plan,
         "commit_record",
-        finding_ids=record["finding_ids"],
+        issue_ids=record["issue_ids"],
         actor="user",
         note=note,
         detail={"sha": sha, "branch": branch},
     )
     save_plan(plan)
 
-    recorded = len(record["finding_ids"])
-    print(colorize(f"  Recorded commit {sha} with {recorded} finding(s).", "green"))
+    recorded = len(record["issue_ids"])
+    print(colorize(f"  Recorded commit {sha} with {recorded} issue(s).", "green"))
     if note:
         print(colorize(f"  Note: {note}", "dim"))
 
@@ -153,23 +153,23 @@ def _cmd_commit_log_history(args: argparse.Namespace, plan: dict) -> None:
     for record in reversed(shown):
         sha = record.get("sha", "?")[:7]
         branch = record.get("branch", "")
-        finding_ids = record.get("finding_ids", [])
+        issue_ids = record.get("issue_ids", [])
         note = record.get("note", "")
         recorded_at = record.get("recorded_at", "")
 
         header = f"  {sha}"
         if branch:
             header += f" ({branch})"
-        header += f" — {len(finding_ids)} finding(s)"
+        header += f" — {len(issue_ids)} issue(s)"
         if recorded_at:
             header += f"  [{recorded_at[:16]}]"
         print(header)
         if note:
             print(colorize(f"    Note: {note}", "dim"))
-        for fid in finding_ids[:5]:
+        for fid in issue_ids[:5]:
             print(f"    - {fid}")
-        if len(finding_ids) > 5:
-            print(f"    ... and {len(finding_ids) - 5} more")
+        if len(issue_ids) > 5:
+            print(f"    ... and {len(issue_ids) - 5} more")
 
 
 def _cmd_commit_log_pr(plan: dict) -> None:
@@ -179,7 +179,7 @@ def _cmd_commit_log_pr(plan: dict) -> None:
 
         state = state_mod.load_state()
     except (OSError, ValueError, KeyError, TypeError):
-        state = {"findings": {}}
+        state = {"issues": {}}
 
     body = generate_pr_body(plan, state)
     print(body)

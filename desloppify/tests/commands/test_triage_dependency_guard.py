@@ -66,7 +66,7 @@ class TestBlockedTriageStages:
 
     def test_no_triage_in_queue_returns_empty(self):
         plan = empty_plan()
-        plan["queue_order"] = ["some::finding"]
+        plan["queue_order"] = ["some::issue"]
         assert _blocked_triage_stages(plan) == {}
 
 

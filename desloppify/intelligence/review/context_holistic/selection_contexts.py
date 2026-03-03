@@ -193,22 +193,22 @@ def dependencies_context(
     allowed_files: set[str] | None = None,
 ) -> dict:
     cycle_findings = []
-    findings = state.get("findings", {})
-    if not isinstance(findings, dict):
-        findings = {}
-    for finding in findings.values():
-        if not isinstance(finding, dict):
+    issues = state.get("issues", {})
+    if not isinstance(issues, dict):
+        issues = {}
+    for issue in issues.values():
+        if not isinstance(issue, dict):
             continue
-        if finding.get("detector") != "cycles" or finding.get("status") != "open":
+        if issue.get("detector") != "cycles" or issue.get("status") != "open":
             continue
-        if not in_allowed_files(finding.get("file", ""), allowed_files):
+        if not in_allowed_files(issue.get("file", ""), allowed_files):
             continue
-        cycle_findings.append(finding)
+        cycle_findings.append(issue)
     if not cycle_findings:
         return {}
     return {
         "existing_cycles": len(cycle_findings),
-        "cycle_summaries": [finding["summary"][:120] for finding in cycle_findings[:10]],
+        "cycle_summaries": [issue["summary"][:120] for issue in cycle_findings[:10]],
     }
 
 
@@ -224,11 +224,11 @@ def testing_context(
         return testing
 
     tc_findings = {
-        finding["file"]
-        for finding in state.get("findings", {}).values()
-        if finding.get("detector") == "test_coverage"
-        and finding.get("status") == "open"
-        and in_allowed_files(finding.get("file", ""), allowed_files)
+        issue["file"]
+        for issue in state.get("issues", {}).values()
+        if issue.get("detector") == "test_coverage"
+        and issue.get("status") == "open"
+        and in_allowed_files(issue.get("file", ""), allowed_files)
     }
     if not tc_findings:
         return testing

@@ -157,7 +157,7 @@ def _collect_nested_lambdas(
 
 
 def _format_inner_def_names(inner_defs: list[ast.AST]) -> str:
-    """Format inner def names for the finding content string."""
+    """Format inner def names for the issue content string."""
     names = [
         getattr(d, "name", "<lambda>")
         for d in inner_defs[:5]

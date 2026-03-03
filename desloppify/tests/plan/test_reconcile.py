@@ -18,18 +18,18 @@ def _plan_with_queue(*ids: str) -> dict:
 
 
 def _state_with_findings(*ids: str, status: str = "open") -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "id": fid,
             "status": status,
             "detector": "test",
             "file": "test.py",
             "tier": 1,
             "confidence": "high",
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
         }
-    return {"findings": findings, "scan_count": 5}
+    return {"issues": issues, "scan_count": 5}
 
 
 # ---------------------------------------------------------------------------
@@ -37,11 +37,11 @@ def _state_with_findings(*ids: str, status: str = "open") -> dict:
 # ---------------------------------------------------------------------------
 
 def test_supersede_clears_override_cluster_ref():
-    """When a finding is superseded, its override cluster ref should be cleared."""
+    """When a issue is superseded, its override cluster ref should be cleared."""
     plan = _plan_with_queue("a", "b")
     ensure_plan_defaults(plan)
 
-    # Create a cluster and add finding "a" to it
+    # Create a cluster and add issue "a" to it
     create_cluster(plan, "my-cluster")
     add_to_cluster(plan, "my-cluster", ["a"])
 
@@ -67,7 +67,7 @@ def test_supersede_preserves_note_in_override():
 
     # Add an override with a note
     plan["overrides"]["a"] = {
-        "finding_id": "a",
+        "issue_id": "a",
         "note": "important context",
         "cluster": None,
         "created_at": "2025-01-01T00:00:00+00:00",
@@ -81,7 +81,7 @@ def test_supersede_preserves_note_in_override():
 
 
 def test_supersede_removes_from_cluster_finding_ids():
-    """Superseded finding should be removed from cluster finding_ids."""
+    """Superseded issue should be removed from cluster issue_ids."""
     plan = _plan_with_queue("a", "b")
     ensure_plan_defaults(plan)
 
@@ -92,8 +92,8 @@ def test_supersede_removes_from_cluster_finding_ids():
     state = _state_with_findings("b")
     reconcile_plan_after_scan(plan, state)
 
-    assert "a" not in plan["clusters"]["my-cluster"]["finding_ids"]
-    assert "b" in plan["clusters"]["my-cluster"]["finding_ids"]
+    assert "a" not in plan["clusters"]["my-cluster"]["issue_ids"]
+    assert "b" in plan["clusters"]["my-cluster"]["issue_ids"]
 
 
 # ---------------------------------------------------------------------------

@@ -172,7 +172,7 @@ def _scorecard_ignore_warning(state: dict) -> str | None:
     level = "high" if suppressed_pct >= 50 else "moderate"
     return (
         f"Ignore suppression is {rounded}% ({level}) "
-        f"across {ignored} findings."
+        f"across {ignored} issues."
     )
 
 

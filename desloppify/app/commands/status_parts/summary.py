@@ -96,11 +96,11 @@ def print_scan_completeness(state: dict) -> None:
 
 def print_open_scope_breakdown(state: dict) -> None:
     """Print open counts with explicit in-scope/out-of-scope semantics."""
-    findings = state.get("findings", {})
-    if not isinstance(findings, dict):
+    issues = state.get("issues", {})
+    if not isinstance(issues, dict):
         return
 
-    counts = state_mod.open_scope_breakdown(findings, state.get("scan_path"))
+    counts = state_mod.open_scope_breakdown(issues, state.get("scan_path"))
     print(
         colorize(
             "  "

@@ -3,7 +3,7 @@
 The shared phase factories in phase_builders.py wrap certain detectors
 (signature, security, test_coverage, etc.) so they run exactly once per scan.
 If a language-specific phase file also imports and calls one of those detectors
-directly, findings get duplicated under different namespaces — and because the
+directly, issues get duplicated under different namespaces — and because the
 IDs differ, wontfix/resolve on one copy leaves the other as a ghost.
 
 This test statically checks that no language-specific phase file imports a

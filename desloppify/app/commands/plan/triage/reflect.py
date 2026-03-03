@@ -46,7 +46,7 @@ def _report_mentions_dimension(report: str, dimension: str) -> bool:
 
 
 def cmd_stage_reflect(args: argparse.Namespace) -> None:
-    """Record the REFLECT stage: compare current findings against completed work."""
+    """Record the REFLECT stage: compare current issues against completed work."""
     report: str | None = getattr(args, "report", None)
 
     runtime = command_runtime(args)
@@ -64,28 +64,28 @@ def cmd_stage_reflect(args: argparse.Namespace) -> None:
         return
 
     si = collect_triage_input(plan, state)
-    finding_count = len(si.open_findings)
+    issue_count = len(si.open_issues)
 
-    min_chars = 50 if finding_count <= 3 else 100
+    min_chars = 50 if issue_count <= 3 else 100
     validated_report = triage_shared_mod._validate_stage_report(
         report,
         stage="reflect",
         min_chars=min_chars,
         missing_guidance=[
-            "Compare current findings against completed work and form a holistic strategy:",
+            "Compare current issues against completed work and form a holistic strategy:",
             "- What clusters were previously completed? Did fixes hold?",
             "- Are any dimensions recurring (resolved before, open again)?",
             "- What contradictions did you find? Which direction will you take?",
             "- Big picture: what to prioritize, what to defer, what to skip?",
         ],
         short_guidance=[
-            "Describe how current findings relate to previously completed work.",
+            "Describe how current issues relate to previously completed work.",
         ],
     )
     if validated_report is None:
         return
 
-    recurring = detect_recurring_patterns(si.open_findings, si.resolved_findings)
+    recurring = detect_recurring_patterns(si.open_issues, si.resolved_issues)
     recurring_dims = sorted(recurring.keys())
 
     if recurring_dims:
@@ -120,13 +120,13 @@ def cmd_stage_reflect(args: argparse.Namespace) -> None:
         stage="reflect",
         report=validated_report,
         cited_ids=[],
-        finding_count=finding_count,
+        issue_count=issue_count,
         extra={"recurring_dims": recurring_dims},
     )
 
     print(
         colorize(
-            f"  Reflect stage recorded: {finding_count} findings, "
+            f"  Reflect stage recorded: {issue_count} issues, "
             f"{len(recurring_dims)} recurring dimension(s).",
             "green",
         )
@@ -170,7 +170,7 @@ def cmd_stage_reflect(args: argparse.Namespace) -> None:
     print()
     print(colorize("  Then create clusters and enrich each with action steps:", "dim"))
     print(colorize('    desloppify plan cluster create <name> --description "..."', "dim"))
-    print(colorize("    desloppify plan cluster add <name> <finding-patterns>", "dim"))
+    print(colorize("    desloppify plan cluster add <name> <issue-patterns>", "dim"))
     print(
         colorize(
             '    desloppify plan cluster update <name> --steps "step 1" "step 2" ...',

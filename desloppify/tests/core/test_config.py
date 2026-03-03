@@ -280,7 +280,7 @@ class TestMigrateFromStateFiles:
         state_data = {
             "version": 1,
             "config": {"ignore": ["smells::*::debug"], "exclude": ["dist"]},
-            "findings": {},
+            "issues": {},
         }
         state_file = state_dir / "state-python.json"
         state_file.write_text(json.dumps(state_data))
@@ -304,12 +304,12 @@ class TestMigrateFromStateFiles:
         s1 = {
             "version": 1,
             "config": {"ignore": ["pat1"], "exclude": ["ex1"]},
-            "findings": {},
+            "issues": {},
         }
         s2 = {
             "version": 1,
             "config": {"ignore": ["pat2"], "exclude": ["ex1", "ex2"]},
-            "findings": {},
+            "issues": {},
         }
         (state_dir / "state-python.json").write_text(json.dumps(s1))
         (state_dir / "state-typescript.json").write_text(json.dumps(s2))
@@ -329,7 +329,7 @@ class TestMigrateFromStateFiles:
     def test_state_without_config_key(self, tmp_path):
         state_dir = tmp_path
         state_dir.mkdir(exist_ok=True)
-        state_data = {"version": 1, "findings": {}}
+        state_data = {"version": 1, "issues": {}}
         (state_dir / "state-python.json").write_text(json.dumps(state_data))
         config_path = state_dir / "config.json"
 
@@ -342,12 +342,12 @@ class TestMigrateFromStateFiles:
         s1 = {
             "version": 1,
             "config": {"zone_overrides": {"a.py": "test"}},
-            "findings": {},
+            "issues": {},
         }
         s2 = {
             "version": 1,
             "config": {"zone_overrides": {"b.ts": "vendor"}},
-            "findings": {},
+            "issues": {},
         }
         (state_dir / "state-python.json").write_text(json.dumps(s1))
         (state_dir / "state-typescript.json").write_text(json.dumps(s2))
@@ -364,12 +364,12 @@ class TestMigrateFromStateFiles:
         s1 = {
             "version": 1,
             "config": {"csharp_corroboration_min_signals": 4},
-            "findings": {},
+            "issues": {},
         }
         s2 = {
             "version": 1,
             "config": {"csharp_high_fanout_threshold": 9},
-            "findings": {},
+            "issues": {},
         }
         (state_dir / "state-csharp.json").write_text(json.dumps(s1))
         (state_dir / "state-csharp-alt.json").write_text(json.dumps(s2))

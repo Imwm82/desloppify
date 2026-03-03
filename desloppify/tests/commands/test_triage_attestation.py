@@ -18,19 +18,19 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # ---------------------------------------------------------------------------
 
 def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
-    """Build minimal state with open review findings in a given dimension."""
-    findings = {}
+    """Build minimal state with open review issues in a given dimension."""
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Review finding {fid}",
+            "summary": f"Review issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {"dimension": dimension},
         }
-    return {"findings": findings, "scan_count": 5, "dimension_scores": {}}
+    return {"issues": issues, "scan_count": 5, "dimension_scores": {}}
 
 
 def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
@@ -44,11 +44,11 @@ def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
             "report": f"A sufficiently long report for {name} stage that meets minimum length requirements and more text",
             "cited_ids": [],
             "timestamp": "2025-06-01T00:00:00Z",
-            "finding_count": 5,
+            "issue_count": 5,
         }
         if confirmed:
             stages[name]["confirmed_at"] = "2025-06-01T00:01:00Z"
-            stages[name]["confirmed_text"] = "I have thoroughly reviewed all the findings in this stage"
+            stages[name]["confirmed_text"] = "I have thoroughly reviewed all the issues in this stage"
     return plan
 
 
@@ -85,7 +85,7 @@ class TestValidateAttestation:
     def test_validate_observe_requires_dimension(self):
         """Generic text without dimension name is rejected for observe."""
         err = _validate_attestation(
-            "I have reviewed all findings thoroughly and carefully considered every aspect of the codebase",
+            "I have reviewed all issues thoroughly and carefully considered every aspect of the codebase",
             "observe",
             dimensions=["naming", "coupling", "abstraction_fitness"],
         )
@@ -95,7 +95,7 @@ class TestValidateAttestation:
     def test_validate_observe_accepts_dimension(self):
         """Text mentioning a dimension name passes for observe."""
         err = _validate_attestation(
-            "I reviewed the naming dimension findings and identified root causes across the codebase modules",
+            "I reviewed the naming dimension issues and identified root causes across the codebase modules",
             "observe",
             dimensions=["naming", "coupling"],
         )
@@ -113,7 +113,7 @@ class TestValidateAttestation:
     def test_validate_reflect_requires_ref(self):
         """Generic text without dimension or cluster name is rejected for reflect."""
         err = _validate_attestation(
-            "I have formed a strategy that accounts for all findings and patterns in the codebase thoroughly",
+            "I have formed a strategy that accounts for all issues and patterns in the codebase thoroughly",
             "reflect",
             dimensions=["naming"],
             cluster_names=["fix-naming"],
@@ -214,7 +214,7 @@ class TestConfirmObserveValidation:
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
 
         # 80+ chars but no dimension name
-        attestation = "I have thoroughly reviewed all the findings in this codebase and considered every aspect of the analysis carefully"
+        attestation = "I have thoroughly reviewed all the issues in this codebase and considered every aspect of the analysis carefully"
         assert len(attestation) >= 80
         args = _fake_args(confirm="observe", attestation=attestation)
         triage_mod.cmd_plan_triage(args)
@@ -235,7 +235,7 @@ class TestConfirmObserveValidation:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p, *a, **kw: saved.append(True))
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
 
-        attestation = "I reviewed the naming dimension findings and identified 3 root causes across the codebase test modules thoroughly"
+        attestation = "I reviewed the naming dimension issues and identified 3 root causes across the codebase test modules thoroughly"
         assert len(attestation) >= 80
         args = _fake_args(confirm="observe", attestation=attestation)
         triage_mod.cmd_plan_triage(args)

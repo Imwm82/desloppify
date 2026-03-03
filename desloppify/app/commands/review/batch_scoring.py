@@ -26,16 +26,16 @@ _FIX_SCOPE_WEIGHTS = {
 _WEIGHTED_MEAN_BLEND = 0.7
 _FLOOR_BLEND_WEIGHT = 0.3
 
-# Maximum total penalty that findings can impose on a dimension score.
+# Maximum total penalty that issues can impose on a dimension score.
 _MAX_ISSUE_PENALTY = 24.0
 
-# Per-unit penalty from cumulative finding severity.
+# Per-unit penalty from cumulative issue severity.
 _PRESSURE_PENALTY_MULTIPLIER = 2.2
 
-# Extra penalty per additional finding beyond the first.
+# Extra penalty per additional issue beyond the first.
 _EXTRA_FINDING_PENALTY = 0.8
 
-# Findings-based score cap parameters.
+# Issues-based score cap parameters.
 _CAP_FLOOR = 60.0
 _CAP_CEILING = 90.0
 _CAP_PRESSURE_MULTIPLIER = 3.5
@@ -48,7 +48,7 @@ class ScoreInputs:
     weighted_mean: float
     floor: float
     finding_pressure: float
-    finding_count: int
+    issue_count: int
 
 
 @dataclass(frozen=True)
@@ -66,22 +66,22 @@ class ScoreBreakdown:
 class DimensionMergeScorer:
     """Compute pressure-adjusted merged scores for holistic review dimensions."""
 
-    def finding_severity(
+    def issue_severity(
         self,
-        finding: dict[str, Any],
+        issue: dict[str, Any],
         *,
         note: dict[str, Any] | None,
     ) -> float:
-        """Compute per-finding severity used for score-pressure adjustments."""
+        """Compute per-issue severity used for score-pressure adjustments."""
         note_ref = note if isinstance(note, dict) else {}
         confidence = str(
-            finding.get("confidence", note_ref.get("confidence", "medium"))
+            issue.get("confidence", note_ref.get("confidence", "medium"))
         ).strip().lower()
         impact_scope = str(
-            finding.get("impact_scope", note_ref.get("impact_scope", "local"))
+            issue.get("impact_scope", note_ref.get("impact_scope", "local"))
         ).strip().lower()
         fix_scope = str(
-            finding.get("fix_scope", note_ref.get("fix_scope", "single_edit"))
+            issue.get("fix_scope", note_ref.get("fix_scope", "single_edit"))
         ).strip().lower()
 
         confidence_weight = _CONFIDENCE_WEIGHTS.get(confidence, 1.0)
@@ -89,22 +89,22 @@ class DimensionMergeScorer:
         fix_weight = _FIX_SCOPE_WEIGHTS.get(fix_scope, 1.0)
         return confidence_weight * impact_weight * fix_weight
 
-    def finding_pressure_by_dimension(
+    def issue_pressure_by_dimension(
         self,
-        findings: list[dict[str, Any]],
+        issues: list[dict[str, Any]],
         *,
         dimension_notes: dict[str, dict[str, Any]],
     ) -> tuple[dict[str, float], dict[str, int]]:
-        """Summarize how strongly findings should pull dimension scores down."""
+        """Summarize how strongly issues should pull dimension scores down."""
         pressure_by_dim: dict[str, float] = {}
         count_by_dim: dict[str, int] = {}
-        for finding in findings:
-            dim = str(finding.get("dimension", "")).strip()
+        for issue in issues:
+            dim = str(issue.get("dimension", "")).strip()
             if not dim:
                 continue
             note = dimension_notes.get(dim)
-            pressure_by_dim[dim] = pressure_by_dim.get(dim, 0.0) + self.finding_severity(
-                finding,
+            pressure_by_dim[dim] = pressure_by_dim.get(dim, 0.0) + self.issue_severity(
+                issue,
                 note=note if isinstance(note, dict) else None,
             )
             count_by_dim[dim] = count_by_dim.get(dim, 0) + 1
@@ -119,15 +119,15 @@ class DimensionMergeScorer:
         issue_penalty = min(
             _MAX_ISSUE_PENALTY,
             (inputs.finding_pressure * _PRESSURE_PENALTY_MULTIPLIER)
-            + (max(inputs.finding_count - 1, 0) * _EXTRA_FINDING_PENALTY),
+            + (max(inputs.issue_count - 1, 0) * _EXTRA_FINDING_PENALTY),
         )
         issue_adjusted = floor_aware - issue_penalty
 
         issue_cap: float | None = None
-        if inputs.finding_count > 0:
+        if inputs.issue_count > 0:
             cap_penalty = (
                 (inputs.finding_pressure * _CAP_PRESSURE_MULTIPLIER)
-                + (max(inputs.finding_count - 1, 0) * _EXTRA_FINDING_PENALTY)
+                + (max(inputs.issue_count - 1, 0) * _EXTRA_FINDING_PENALTY)
             )
             issue_cap = max(
                 _CAP_FLOOR,
@@ -166,7 +166,7 @@ class DimensionMergeScorer:
                     weighted_mean=weighted_mean,
                     floor=floor,
                     finding_pressure=finding_pressure_by_dim.get(key, 0.0),
-                    finding_count=finding_count_by_dim.get(key, 0),
+                    issue_count=finding_count_by_dim.get(key, 0),
                 )
             )
             merged[key] = breakdown.final_score

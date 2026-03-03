@@ -485,9 +485,9 @@ def do_run_batches(
     )
     merged_finding_dims = normalize_dimension_list(
         [
-            finding.get("dimension")
-            for finding in (merged.get("findings") or [])
-            if isinstance(finding, dict)
+            issue.get("dimension")
+            for issue in (merged.get("issues") or [])
+            if isinstance(issue, dict)
         ]
     )
     merged_imported_dims = normalize_dimension_list(

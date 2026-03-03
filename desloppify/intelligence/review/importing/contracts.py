@@ -17,8 +17,8 @@ REVIEW_FINDING_REQUIRED_FIELDS = (
 VALID_REVIEW_CONFIDENCE = frozenset({"high", "medium", "low"})
 
 
-class ReviewFindingPayload(TypedDict, total=False):
-    """Single finding entry in review import payloads."""
+class ReviewIssuePayload(TypedDict, total=False):
+    """Single issue entry in review import payloads."""
 
     file: str
     dimension: str
@@ -55,22 +55,22 @@ def _normalized_non_empty_text_list(value: object) -> list[str] | None:
 
 
 def validate_review_finding_payload(
-    finding: object,
+    issue: object,
     *,
     label: str,
     allowed_dimensions: set[str] | None = None,
     allow_dismissed: bool = True,
-) -> tuple[ReviewFindingPayload | None, list[str]]:
-    """Validate and normalize one review finding payload entry."""
-    if not isinstance(finding, dict):
+) -> tuple[ReviewIssuePayload | None, list[str]]:
+    """Validate and normalize one review issue payload entry."""
+    if not isinstance(issue, dict):
         return None, [f"{label} must be an object"]
 
-    dismissed = finding.get("concern_verdict") == "dismissed"
+    dismissed = issue.get("concern_verdict") == "dismissed"
     if dismissed and not allow_dismissed:
         return None, [f"{label}.concern_verdict='dismissed' is not allowed here"]
 
     if dismissed:
-        fingerprint = _normalized_non_empty_text(finding.get("concern_fingerprint"))
+        fingerprint = _normalized_non_empty_text(issue.get("concern_fingerprint"))
         if fingerprint is None:
             return (
                 None,
@@ -78,57 +78,57 @@ def validate_review_finding_payload(
                     f"{label}.concern_fingerprint is required when concern_verdict='dismissed'"
                 ],
             )
-        normalized: ReviewFindingPayload = {
+        normalized: ReviewIssuePayload = {
             "concern_verdict": "dismissed",
             "concern_fingerprint": fingerprint,
         }
-        concern_type = _normalized_non_empty_text(finding.get("concern_type"))
+        concern_type = _normalized_non_empty_text(issue.get("concern_type"))
         if concern_type is not None:
             normalized["concern_type"] = concern_type
-        concern_file = _normalized_non_empty_text(finding.get("concern_file"))
+        concern_file = _normalized_non_empty_text(issue.get("concern_file"))
         if concern_file is not None:
             normalized["concern_file"] = concern_file
-        reasoning = _normalized_non_empty_text(finding.get("reasoning"))
+        reasoning = _normalized_non_empty_text(issue.get("reasoning"))
         if reasoning is not None:
             normalized["reasoning"] = reasoning
         return normalized, []
 
     errors: list[str] = []
-    missing = [field for field in REVIEW_FINDING_REQUIRED_FIELDS if field not in finding]
+    missing = [field for field in REVIEW_FINDING_REQUIRED_FIELDS if field not in issue]
     if missing:
         errors.append(f"{label} missing required fields: {', '.join(missing)}")
         return None, errors
 
-    dimension = _normalized_non_empty_text(finding.get("dimension"))
+    dimension = _normalized_non_empty_text(issue.get("dimension"))
     if dimension is None:
         errors.append(f"{label}.dimension must be a non-empty string")
     elif allowed_dimensions is not None and dimension not in allowed_dimensions:
         errors.append(f"{label}.dimension '{dimension}' is not allowed")
 
-    identifier = _normalized_non_empty_text(finding.get("identifier"))
+    identifier = _normalized_non_empty_text(issue.get("identifier"))
     if identifier is None:
         errors.append(f"{label}.identifier must be a non-empty string")
 
-    summary = _normalized_non_empty_text(finding.get("summary"))
+    summary = _normalized_non_empty_text(issue.get("summary"))
     if summary is None:
         errors.append(f"{label}.summary must be a non-empty string")
 
-    suggestion = _normalized_non_empty_text(finding.get("suggestion"))
+    suggestion = _normalized_non_empty_text(issue.get("suggestion"))
     if suggestion is None:
         errors.append(f"{label}.suggestion must be a non-empty string")
 
-    confidence = _normalized_non_empty_text(finding.get("confidence"))
+    confidence = _normalized_non_empty_text(issue.get("confidence"))
     confidence_text = confidence.lower() if confidence is not None else ""
     if confidence_text not in VALID_REVIEW_CONFIDENCE:
         errors.append(f"{label}.confidence must be one of: high, medium, low")
 
-    related_files = _normalized_non_empty_text_list(finding.get("related_files"))
+    related_files = _normalized_non_empty_text_list(issue.get("related_files"))
     if related_files is None:
         errors.append(
             f"{label}.related_files must contain at least one file path string"
         )
 
-    evidence = _normalized_non_empty_text_list(finding.get("evidence"))
+    evidence = _normalized_non_empty_text_list(issue.get("evidence"))
     if evidence is None:
         errors.append(
             f"{label}.evidence must contain at least one concrete evidence string"
@@ -137,7 +137,7 @@ def validate_review_finding_payload(
     if errors:
         return None, errors
 
-    normalized_payload: ReviewFindingPayload = {
+    normalized_payload: ReviewIssuePayload = {
         "dimension": dimension or "",
         "identifier": identifier or "",
         "summary": summary or "",
@@ -146,19 +146,19 @@ def validate_review_finding_payload(
         "related_files": related_files or [],
         "evidence": evidence or [],
     }
-    reasoning = _normalized_non_empty_text(finding.get("reasoning"))
+    reasoning = _normalized_non_empty_text(issue.get("reasoning"))
     if reasoning is not None:
         normalized_payload["reasoning"] = reasoning
-    concern_type = _normalized_non_empty_text(finding.get("concern_type"))
+    concern_type = _normalized_non_empty_text(issue.get("concern_type"))
     if concern_type is not None:
         normalized_payload["concern_type"] = concern_type
-    concern_file = _normalized_non_empty_text(finding.get("concern_file"))
+    concern_file = _normalized_non_empty_text(issue.get("concern_file"))
     if concern_file is not None:
         normalized_payload["concern_file"] = concern_file
-    file_path = _normalized_non_empty_text(finding.get("file"))
+    file_path = _normalized_non_empty_text(issue.get("file"))
     if file_path is not None:
         normalized_payload["file"] = file_path
-    evidence_lines = finding.get("evidence_lines")
+    evidence_lines = issue.get("evidence_lines")
     if isinstance(evidence_lines, list):
         normalized_lines = [line for line in evidence_lines if isinstance(line, int)]
         if normalized_lines:
@@ -186,7 +186,7 @@ class ReviewProvenancePayload(TypedDict, total=False):
 class ReviewImportPayload(TypedDict, total=False):
     """Top-level review import payload shared by per-file and holistic importers."""
 
-    findings: Required[list[ReviewFindingPayload]]
+    issues: Required[list[ReviewIssuePayload]]
     assessments: Required[dict[str, Any]]
     reviewed_files: Required[list[str]]
     review_scope: Required[ReviewScopePayload]
@@ -309,7 +309,7 @@ __all__ = [
     "AssessmentProvenanceStatus",
     "REVIEW_FINDING_REQUIRED_FIELDS",
     "VALID_REVIEW_CONFIDENCE",
-    "ReviewFindingPayload",
+    "ReviewIssuePayload",
     "ReviewImportPayload",
     "ReviewProvenancePayload",
     "ReviewScopePayload",

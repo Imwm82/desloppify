@@ -51,14 +51,14 @@ class ScanOrchestrator:
 
     def merge(
         self,
-        findings: list[dict[str, object]],
+        issues: list[dict[str, object]],
         potentials: dict[str, object],
         codebase_metrics: dict[str, object] | None,
     ) -> ScanMergeResult:
-        """Merge generated findings and persist scan state updates."""
+        """Merge generated issues and persist scan state updates."""
         return self.merge_scan_results_fn(
             self.runtime,
-            findings,
+            issues,
             potentials,
             codebase_metrics,
         )

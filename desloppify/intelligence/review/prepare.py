@@ -48,7 +48,7 @@ from desloppify.intelligence.review.selection import (
     ReviewSelectionOptions,
     count_fresh,
     count_stale,
-    get_file_findings,
+    get_file_issues,
     select_files_for_review,
 )
 
@@ -338,7 +338,7 @@ def _build_file_requests(files: list[str], lang, state: dict) -> list[dict]:
                 "zone": zone,
                 "loc": len(content.splitlines()),
                 "neighbors": neighbors,
-                "existing_findings": get_file_findings(state, filepath),
+                "existing_issues": get_file_issues(state, filepath),
             }
         )
     return file_requests

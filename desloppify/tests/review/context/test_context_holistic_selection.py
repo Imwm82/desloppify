@@ -86,7 +86,7 @@ def test_testing_context_includes_high_importer_untested_file(tmp_path):
         }
     )
     state = {
-        "findings": {
+        "issues": {
             "tc-1": {
                 "detector": "test_coverage",
                 "status": "open",
@@ -243,7 +243,7 @@ def test_error_strategy_empty_input():
 
 def test_dependencies_context_extracts_open_cycles():
     state = {
-        "findings": {
+        "issues": {
             "cyc-1": {
                 "detector": "cycles",
                 "status": "open",
@@ -265,7 +265,7 @@ def test_dependencies_context_extracts_open_cycles():
 
 
 def test_dependencies_context_empty_when_no_cycles():
-    state = {"findings": {"f1": {"detector": "smells", "status": "open", "summary": "x"}}}
+    state = {"issues": {"f1": {"detector": "smells", "status": "open", "summary": "x"}}}
     assert selection_mod._dependencies_context(state) == {}
 
 
@@ -361,13 +361,13 @@ def test_sibling_behavior_context_skips_dirs_with_fewer_than_3_files(tmp_path):
 
 def test_testing_context_no_dep_graph():
     lang = SimpleNamespace(dep_graph=None)
-    state = {"findings": {}}
+    state = {"issues": {}}
     result = selection_mod._testing_context(lang, state, {"a.py": "code"})
     assert result == {"total_files": 1}
 
 
 def test_testing_context_no_test_coverage_findings():
     lang = SimpleNamespace(dep_graph={"a.py": {"importers": {"b.py"}}})
-    state = {"findings": {"f1": {"detector": "smells", "status": "open"}}}
+    state = {"issues": {"f1": {"detector": "smells", "status": "open"}}}
     result = selection_mod._testing_context(lang, state, {"a.py": "code"})
     assert result == {"total_files": 1}

@@ -8,7 +8,7 @@ narrative
 
 review
     Subjective code review preparation, import, and context building.
-    Entry point: ``prepare_review()`` / ``import_review_findings()``
+    Entry point: ``prepare_review()`` / ``import_review_issues()``
 
 integrity
     Lightweight integrity checks for subjective scoring.

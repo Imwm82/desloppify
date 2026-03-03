@@ -42,7 +42,7 @@ def test_action_tools_compute_tools_emits_fixer_inventory():
 
 
 def test_strategy_engine_compute_strategy_populates_hint_and_lanes():
-    findings = {
+    issues = {
         "unused::a": {
             "status": "open",
             "detector": "unused",
@@ -64,7 +64,7 @@ def test_strategy_engine_compute_strategy_populates_hint_and_lanes():
         }
     ]
     strategy = compute_strategy(
-        findings, {"unused": 1}, actions, "first_scan", "python"
+        issues, {"unused": 1}, actions, "first_scan", "python"
     )
     assert "hint" in strategy
     assert "lanes" in strategy

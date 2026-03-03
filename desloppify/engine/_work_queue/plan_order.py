@@ -6,7 +6,7 @@ from desloppify.state import StateModel
 
 
 def new_item_ids(state: StateModel) -> set[str]:
-    """Return finding IDs added in the most recent scan."""
+    """Return issue IDs added in the most recent scan."""
     scan_history = state.get("scan_history", [])
     if not scan_history:
         return set()
@@ -14,9 +14,9 @@ def new_item_ids(state: StateModel) -> set[str]:
     if not threshold:
         return set()
     return {
-        finding_id
-        for finding_id, finding in state.get("findings", {}).items()
-        if finding.get("first_seen", "") >= threshold
+        issue_id
+        for issue_id, issue in state.get("issues", {}).items()
+        if issue.get("first_seen", "") >= threshold
     }
 
 
@@ -37,7 +37,7 @@ def enrich_plan_metadata(items: list[dict], plan: dict) -> None:
             item["plan_cluster"] = {
                 "name": cluster_name,
                 "description": cluster_data.get("description"),
-                "total_items": len(cluster_data.get("finding_ids", [])),
+                "total_items": len(cluster_data.get("issue_ids", [])),
             }
 
 
@@ -55,9 +55,9 @@ def stamp_plan_sort_keys(
     skipped_ids: set[str] = set(plan.get("skipped", {}).keys())
 
     position_map: dict[str, int] = {}
-    for idx, finding_id in enumerate(queue_order):
-        if finding_id not in skipped_ids:
-            position_map[finding_id] = idx
+    for idx, issue_id in enumerate(queue_order):
+        if issue_id not in skipped_ids:
+            position_map[issue_id] = idx
 
     for item in items:
         item_id = item["id"]
@@ -98,7 +98,7 @@ def filter_cluster_focus(
         return items
     clusters: dict = plan.get("clusters", {})
     cluster_data = clusters.get(effective_cluster, {})
-    cluster_member_ids = set(cluster_data.get("finding_ids", []))
+    cluster_member_ids = set(cluster_data.get("issue_ids", []))
     if not cluster_member_ids:
         return items
     return [item for item in items if item["id"] in cluster_member_ids]
@@ -150,11 +150,11 @@ def _build_cluster_meta(
             action_type = "refactor"
 
     stored_desc = cluster_data.get("description") or ""
-    total_in_cluster = len(cluster_data.get("finding_ids", []))
+    total_in_cluster = len(cluster_data.get("issue_ids", []))
     if stored_desc and total_in_cluster != len(members):
         summary = stored_desc.replace(str(total_in_cluster), str(len(members)))
     else:
-        summary = stored_desc or f"{len(members)} findings"
+        summary = stored_desc or f"{len(members)} issues"
 
     primary_command = cluster_data.get("action")
     if not primary_command:
@@ -197,8 +197,8 @@ def collapse_clusters(items: list[dict], plan: dict) -> list[dict]:
     for name, cluster in clusters.items():
         if not cluster.get("auto"):
             continue
-        for finding_id in cluster.get("finding_ids", []):
-            fid_to_cluster[finding_id] = name
+        for issue_id in cluster.get("issue_ids", []):
+            fid_to_cluster[issue_id] = name
 
     if not fid_to_cluster:
         return items

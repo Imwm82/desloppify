@@ -25,7 +25,7 @@ def _render_workflow_stage(item: dict) -> None:
     detail = item.get("detail", {})
     total = detail.get("total_review_findings", 0)
     if total:
-        print(colorize(f"  {total} review findings to analyze", "dim"))
+        print(colorize(f"  {total} review issues to analyze", "dim"))
     if blocked:
         blocked_by = item.get("blocked_by", [])
         deps = ", ".join(b.replace("triage::", "") for b in blocked_by)
@@ -72,7 +72,7 @@ def _render_subjective_dimension(item: dict, *, explain: bool) -> None:
         print(colorize(f"  explain: {reason}", "dim"))
 
 
-def _render_finding_detail(item: dict) -> dict:
+def _render_issue_detail(item: dict) -> dict:
     """Render plan overrides, file info, and detail fields. Returns parsed detail dict."""
     if item.get("plan_description"):
         print(colorize(f"  → {item['plan_description']}", "cyan"))
@@ -199,11 +199,11 @@ def _render_item(
     elif is_auto_fix_command(item.get("primary_command")):
         print(colorize("  Type: Auto-fixable", "dim"))
 
-    if item.get("kind", "finding") == "subjective_dimension":
+    if item.get("kind", "issue") == "subjective_dimension":
         _render_subjective_dimension(item, explain=explain)
         return
 
-    detail = _render_finding_detail(item)
+    detail = _render_issue_detail(item)
     _render_score_impact(item, dim_scores, potentials)
 
     detector_name = item.get("detector", "")
@@ -211,13 +211,13 @@ def _render_item(
     if is_auto_fix_command(auto_fix_command):
         similar_count = sum(
             1
-            for finding in findings_scoped.values()
-            if finding.get("detector") == detector_name and finding["status"] == "open"
+            for issue in findings_scoped.values()
+            if issue.get("detector") == detector_name and issue["status"] == "open"
         )
         if similar_count > 1:
             print(
                 colorize(
-                    f"\n  Auto-fixable: {similar_count} similar findings. "
+                    f"\n  Auto-fixable: {similar_count} similar issues. "
                     f"Run `{auto_fix_command}` to fix all at once.",
                     "cyan",
                 )
@@ -269,7 +269,7 @@ def render_terminal_items(
         cluster_name = plan["active_cluster"]
         clusters = plan.get("clusters", {})
         cluster_data = clusters.get(cluster_name, {})
-        total = len(cluster_data.get("finding_ids", []))
+        total = len(cluster_data.get("issue_ids", []))
         print(colorize(f"\n  Focused on: {cluster_name} ({len(items)} of {total} remaining)", "cyan"))
 
     if group != "item":

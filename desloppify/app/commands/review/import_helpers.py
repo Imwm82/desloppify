@@ -52,10 +52,10 @@ def _normalize_import_payload_shape(
 ) -> tuple[ReviewImportPayload | None, list[str]]:
     """Normalize payload into required-key contract with strict type checks."""
     errors: list[str] = []
-    findings = payload.get("findings")
-    if not isinstance(findings, list):
-        errors.append("findings must be a JSON array")
-        findings = []
+    issues = payload.get("issues")
+    if not isinstance(issues, list):
+        errors.append("issues must be a JSON array")
+        issues = []
 
     assessments = payload.get("assessments")
     if assessments is None:
@@ -106,7 +106,7 @@ def _normalize_import_payload_shape(
         return None, errors
     return (
         {
-            "findings": findings,
+            "issues": issues,
             "assessments": assessments,
             "reviewed_files": normalized_reviewed_files,
             "review_scope": review_scope,
@@ -140,20 +140,20 @@ def _parse_and_validate_import(
     if not findings_path.exists():
         return None, [f"file not found: {import_file}"]
     try:
-        findings_data = json.loads(findings_path.read_text())
+        issues_data = json.loads(findings_path.read_text())
     except (json.JSONDecodeError, OSError) as exc:
-        return None, [f"error reading findings: {exc}"]
+        return None, [f"error reading issues: {exc}"]
 
-    if isinstance(findings_data, list):
-        findings_data = {"findings": findings_data}
+    if isinstance(issues_data, list):
+        issues_data = {"issues": issues_data}
 
-    if not isinstance(findings_data, dict):
-        return None, ["findings file must contain a JSON array or object"]
+    if not isinstance(issues_data, dict):
+        return None, ["issues file must contain a JSON array or object"]
 
-    if "findings" not in findings_data:
-        return None, ["findings object must contain a 'findings' key"]
+    if "issues" not in issues_data:
+        return None, ["issues object must contain a 'issues' key"]
     normalized_findings_data, shape_errors = _normalize_import_payload_shape(
-        findings_data
+        issues_data
     )
     if shape_errors:
         return None, shape_errors
@@ -172,14 +172,14 @@ def _parse_and_validate_import(
     if attested_external and allow_partial:
         return None, [
             "--attested-external cannot be combined with --allow-partial; "
-            "attested score imports require fully valid findings payloads"
+            "attested score imports require fully valid issues payloads"
         ]
     if override_enabled and allow_partial:
         return None, [
             "--manual-override cannot be combined with --allow-partial; "
-            "manual score imports require fully valid findings payloads"
+            "manual score imports require fully valid issues payloads"
         ]
-    findings_data, policy_errors = apply_assessment_import_policy(
+    issues_data, policy_errors = apply_assessment_import_policy(
         normalized_findings_data,
         import_file=import_file,
         attested_external=attested_external,
@@ -191,19 +191,19 @@ def _parse_and_validate_import(
     )
     if policy_errors:
         return None, policy_errors
-    assert findings_data is not None
+    assert issues_data is not None
 
     missing_feedback, missing_low_score_findings = _validate_assessment_feedback(
-        findings_data
+        issues_data
     )
     if missing_low_score_findings:
         if override_enabled:
             if not isinstance(override_attest, str) or not override_attest.strip():
                 return None, ["--manual-override requires --attest"]
-            return findings_data, []
+            return issues_data, []
         return None, [
             f"assessments below {LOW_SCORE_FINDING_THRESHOLD:.1f} must include at "
-            "least one finding for that same dimension with a concrete suggestion. "
+            "least one issue for that same dimension with a concrete suggestion. "
             f"Missing: {', '.join(missing_low_score_findings)}"
         ]
 
@@ -211,23 +211,23 @@ def _parse_and_validate_import(
         if override_enabled:
             if not isinstance(override_attest, str) or not override_attest.strip():
                 return None, ["--manual-override requires --attest"]
-            return findings_data, []
+            return issues_data, []
         return None, [
             f"assessments below {ASSESSMENT_FEEDBACK_THRESHOLD:.1f} must include explicit feedback "
-            "(finding with same dimension and non-empty suggestion, or "
+            "(issue with same dimension and non-empty suggestion, or "
             "dimension_notes evidence for that dimension). "
             f"Missing: {', '.join(missing_feedback)}"
         ]
 
     schema_errors = _validate_holistic_findings_schema(
-        findings_data,
+        issues_data,
         lang_name=lang_name,
     )
     if schema_errors and not allow_partial:
         visible_errors = schema_errors[:10]
         remaining = len(schema_errors) - len(visible_errors)
         errors = [
-            "findings schema validation failed for holistic import. "
+            "issues schema validation failed for holistic import. "
             "Fix payload or rerun with --allow-partial to continue."
         ]
         errors.extend(visible_errors)
@@ -235,7 +235,7 @@ def _parse_and_validate_import(
             errors.append(f"... {remaining} additional schema error(s) omitted")
         return None, errors
 
-    return findings_data, []
+    return issues_data, []
 
 
 def load_import_findings_data(
@@ -339,7 +339,7 @@ def print_assessment_policy_notice(
         print(
             colorize_fn(
                 "  WARNING: untrusted assessment source detected. "
-                f"Imported findings only; skipped {count} assessment score update(s).",
+                f"Imported issues only; skipped {count} assessment score update(s).",
                 "yellow",
             )
         )

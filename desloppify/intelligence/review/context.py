@@ -174,27 +174,27 @@ def _build_review_context_inner(
     if lang.zone_map is not None:
         ctx.zone_distribution = lang.zone_map.counts()
 
-    # 6. Existing findings per file (summaries only), scoped to active review files.
+    # 6. Existing issues per file (summaries only), scoped to active review files.
     allowed_review_files = {
         rel(filepath)
         for filepath in file_contents
         if isinstance(filepath, str) and filepath
     }
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     by_file: dict[str, list[str]] = {}
-    for finding in findings.values():
-        if finding.get("status") != "open":
+    for issue in issues.values():
+        if issue.get("status") != "open":
             continue
-        finding_file_raw = finding.get("file", "")
+        finding_file_raw = issue.get("file", "")
         if not isinstance(finding_file_raw, str) or not finding_file_raw:
             continue
         finding_file = rel(finding_file_raw)
         if finding_file not in allowed_review_files:
             continue
         by_file.setdefault(finding_file, []).append(
-            f"{finding['detector']}: {finding['summary'][:80]}"
+            f"{issue['detector']}: {issue['summary'][:80]}"
         )
-    ctx.existing_findings = by_file
+    ctx.existing_issues = by_file
 
     # 7. Codebase stats
     total_files = len(file_contents)
@@ -262,7 +262,7 @@ def serialize_context(ctx: ReviewContext) -> dict:
         "module_patterns": _section_dict(ctx.module_patterns),
         "import_graph_summary": _section_dict(ctx.import_graph_summary),
         "zone_distribution": _section_dict(ctx.zone_distribution),
-        "existing_findings": _section_dict(ctx.existing_findings),
+        "existing_issues": _section_dict(ctx.existing_issues),
         "codebase_stats": {
             key: int(codebase_stats.get(key, 0))
             for key in metrics

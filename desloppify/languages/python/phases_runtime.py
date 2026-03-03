@@ -18,7 +18,7 @@ from desloppify.languages._framework.base.structural import (
     add_structural_signal,
     merge_structural_signals,
 )
-from desloppify.languages._framework.finding_factories import (
+from desloppify.languages._framework.issue_factories import (
     make_cycle_findings,
     make_facade_findings,
     make_orphaned_findings,
@@ -33,7 +33,7 @@ from desloppify.languages.python.detectors import deps as deps_detector_mod
 from desloppify.languages.python.detectors import facade as facade_detector_mod
 from desloppify.languages.python.extractors import detect_passthrough_functions
 from desloppify.languages.python.extractors_classes import extract_py_classes
-from desloppify.state import Finding
+from desloppify.state import Issue
 
 
 def run_phase_structural(
@@ -43,8 +43,8 @@ def run_phase_structural(
     complexity_signals: list[ComplexitySignal],
     god_rules: list[GodRule],
     log_fn,
-) -> tuple[list[Finding], dict[str, int]]:
-    """Merge large + complexity + god classes into structural findings."""
+) -> tuple[list[Issue], dict[str, int]]:
+    """Merge large + complexity + god classes into structural issues."""
     structural: dict[str, dict] = {}
 
     large_entries, file_count = large_detector_mod.detect_large_files(
@@ -91,7 +91,7 @@ def run_phase_structural(
         child_dir_count = int(entry.get("child_dir_count", 0))
         combined_score = int(entry.get("combined_score", entry.get("file_count", 0)))
         results.append(
-            state_mod.make_finding(
+            state_mod.make_issue(
                 "flat_dirs",
                 entry["directory"],
                 "",
@@ -137,8 +137,8 @@ def run_phase_structural(
     return results, potentials
 
 
-def run_phase_coupling(path: Path, lang: LangRun, *, log_fn) -> tuple[list[Finding], dict[str, int]]:
-    """Run coupling-related detectors and return findings/potentials."""
+def run_phase_coupling(path: Path, lang: LangRun, *, log_fn) -> tuple[list[Issue], dict[str, int]]:
+    """Run coupling-related detectors and return issues/potentials."""
     graph = deps_detector_mod.build_dep_graph(path)
     lang.dep_graph = graph
     zone_map = lang.zone_map
@@ -186,7 +186,7 @@ def run_phase_coupling(path: Path, lang: LangRun, *, log_fn) -> tuple[list[Findi
         tier = 4 if required_count >= 6 else 3
         confidence = "high" if required_count >= 6 else "medium"
         results.append(
-            state_mod.make_finding(
+            state_mod.make_issue(
                 "coupling",
                 entry["file"],
                 entry["class"],
@@ -205,7 +205,7 @@ def run_phase_coupling(path: Path, lang: LangRun, *, log_fn) -> tuple[list[Findi
             )
         )
 
-    log_fn(f"         -> {len(results)} coupling/structural findings total")
+    log_fn(f"         -> {len(results)} coupling/structural issues total")
     potentials = {
         "single_use": adjust_potential(zone_map, single_candidates),
         "cycles": adjust_potential(zone_map, total_graph_files),

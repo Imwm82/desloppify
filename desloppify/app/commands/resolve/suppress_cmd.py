@@ -21,7 +21,7 @@ from .selection import show_attestation_requirement, validate_attestation
 
 
 def cmd_suppress_pattern(args: argparse.Namespace) -> None:
-    """Suppress findings matching a pattern."""
+    """Suppress issues matching a pattern."""
     attestation = getattr(args, "attest", None)
     if not validate_attestation(attestation):
         show_attestation_requirement("Suppress", attestation, ATTEST_EXAMPLE)
@@ -37,7 +37,7 @@ def cmd_suppress_pattern(args: argparse.Namespace) -> None:
     config["needs_rescan"] = True
     _save_config_or_exit(config)
 
-    removed = state_mod.remove_ignored_findings(state, args.pattern)
+    removed = state_mod.remove_ignored_issues(state, args.pattern)
     state.setdefault("attestation_log", []).append(
         {
             "timestamp": state.get("last_scan"),
@@ -51,7 +51,7 @@ def cmd_suppress_pattern(args: argparse.Namespace) -> None:
 
     print(colorize(f"Added suppress pattern: {args.pattern}", "green"))
     if removed:
-        print(f"  Removed {removed} matching findings from state.")
+        print(f"  Removed {removed} matching issues from state.")
     config_warning = check_config_staleness(config)
     if config_warning:
         print(colorize(f"  {config_warning}", "yellow"))

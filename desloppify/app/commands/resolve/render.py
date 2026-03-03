@@ -17,7 +17,7 @@ from desloppify.core.output_api import colorize
 
 def _print_resolve_summary(*, status: str, all_resolved: list[str]) -> None:
     verb = "Reopened" if status == "open" else "Resolved"
-    print(colorize(f"\n{verb} {len(all_resolved)} finding(s) as {status}:", "green"))
+    print(colorize(f"\n{verb} {len(all_resolved)} issue(s) as {status}:", "green"))
     for fid in all_resolved[:20]:
         print(f"  {fid}")
     if len(all_resolved) > 20:
@@ -33,18 +33,18 @@ def _print_wontfix_batch_warning(
     if status != "wontfix" or resolved_count <= 10:
         return
     wontfix_count = sum(
-        1 for finding in state["findings"].values() if finding["status"] == "wontfix"
+        1 for issue in state["issues"].values() if issue["status"] == "wontfix"
     )
     actionable = sum(
         1
-        for finding in state["findings"].values()
-        if finding["status"]
+        for issue in state["issues"].values()
+        if issue["status"]
         in ("open", "wontfix", "fixed", "auto_resolved", "false_positive")
     )
     wontfix_pct = round(wontfix_count / actionable * 100) if actionable else 0
     print(
         colorize(
-            f"\n  ⚠ Wontfix debt is now {wontfix_count} findings ({wontfix_pct}% of actionable).",
+            f"\n  ⚠ Wontfix debt is now {wontfix_count} issues ({wontfix_pct}% of actionable).",
             "yellow",
         )
     )
@@ -70,7 +70,7 @@ def _print_score_movement(
     prev_strict: float | None,
     prev_verified: float | None,
     state: dict,
-    has_review_findings: bool = False,
+    has_review_issues: bool = False,
     target_strict: float | None = None,
 ) -> None:
     new = score_snapshot_or_warn(state)
@@ -97,7 +97,7 @@ def _print_score_movement(
     print_strict_gap_note(status, overall=new.overall, strict=new.strict)
     print_post_resolve_guidance(
         status=status,
-        has_review_findings=has_review_findings,
+        has_review_issues=has_review_issues,
         overall_delta=overall_delta,
     )
 
@@ -110,7 +110,7 @@ def _print_subjective_reset_hint(
     prev_subjective_scores: dict[str, float],
 ) -> None:
     has_review = any(
-        state["findings"].get(fid, {}).get("detector") == "review"
+        state["issues"].get(fid, {}).get("detector") == "review"
         for fid in all_resolved
     )
     if not has_review or not state.get("subjective_assessments"):
@@ -120,10 +120,10 @@ def _print_subjective_reset_hint(
         dim
         for dim in {
             str(
-                state["findings"].get(fid, {}).get("detail", {}).get("dimension", "")
+                state["issues"].get(fid, {}).get("detail", {}).get("dimension", "")
             ).strip()
             for fid in all_resolved
-            if state["findings"].get(fid, {}).get("detector") == "review"
+            if state["issues"].get(fid, {}).get("detector") == "review"
         }
         if dim and dim in (state.get("subjective_assessments") or {})
     )
@@ -152,10 +152,10 @@ def _print_subjective_reset_hint(
 
 
 def _render_uncommitted_block(uncommitted: list[str], just_resolved: list[str]) -> None:
-    """Print the uncommitted findings section."""
+    """Print the uncommitted issues section."""
     count = len(uncommitted)
     just_set = set(just_resolved)
-    print(f"\n  Uncommitted work ({count} resolved finding{'s' if count != 1 else ''}):")
+    print(f"\n  Uncommitted work ({count} resolved issue{'s' if count != 1 else ''}):")
     for fid in uncommitted[:5]:
         marker = colorize("●", "green") if fid in just_set else "○"
         tag = "  (just now)" if fid in just_set else ""
@@ -168,15 +168,15 @@ def _render_committed_block(commit_log: list[dict]) -> None:
     """Print the already-committed section (last 3 commits)."""
     if not commit_log:
         return
-    committed_count = sum(len(r.get("finding_ids", [])) for r in commit_log)
+    committed_count = sum(len(r.get("issue_ids", [])) for r in commit_log)
     nc = len(commit_log)
-    print(f"\n  Already committed ({nc} commit{'s' if nc != 1 else ''}, {committed_count} finding{'s' if committed_count != 1 else ''}):")
+    print(f"\n  Already committed ({nc} commit{'s' if nc != 1 else ''}, {committed_count} issue{'s' if committed_count != 1 else ''}):")
     for record in commit_log[-3:]:
         sha = record.get("sha", "?")[:7]
         note = record.get("note", "")
-        fc = len(record.get("finding_ids", []))
+        fc = len(record.get("issue_ids", []))
         note_str = f' — "{note}"' if note else ""
-        print(f"    {sha}{note_str} ({fc} finding{'s' if fc != 1 else ''})")
+        print(f"    {sha}{note_str} ({fc} issue{'s' if fc != 1 else ''})")
 
 
 def render_commit_guidance(
@@ -222,7 +222,7 @@ def render_commit_guidance(
 
         template = config.get(
             "commit_message_template",
-            "desloppify: {status} {count} finding(s) — {summary}",
+            "desloppify: {status} {count} issue(s) — {summary}",
         )
         msg = suggest_commit_message(plan, template)
         if msg:
@@ -241,16 +241,16 @@ def render_commit_guidance(
 def _print_next_command(state: dict) -> str:
     remaining = sum(
         1
-        for finding in state["findings"].values()
-        if finding["status"] == "open"
-        and not finding.get("suppressed")
+        for issue in state["issues"].values()
+        if issue["status"] == "open"
+        and not issue.get("suppressed")
     )
     next_command = "desloppify scan"
     if remaining > 0:
         suffix = "s" if remaining != 1 else ""
         print(
             colorize(
-                f"\n  {remaining} finding{suffix} remaining — run `desloppify next`",
+                f"\n  {remaining} issue{suffix} remaining — run `desloppify next`",
                 "dim",
             )
         )

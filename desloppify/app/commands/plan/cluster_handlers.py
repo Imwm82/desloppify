@@ -31,9 +31,9 @@ def _print_pattern_hints() -> None:
     print(colorize("  Valid patterns:", "dim"))
     print(colorize("    f41b3eb7              (8-char hash suffix from dashboard)", "dim"))
     print(colorize("    review::path::name    (ID prefix)", "dim"))
-    print(colorize("    review                (all findings from detector)", "dim"))
-    print(colorize("    src/foo.py            (all findings in file)", "dim"))
-    print(colorize("    timing_attack         (finding name — last ::segment of ID)", "dim"))
+    print(colorize("    review                (all issues from detector)", "dim"))
+    print(colorize("    src/foo.py            (all issues in file)", "dim"))
+    print(colorize("    timing_attack         (issue name — last ::segment of ID)", "dim"))
     print(colorize("    review::*naming*      (glob pattern)", "dim"))
     print(colorize("    my-cluster            (cluster name — expands to members)", "dim"))
 
@@ -65,35 +65,35 @@ def _cmd_cluster_add(args: argparse.Namespace) -> None:
     patterns: list[str] = getattr(args, "patterns", [])
 
     plan = load_plan()
-    finding_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
-    if not finding_ids:
-        print(colorize("  No matching findings found.", "yellow"))
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
+    if not issue_ids:
+        print(colorize("  No matching issues found.", "yellow"))
         _print_pattern_hints()
         return
     try:
-        count = add_to_cluster(plan, cluster_name, finding_ids)
+        count = add_to_cluster(plan, cluster_name, issue_ids)
     except ValueError as ex:
         print(colorize(f"  {ex}", "red"))
         return
 
     # Check for overlap with other manual clusters
-    member_set = set(finding_ids)
+    member_set = set(issue_ids)
     for other_name, other_cluster in plan.get("clusters", {}).items():
         if other_name == cluster_name or other_cluster.get("auto"):
             continue
-        other_ids = set(other_cluster.get("finding_ids", []))
+        other_ids = set(other_cluster.get("issue_ids", []))
         if not other_ids:
             continue
         overlap = member_set & other_ids
         if len(overlap) > len(other_ids) * 0.5:
             print(colorize(
-                f"  Warning: {len(overlap)} finding(s) also in cluster '{other_name}' "
+                f"  Warning: {len(overlap)} issue(s) also in cluster '{other_name}' "
                 f"({len(overlap)}/{len(other_ids)} = {int(len(overlap)/len(other_ids)*100)}% overlap).",
                 "yellow",
             ))
 
     append_log_entry(
-        plan, "cluster_add", finding_ids=finding_ids, cluster_name=cluster_name, actor="user",
+        plan, "cluster_add", issue_ids=issue_ids, cluster_name=cluster_name, actor="user",
     )
     save_plan(plan)
     print(colorize(f"  Added {count} item(s) to cluster {cluster_name}.", "green"))
@@ -108,18 +108,18 @@ def _cmd_cluster_remove(args: argparse.Namespace) -> None:
     patterns: list[str] = getattr(args, "patterns", [])
 
     plan = load_plan()
-    finding_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
-    if not finding_ids:
-        print(colorize("  No matching findings found.", "yellow"))
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
+    if not issue_ids:
+        print(colorize("  No matching issues found.", "yellow"))
         _print_pattern_hints()
         return
     try:
-        count = remove_from_cluster(plan, cluster_name, finding_ids)
+        count = remove_from_cluster(plan, cluster_name, issue_ids)
     except ValueError as ex:
         print(colorize(f"  {ex}", "red"))
         return
     append_log_entry(
-        plan, "cluster_remove", finding_ids=finding_ids, cluster_name=cluster_name, actor="user",
+        plan, "cluster_remove", issue_ids=issue_ids, cluster_name=cluster_name, actor="user",
     )
     save_plan(plan)
     print(colorize(f"  Removed {count} item(s) from cluster {cluster_name}.", "green"))
@@ -134,7 +134,7 @@ def _cmd_cluster_delete(args: argparse.Namespace) -> None:
         print(colorize(f"  {ex}", "red"))
         return
     append_log_entry(
-        plan, "cluster_delete", finding_ids=orphaned, cluster_name=cluster_name, actor="user",
+        plan, "cluster_delete", issue_ids=orphaned, cluster_name=cluster_name, actor="user",
     )
     save_plan(plan)
     print(colorize(f"  Deleted cluster {cluster_name} ({len(orphaned)} items orphaned).", "green"))
@@ -171,7 +171,7 @@ def _cmd_cluster_reorder(args: argparse.Namespace) -> None:
     seen: set[str] = set()
     all_member_ids: list[str] = []
     for name in cluster_names:
-        for fid in clusters[name].get("finding_ids", []):
+        for fid in clusters[name].get("issue_ids", []):
             if fid not in seen:
                 seen.add(fid)
                 all_member_ids.append(fid)
@@ -190,25 +190,25 @@ def _cmd_cluster_reorder(args: argparse.Namespace) -> None:
     print(colorize(f"  Moved cluster(s) {label} ({count} items) to {position}.", "green"))
 
 
-def _print_cluster_member(idx: int, fid: str, finding: dict | None) -> None:
-    """Print a single cluster member line with optional finding details."""
+def _print_cluster_member(idx: int, fid: str, issue: dict | None) -> None:
+    """Print a single cluster member line with optional issue details."""
     print(f"    {idx}. {fid}")
-    if not finding:
+    if not issue:
         return
-    file = finding.get("file", "")
-    lines = finding.get("detail", {}).get("lines", [])
+    file = issue.get("file", "")
+    lines = issue.get("detail", {}).get("lines", [])
     line_str = f" at lines: {', '.join(str(ln) for ln in lines)}" if lines else ""
     if file:
         print(colorize(f"       File: {file}{line_str}", "dim"))
-    summary = finding.get("summary", "")
+    summary = issue.get("summary", "")
     if summary:
         print(colorize(f"       {summary}", "dim"))
 
 
-def _load_findings_best_effort(args: argparse.Namespace) -> dict:
-    """Load findings from state, returning empty dict on failure."""
+def _load_issues_best_effort(args: argparse.Namespace) -> dict:
+    """Load issues from state, returning empty dict on failure."""
     rt = command_runtime(args)
-    return rt.state.get("findings", {})
+    return rt.state.get("issues", {})
 
 
 def _cmd_cluster_show(args: argparse.Namespace) -> None:
@@ -233,14 +233,14 @@ def _cmd_cluster_show(args: argparse.Namespace) -> None:
         print(colorize(f"  Action: {action}", "dim"))
 
     # Members
-    finding_ids = cluster.get("finding_ids", [])
-    if not finding_ids:
+    issue_ids = cluster.get("issue_ids", [])
+    if not issue_ids:
         print(colorize("  Members: (none)", "dim"))
     else:
-        findings = _load_findings_best_effort(args)
-        print(colorize(f"  Members ({len(finding_ids)}):", "dim"))
-        for idx, fid in enumerate(finding_ids, 1):
-            _print_cluster_member(idx, fid, findings.get(fid))
+        issues = _load_issues_best_effort(args)
+        print(colorize(f"  Members ({len(issue_ids)}):", "dim"))
+        for idx, fid in enumerate(issue_ids, 1):
+            _print_cluster_member(idx, fid, issues.get(fid))
 
     # Commands
     print()
@@ -259,7 +259,7 @@ def _cmd_cluster_list(args: argparse.Namespace) -> None:
         return
     print(colorize("  Clusters:", "bold"))
     for name, cluster in clusters.items():
-        member_count = len(cluster.get("finding_ids", []))
+        member_count = len(cluster.get("issue_ids", []))
         desc = cluster.get("description") or ""
         marker = " (focused)" if name == active else ""
         desc_str = f" — {desc}" if desc else ""
@@ -321,14 +321,14 @@ def _cmd_cluster_merge(args: argparse.Namespace) -> None:
         return
 
     append_log_entry(
-        plan, "cluster_merge", finding_ids=source_ids,
+        plan, "cluster_merge", issue_ids=source_ids,
         cluster_name=target, actor="user",
         detail={"source": source, "added": added},
     )
     save_plan(plan)
     print(colorize(
         f"  Merged cluster {source!r} into {target!r}: "
-        f"{added} finding(s) added, {len(source_ids)} total moved. Source deleted.",
+        f"{added} issue(s) added, {len(source_ids)} total moved. Source deleted.",
         "green",
     ))
 

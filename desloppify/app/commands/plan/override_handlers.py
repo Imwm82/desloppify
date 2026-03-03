@@ -89,7 +89,7 @@ def _save_plan_state_transactional(
 
 
 def cmd_plan_describe(args: argparse.Namespace) -> None:
-    """Set augmented description on findings."""
+    """Set augmented description on issues."""
     state = command_runtime(args).state
     if not require_completed_scan(state):
         return
@@ -98,23 +98,23 @@ def cmd_plan_describe(args: argparse.Namespace) -> None:
     text: str = getattr(args, "text", "")
 
     plan = load_plan()
-    finding_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
-    if not finding_ids:
-        print(colorize("  No matching findings found.", "yellow"))
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
+    if not issue_ids:
+        print(colorize("  No matching issues found.", "yellow"))
         return
 
-    for fid in finding_ids:
+    for fid in issue_ids:
         describe_finding(plan, fid, text or None)
     append_log_entry(
-        plan, "describe", finding_ids=finding_ids, actor="user",
+        plan, "describe", issue_ids=issue_ids, actor="user",
         detail={"text": text or None},
     )
     save_plan(plan)
-    print(colorize(f"  Set description on {len(finding_ids)} finding(s).", "green"))
+    print(colorize(f"  Set description on {len(issue_ids)} issue(s).", "green"))
 
 
 def cmd_plan_note(args: argparse.Namespace) -> None:
-    """Set note on findings."""
+    """Set note on issues."""
     state = command_runtime(args).state
     if not require_completed_scan(state):
         return
@@ -123,19 +123,19 @@ def cmd_plan_note(args: argparse.Namespace) -> None:
     text: str | None = getattr(args, "text", None)
 
     plan = load_plan()
-    finding_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
-    if not finding_ids:
-        print(colorize("  No matching findings found.", "yellow"))
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
+    if not issue_ids:
+        print(colorize("  No matching issues found.", "yellow"))
         return
 
-    for fid in finding_ids:
+    for fid in issue_ids:
         annotate_finding(plan, fid, text)
     append_log_entry(
-        plan, "note", finding_ids=finding_ids, actor="user",
+        plan, "note", issue_ids=issue_ids, actor="user",
         note=text,
     )
     save_plan(plan)
-    print(colorize(f"  Set note on {len(finding_ids)} finding(s).", "green"))
+    print(colorize(f"  Set note on {len(issue_ids)} issue(s).", "green"))
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ def cmd_plan_note(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def cmd_plan_skip(args: argparse.Namespace) -> None:
-    """Skip findings — unified command for temporary/permanent/false-positive."""
+    """Skip issues — unified command for temporary/permanent/false-positive."""
     runtime = command_runtime(args)
     state = runtime.state
     if not require_completed_scan(state):
@@ -184,9 +184,9 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
     state_file = runtime.state_path
     plan_file = _plan_file_for_state(state_file)
     plan = load_plan(plan_file)
-    finding_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
-    if not finding_ids:
-        print(colorize("  No matching findings found.", "yellow"))
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
+    if not issue_ids:
+        print(colorize("  No matching issues found.", "yellow"))
         return
 
     # For permanent/false_positive: delegate to state layer for score impact
@@ -194,15 +194,15 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
     if kind in ("permanent", "false_positive"):
         state_data = state_mod.load_state(state_file)
         status = "wontfix" if kind == "permanent" else "false_positive"
-        for fid in finding_ids:
-            state_mod.resolve_findings(
+        for fid in issue_ids:
+            state_mod.resolve_issues(
                 state_data, fid, status, note or "", attestation=attestation
             )
 
     scan_count = state.get("scan_count", 0)
     count = skip_items(
         plan,
-        finding_ids,
+        issue_ids,
         kind=kind,
         reason=reason,
         note=note,
@@ -215,7 +215,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
     append_log_entry(
         plan,
         "skip",
-        finding_ids=finding_ids,
+        issue_ids=issue_ids,
         actor="user",
         note=note,
         detail={"kind": kind, "reason": reason},
@@ -237,7 +237,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
 
 
 def cmd_plan_unskip(args: argparse.Namespace) -> None:
-    """Unskip findings — bring back to queue."""
+    """Unskip issues — bring back to queue."""
     runtime = command_runtime(args)
     state = runtime.state
     if not require_completed_scan(state):
@@ -249,14 +249,14 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
     plan_file = _plan_file_for_state(state_file)
     plan = load_plan(plan_file)
     # For unskip we need to match against all statuses (skipped items may be wontfix/fp)
-    finding_ids = resolve_ids_from_patterns(state, patterns, plan=plan, status_filter="all")
-    if not finding_ids:
-        print(colorize("  No matching findings found.", "yellow"))
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan, status_filter="all")
+    if not issue_ids:
+        print(colorize("  No matching issues found.", "yellow"))
         return
 
-    count, need_reopen = unskip_items(plan, finding_ids)
+    count, need_reopen = unskip_items(plan, issue_ids)
     append_log_entry(
-        plan, "unskip", finding_ids=finding_ids, actor="user",
+        plan, "unskip", issue_ids=issue_ids, actor="user",
         detail={"need_reopen": need_reopen},
     )
 
@@ -265,14 +265,14 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
     if need_reopen:
         state_data = state_mod.load_state(state_file)
         for fid in need_reopen:
-            reopened.extend(state_mod.resolve_findings(state_data, fid, "open"))
+            reopened.extend(state_mod.resolve_issues(state_data, fid, "open"))
         _save_plan_state_transactional(
             plan=plan,
             plan_path=plan_file,
             state_data=state_data,
             state_path_value=state_file,
         )
-        print(colorize(f"  Reopened {len(reopened)} finding(s) in state.", "dim"))
+        print(colorize(f"  Reopened {len(reopened)} issue(s) in state.", "dim"))
     else:
         save_plan(plan, plan_file)
 
@@ -284,7 +284,7 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def cmd_plan_reopen(args: argparse.Namespace) -> None:
-    """Reopen resolved findings from plan context."""
+    """Reopen resolved issues from plan context."""
     patterns: list[str] = getattr(args, "patterns", [])
 
     raw_state_path = state_path(args)
@@ -295,11 +295,11 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
     reopened: list[str] = []
     for pattern in patterns:
         reopened.extend(
-            state_mod.resolve_findings(state_data, pattern, "open")
+            state_mod.resolve_issues(state_data, pattern, "open")
         )
 
     if not reopened:
-        print(colorize("  No resolved findings matching: " + " ".join(patterns), "yellow"))
+        print(colorize("  No resolved issues matching: " + " ".join(patterns), "yellow"))
         return
 
     # Remove from skipped if present, and ensure all reopened IDs are in queue
@@ -321,7 +321,7 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
             order.add(fid)
             count += 1
     append_log_entry(
-        plan, "reopen", finding_ids=reopened, actor="user",
+        plan, "reopen", issue_ids=reopened, actor="user",
     )
     _save_plan_state_transactional(
         plan=plan,
@@ -330,7 +330,7 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
         state_path_value=state_file,
     )
 
-    print(colorize(f"  Reopened {len(reopened)} finding(s).", "green"))
+    print(colorize(f"  Reopened {len(reopened)} issue(s).", "green"))
     if count:
         print(colorize(f"  Plan updated: items moved back to queue.", "dim"))
 
@@ -341,14 +341,14 @@ _CLUSTER_INDIVIDUAL_THRESHOLD = 10
 def _check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
     """Return True if blocked by cluster guard, False if OK to proceed."""
     clusters = plan.get("clusters", {})
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     for pattern in patterns:
         if pattern in clusters:
             cluster = clusters[pattern]
-            # Filter to alive findings only — stale IDs should not count
+            # Filter to alive issues only — stale IDs should not count
             ids = [
-                fid for fid in cluster.get("finding_ids", [])
-                if fid in findings and findings[fid].get("status") == "open"
+                fid for fid in cluster.get("issue_ids", [])
+                if fid in issues and issues[fid].get("status") == "open"
             ]
             if len(ids) == 0:
                 print(colorize(
@@ -356,7 +356,7 @@ def _check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
                     "yellow",
                 ))
                 print(colorize(
-                    f"  Use: desloppify plan cluster add {pattern} <finding-id>",
+                    f"  Use: desloppify plan cluster add {pattern} <issue-id>",
                     "dim",
                 ))
                 return True  # blocked
@@ -366,14 +366,14 @@ def _check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
     return False  # OK
 
 
-def _print_cluster_guard(cluster_name: str, finding_ids: list[str], state: dict) -> None:
-    findings = state.get("findings", {})
+def _print_cluster_guard(cluster_name: str, issue_ids: list[str], state: dict) -> None:
+    issues = state.get("issues", {})
     print(colorize(
-        f"\n  Cluster '{cluster_name}' has {len(finding_ids)} item(s) — mark them done individually first:\n",
+        f"\n  Cluster '{cluster_name}' has {len(issue_ids)} item(s) — mark them done individually first:\n",
         "yellow",
     ))
-    for fid in finding_ids:
-        f = findings.get(fid, {})
+    for fid in issue_ids:
+        f = issues.get(fid, {})
         summary = f.get("summary", "(no summary)")[:80]
         detector = f.get("detector", "?")
         print(f"    {fid}  [{detector}]  {summary}")
@@ -388,12 +388,12 @@ def _print_cluster_guard(cluster_name: str, finding_ids: list[str], state: dict)
 
 
 def _is_synthetic_id(fid: str) -> bool:
-    """Return True if the ID is a synthetic workflow/triage item, not a real finding."""
+    """Return True if the ID is a synthetic workflow/triage item, not a real issue."""
     return fid.startswith("triage::") or fid.startswith("workflow::") or fid.startswith("subjective::")
 
 
 def _resolve_synthetic_ids(patterns: list[str]) -> tuple[list[str], list[str]]:
-    """Separate synthetic IDs from real finding patterns.
+    """Separate synthetic IDs from real issue patterns.
 
     Returns (synthetic_ids, remaining_patterns).
     """
@@ -434,7 +434,7 @@ def _blocked_triage_stages(plan: dict) -> dict[str, list[str]]:
 
 
 def cmd_plan_resolve(args: argparse.Namespace) -> None:
-    """Mark findings as fixed — delegates to cmd_resolve for rich UX."""
+    """Mark issues as fixed — delegates to cmd_resolve for rich UX."""
     patterns: list[str] = getattr(args, "patterns", [])
     attestation: str | None = getattr(args, "attest", None)
     note: str | None = getattr(args, "note", None)
@@ -462,7 +462,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     return
         purge_ids(plan, synthetic_ids)
         append_log_entry(
-            plan, "done", finding_ids=synthetic_ids, actor="user", note=note,
+            plan, "done", issue_ids=synthetic_ids, actor="user", note=note,
         )
         save_plan(plan)
         for sid in synthetic_ids:
@@ -506,7 +506,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
         append_log_entry(
             plan,
             "done",
-            finding_ids=patterns,
+            issue_ids=patterns,
             cluster_name=cluster_name,
             actor="user",
             note=note,

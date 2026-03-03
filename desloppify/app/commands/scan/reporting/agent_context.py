@@ -176,7 +176,7 @@ def _print_stats_summary(
         else 0
     )
     print(
-        f"Total findings: {stats.get('total', 0)} | "
+        f"Total issues: {stats.get('total', 0)} | "
         f"Open: {stats.get('open', 0)} | "
         f"Fixed: {stats.get('fixed', 0)} | "
         f"Wontfix: {wontfix}"
@@ -376,8 +376,8 @@ def _print_living_plan_notice(plan_snapshot: dict[str, object]) -> None:
     print(f"LIVING PLAN ACTIVE: {ordered} ordered, {skipped} skipped.")
     if isinstance(active, str) and active:
         cluster = plan_snapshot.get("clusters", {}).get(active)
-        finding_ids = cluster.get("finding_ids", []) if isinstance(cluster, dict) else []
-        remaining = len(finding_ids) if isinstance(finding_ids, list) else 0
+        issue_ids = cluster.get("issue_ids", []) if isinstance(cluster, dict) else []
+        remaining = len(issue_ids) if isinstance(issue_ids, list) else 0
         print(f"Focused on: {active} ({remaining} items remaining).")
     print("The plan is the single source of truth for work order.")
     print("Use `desloppify next` which respects the plan.")

@@ -11,7 +11,7 @@ from typing import Protocol
 
 
 class _StateMod(Protocol):
-    def path_scoped_findings(self, findings: dict, scan_path: object) -> dict: ...
+    def path_scoped_issues(self, issues: dict, scan_path: object) -> dict: ...
 
 
 class _NarrativeMod(Protocol):
@@ -225,19 +225,19 @@ def show_detector_progress(
     colorize_fn: Callable[[str, str], str],
 ) -> None:
     """Show per-detector progress bars."""
-    findings = state_mod.path_scoped_findings(state["findings"], state.get("scan_path"))
-    if not findings:
+    issues = state_mod.path_scoped_issues(state["issues"], state.get("scan_path"))
+    if not issues:
         return
 
     by_detector: dict[str, dict] = {}
-    for finding in findings.values():
-        detector = finding.get("detector", "unknown")
+    for issue in issues.values():
+        detector = issue.get("detector", "unknown")
         if detector in narrative_mod.STRUCTURAL_MERGE:
             detector = "structural"
         if detector not in by_detector:
             by_detector[detector] = {"open": 0, "total": 0}
         by_detector[detector]["total"] += 1
-        if finding["status"] == "open":
+        if issue["status"] == "open":
             by_detector[detector]["open"] += 1
 
     detector_order = [
@@ -248,7 +248,7 @@ def show_detector_progress(
     order_map = {display: i for i, display in enumerate(detector_order)}
     sorted_dets = sorted(by_detector.items(), key=lambda item: order_map.get(item[0], 99))
 
-    print(colorize_fn("  Detector progress (open findings by detector):", "dim"))
+    print(colorize_fn("  Detector progress (open issues by detector):", "dim"))
     print(colorize_fn("  " + "─" * 50, "dim"))
     bar_len = 15
     for detector, data in sorted_dets:

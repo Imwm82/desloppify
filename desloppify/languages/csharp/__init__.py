@@ -135,7 +135,7 @@ class CSharpConfig(LangConfig):
                     int,
                     2,
                     "Minimum corroboration signals required for medium confidence "
-                    "in orphaned/single_use findings",
+                    "in orphaned/single_use issues",
                 ),
                 "high_fanout_threshold": LangValueSpec(
                     int,

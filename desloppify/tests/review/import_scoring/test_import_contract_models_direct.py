@@ -13,7 +13,7 @@ def test_assessment_provenance_model_round_trip():
         {
             "trusted": True,
             "reason": "trusted blind subagent provenance",
-            "import_file": "findings.json",
+            "import_file": "issues.json",
             "runner": "claude",
             "packet_path": "/tmp/review_packet_blind.json",
             "packet_sha256": "a" * 64,
@@ -36,7 +36,7 @@ def test_assessment_import_policy_model_round_trip():
             "provenance": {
                 "trusted": True,
                 "reason": "trusted blind subagent provenance",
-                "import_file": "findings.json",
+                "import_file": "issues.json",
             },
         }
     )

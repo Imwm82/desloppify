@@ -22,7 +22,7 @@ def _finding(
         "file": file,
         "tier": tier,
         "confidence": "high",
-        "summary": f"{detector} finding in {file}",
+        "summary": f"{detector} issue in {file}",
         "detail": detail or {},
         "status": status,
         "note": None,
@@ -38,11 +38,11 @@ class TestGatherMechanicalEvidence:
         assert gather_mechanical_evidence({}) == {}
 
     def test_empty_findings(self):
-        assert gather_mechanical_evidence({"findings": {}}) == {}
+        assert gather_mechanical_evidence({"issues": {}}) == {}
 
     def test_skips_resolved_findings(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="structural",
@@ -56,7 +56,7 @@ class TestGatherMechanicalEvidence:
 
     def test_allowed_files_scope_filters_evidence(self):
         state = {
-            "findings": {
+            "issues": {
                 "in_scope": _finding(
                     id="in_scope",
                     detector="structural",
@@ -82,7 +82,7 @@ class TestGatherMechanicalEvidence:
 
     def test_complexity_hotspots(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="structural",
@@ -111,7 +111,7 @@ class TestGatherMechanicalEvidence:
     def test_error_hotspots_threshold(self):
         """Files with <3 error smells should not appear."""
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="smells",
@@ -131,7 +131,7 @@ class TestGatherMechanicalEvidence:
 
     def test_error_hotspots_above_threshold(self):
         state = {
-            "findings": {
+            "issues": {
                 f"f{i}": _finding(
                     id=f"f{i}",
                     detector="smells",
@@ -151,7 +151,7 @@ class TestGatherMechanicalEvidence:
 
     def test_mutable_globals(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="global_mutable_config",
@@ -168,7 +168,7 @@ class TestGatherMechanicalEvidence:
 
     def test_boundary_violations(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="coupling",
@@ -184,7 +184,7 @@ class TestGatherMechanicalEvidence:
 
     def test_dead_code(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="orphaned",
@@ -207,7 +207,7 @@ class TestGatherMechanicalEvidence:
 
     def test_deferred_import_density(self):
         state = {
-            "findings": {
+            "issues": {
                 f"f{i}": _finding(
                     id=f"f{i}",
                     detector="smells",
@@ -225,7 +225,7 @@ class TestGatherMechanicalEvidence:
 
     def test_duplicate_clusters(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="dupes",
@@ -245,7 +245,7 @@ class TestGatherMechanicalEvidence:
 
     def test_signal_density(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="structural",
@@ -275,15 +275,15 @@ class TestGatherMechanicalEvidence:
 
     def test_systemic_patterns(self):
         """Smell appearing in 5+ files should be flagged."""
-        findings = {}
+        issues = {}
         for i in range(6):
-            findings[f"f{i}"] = _finding(
+            issues[f"f{i}"] = _finding(
                 id=f"f{i}",
                 detector="smells",
                 file=f"module{i}.py",
                 detail={"smell_id": "broad_except"},
             )
-        state = {"findings": findings}
+        state = {"issues": issues}
         evidence = gather_mechanical_evidence(state)
         sp = evidence["systemic_patterns"]
         assert len(sp) == 1
@@ -292,28 +292,28 @@ class TestGatherMechanicalEvidence:
 
     def test_systemic_patterns_below_threshold(self):
         """Smell in <5 files should not be systemic."""
-        findings = {}
+        issues = {}
         for i in range(4):
-            findings[f"f{i}"] = _finding(
+            issues[f"f{i}"] = _finding(
                 id=f"f{i}",
                 detector="smells",
                 file=f"module{i}.py",
                 detail={"smell_id": "broad_except"},
             )
-        state = {"findings": findings}
+        state = {"issues": issues}
         evidence = gather_mechanical_evidence(state)
         assert "systemic_patterns" not in evidence
 
     def test_security_hotspots(self):
-        findings = {}
+        issues = {}
         for i in range(4):
-            findings[f"f{i}"] = _finding(
+            issues[f"f{i}"] = _finding(
                 id=f"f{i}",
                 detector="security",
                 file="insecure.py",
                 detail={"severity": "high" if i < 2 else "medium"},
             )
-        state = {"findings": findings}
+        state = {"issues": issues}
         evidence = gather_mechanical_evidence(state)
         sh = evidence["security_hotspots"]
         assert len(sh) == 1
@@ -321,15 +321,15 @@ class TestGatherMechanicalEvidence:
         assert sh[0]["total"] == 4
 
     def test_large_file_distribution(self):
-        findings = {}
+        issues = {}
         for i, loc in enumerate([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]):
-            findings[f"f{i}"] = _finding(
+            issues[f"f{i}"] = _finding(
                 id=f"f{i}",
                 detector="structural",
                 file=f"file{i}.py",
                 detail={"signals": {"loc": loc}},
             )
-        state = {"findings": findings}
+        state = {"issues": issues}
         evidence = gather_mechanical_evidence(state)
         dist = evidence["large_file_distribution"]
         assert dist["count"] == 10
@@ -337,7 +337,7 @@ class TestGatherMechanicalEvidence:
 
     def test_naming_drift(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="naming",
@@ -360,7 +360,7 @@ class TestGatherMechanicalEvidence:
 
     def test_flat_dir_findings(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="flat_dirs",
@@ -377,7 +377,7 @@ class TestGatherMechanicalEvidence:
 
     def test_private_crossings(self):
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="private_imports",
@@ -396,11 +396,11 @@ class TestConcernsIntegration:
     """Verify the lowered concern thresholds work."""
 
     def test_one_judgment_plus_mechanical_triggers(self):
-        """1 judgment detector + 2 additional findings should now trigger."""
+        """1 judgment detector + 2 additional issues should now trigger."""
         from desloppify.engine.concerns import generate_concerns
 
         state = {
-            "findings": {
+            "issues": {
                 "f1": _finding(
                     id="f1",
                     detector="structural",  # judgment detector
@@ -428,15 +428,15 @@ class TestConcernsIntegration:
         """Smell in 5+ files should generate systemic concern."""
         from desloppify.engine.concerns import generate_concerns
 
-        findings = {}
+        issues = {}
         for i in range(6):
-            findings[f"smell_{i}"] = _finding(
+            issues[f"smell_{i}"] = _finding(
                 id=f"smell_{i}",
                 detector="smells",
                 file=f"mod{i}.py",
                 detail={"smell_id": "broad_except"},
             )
-        state = {"findings": findings, "concern_dismissals": {}}
+        state = {"issues": issues, "concern_dismissals": {}}
         concerns = generate_concerns(state)
         systemic = [c for c in concerns if c.type == "systemic_smell"]
         assert len(systemic) == 1
@@ -444,7 +444,7 @@ class TestConcernsIntegration:
 
 
 class TestMechanicalStaleness:
-    """Verify that mechanical finding changes mark subjective assessments stale."""
+    """Verify that mechanical issue changes mark subjective assessments stale."""
 
     def test_new_findings_mark_assessments_stale(self):
         from desloppify.engine._state.merge import merge_scan
@@ -455,11 +455,11 @@ class TestMechanicalStaleness:
             "design_coherence": {"score": 75.0},
             "initialization_coupling": {"score": 80.0},
         }
-        new_findings = [
+        new_issues = [
             _finding(id="s1", detector="structural", file="big.py",
                      detail={"signals": {"loc": 500}}),
         ]
-        merge_scan(state, new_findings)
+        merge_scan(state, new_issues)
 
         dc = state["subjective_assessments"]["design_coherence"]
         assert dc["needs_review_refresh"] is True
@@ -475,10 +475,10 @@ class TestMechanicalStaleness:
             "initialization_coupling": {"score": 80.0},
         }
         # 'unused' has no subjective dimension mapping
-        new_findings = [
+        new_issues = [
             _finding(id="u1", detector="unused", file="a.py"),
         ]
-        merge_scan(state, new_findings)
+        merge_scan(state, new_issues)
 
         ic = state["subjective_assessments"]["initialization_coupling"]
         assert "needs_review_refresh" not in ic
@@ -510,11 +510,11 @@ class TestMechanicalStaleness:
                 "stale_since": "2025-01-01T00:00:00+00:00",
             },
         }
-        new_findings = [
+        new_issues = [
             _finding(id="s1", detector="structural", file="big.py",
                      detail={"signals": {"loc": 500}}),
         ]
-        merge_scan(state, new_findings)
+        merge_scan(state, new_issues)
 
         dc = state["subjective_assessments"]["design_coherence"]
         # Should keep original reason, not overwrite
@@ -528,18 +528,18 @@ class TestMechanicalStaleness:
         state["subjective_assessments"] = {
             "initialization_coupling": {"score": 80.0},
         }
-        new_findings = [
+        new_issues = [
             _finding(id="g1", detector="global_mutable_config", file="registry.py",
                      detail={"name": "_registry"}),
         ]
-        merge_scan(state, new_findings)
+        merge_scan(state, new_issues)
 
         ic = state["subjective_assessments"]["initialization_coupling"]
         assert ic["needs_review_refresh"] is True
         assert ic["refresh_reason"] == "mechanical_findings_changed"
 
     def test_unchanged_detector_doesnt_stale_unrelated_dimension(self):
-        """Pre-populate structural finding, rescan with same structural + new unused
+        """Pre-populate structural issue, rescan with same structural + new unused
         → design_coherence must NOT be marked stale (structural didn't change)."""
         from desloppify.engine._state.merge import merge_scan
         from desloppify.engine._state.schema import empty_state
@@ -548,7 +548,7 @@ class TestMechanicalStaleness:
         state["subjective_assessments"] = {
             "design_coherence": {"score": 75.0},
         }
-        # First scan: populate a structural finding
+        # First scan: populate a structural issue
         structural = _finding(
             id="structural::big.py::large_file",
             detector="structural",
@@ -559,18 +559,18 @@ class TestMechanicalStaleness:
         # Clear the stale flag set by the first scan
         state["subjective_assessments"]["design_coherence"] = {"score": 75.0}
 
-        # Second scan: same structural finding + new unused finding
+        # Second scan: same structural issue + new unused issue
         unused = _finding(id="unused::a.py::x", detector="unused", file="a.py")
         merge_scan(state, [structural, unused])
 
         dc = state["subjective_assessments"]["design_coherence"]
-        # structural was unchanged (same finding re-emitted) so design_coherence
+        # structural was unchanged (same issue re-emitted) so design_coherence
         # should NOT be marked stale; only unused changed, and unused has no
         # subjective dimension mapping.
         assert "needs_review_refresh" not in dc or not dc.get("needs_review_refresh")
 
     def test_auto_resolved_detector_marks_its_dimensions_stale(self):
-        """Structural finding disappears → design_coherence IS marked stale."""
+        """Structural issue disappears → design_coherence IS marked stale."""
         from desloppify.engine._state.merge import MergeScanOptions, merge_scan
         from desloppify.engine._state.schema import empty_state
 
@@ -578,7 +578,7 @@ class TestMechanicalStaleness:
         state["subjective_assessments"] = {
             "design_coherence": {"score": 75.0},
         }
-        # First scan: structural finding exists
+        # First scan: structural issue exists
         structural = _finding(
             id="structural::big.py::large_file",
             detector="structural",
@@ -589,7 +589,7 @@ class TestMechanicalStaleness:
         # Clear stale flag
         state["subjective_assessments"]["design_coherence"] = {"score": 75.0}
 
-        # Second scan: structural finding disappears
+        # Second scan: structural issue disappears
         merge_scan(state, [], MergeScanOptions(force_resolve=True))
 
         dc = state["subjective_assessments"]["design_coherence"]
@@ -597,9 +597,9 @@ class TestMechanicalStaleness:
 
 
 class TestStaleReminderGating:
-    """Verify that stale assessment reminders are suppressed while queue has open findings."""
+    """Verify that stale assessment reminders are suppressed while queue has open issues."""
 
-    def test_stale_reminder_suppressed_when_queue_has_open_findings(self):
+    def test_stale_reminder_suppressed_when_queue_has_open_issues(self):
         from desloppify.intelligence.narrative.reminders import _stale_assessment_reminder
 
         state = {
@@ -611,7 +611,7 @@ class TestStaleReminderGating:
                     "stale_since": "2025-01-01T00:00:00+00:00",
                 },
             },
-            "findings": {
+            "issues": {
                 "f1": {"status": "open", "suppressed": False},
             },
         }
@@ -629,7 +629,7 @@ class TestStaleReminderGating:
                     "stale_since": "2025-01-01T00:00:00+00:00",
                 },
             },
-            "findings": {
+            "issues": {
                 "f1": {"status": "auto_resolved", "suppressed": False},
             },
         }

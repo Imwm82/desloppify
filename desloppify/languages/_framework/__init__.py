@@ -4,7 +4,7 @@ This package contains framework code used by all language plugins:
 - config/runtime contracts
 - plugin discovery/registration state
 - shared detect-command factories
-- shared finding factories and facade helpers
+- shared issue factories and facade helpers
 """
 
 from __future__ import annotations

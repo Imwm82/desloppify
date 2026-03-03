@@ -14,7 +14,7 @@ Bandit severity → desloppify tier/confidence mapping:
   LOW    → tier=3, confidence="low"
 
 The ``check_id`` in the entry detail is the bandit test ID (e.g., "B602") so
-findings are stable across reruns and can be wontfix-tracked by ID.
+issues are stable across reruns and can be wontfix-tracked by ID.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ _SEVERITY_TO_TIER = {"HIGH": 4, "MEDIUM": 3, "LOW": 3}
 _SEVERITY_TO_CONFIDENCE = {"HIGH": "high", "MEDIUM": "medium", "LOW": "low"}
 
 # Bandit test IDs that overlap with the cross-language security detector
-# (secret names, hardcoded passwords). Skip these to avoid duplicate findings.
+# (secret names, hardcoded passwords). Skip these to avoid duplicate issues.
 _CROSS_LANG_OVERLAP = frozenset(
     {
         "B105",  # hardcoded_password_string
@@ -123,7 +123,7 @@ class BanditRunStatus:
 
 @dataclass(frozen=True)
 class BanditScanResult:
-    """Bandit findings plus typed execution status."""
+    """Bandit issues plus typed execution status."""
 
     entries: list[dict]
     files_scanned: int
@@ -188,7 +188,7 @@ def detect_with_bandit(
     timeout: int = 120,
     exclude_dirs: list[str] | None = None,
 ) -> BanditScanResult:
-    """Run bandit on *path* and return findings + typed execution status.
+    """Run bandit on *path* and return issues + typed execution status.
 
     Parameters
     ----------
@@ -273,7 +273,7 @@ def detect_with_bandit(
         if entry is not None:
             entries.append(entry)
 
-    logger.debug("bandit: %d findings from %d files", len(entries), files_scanned)
+    logger.debug("bandit: %d issues from %d files", len(entries), files_scanned)
     return BanditScanResult(
         entries=entries,
         files_scanned=files_scanned,

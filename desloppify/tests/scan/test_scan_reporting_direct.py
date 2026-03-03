@@ -144,7 +144,7 @@ def test_show_score_delta_prints_scores_without_open_breakdown(monkeypatch, caps
         state={
             "scan_path": "src",
             "stats": {"open": 1, "total": 1, "wontfix": 0},
-            "findings": {
+            "issues": {
                 "a": {"status": "open", "file": "src/a.py"},
                 "b": {"status": "open", "file": "scripts/b.py"},
             },
@@ -229,13 +229,13 @@ def test_show_post_scan_analysis_surfaces_warnings_and_headline(monkeypatch, cap
         lambda *_args, **_kwargs: {
             "headline": "Tighten structural debt first",
             "strategy": {
-                "hint": "Parallelize auto-fixers and resolve highest tier findings first",
+                "hint": "Parallelize auto-fixers and resolve highest tier issues first",
                 "can_parallelize": True,
             },
             "actions": [
                 {
                     "command": "desloppify next",
-                    "description": "Fix highest priority finding",
+                    "description": "Fix highest priority issue",
                 }
             ],
         },
@@ -248,7 +248,7 @@ def test_show_post_scan_analysis_surfaces_warnings_and_headline(monkeypatch, cap
             "reopened": 6,
             "chronic_reopeners": ["x", "y"],
         },
-        state={"findings": {}, "scan_path": ".", "review_cache": {"files": {}}},
+        state={"issues": {}, "scan_path": ".", "review_cache": {"files": {}}},
         lang=SimpleNamespace(name="python"),
     )
     out = capsys.readouterr().out
@@ -276,7 +276,7 @@ def test_show_post_scan_analysis_no_committee_sections(
 
     scan_reporting_analysis_mod.show_post_scan_analysis(
         diff={"new": 0, "auto_resolved": 0, "reopened": 0, "chronic_reopeners": []},
-        state={"findings": {}, "scan_path": ".", "review_cache": {"files": {}}},
+        state={"issues": {}, "scan_path": ".", "review_cache": {"files": {}}},
         lang=SimpleNamespace(name="python"),
     )
     out = capsys.readouterr().out
@@ -302,14 +302,14 @@ def test_show_post_scan_analysis_warns_when_scan_coverage_reduced(monkeypatch, c
     )
     monkeypatch.setattr(
         state_mod,
-        "path_scoped_findings",
+        "path_scoped_issues",
         lambda *_args, **_kwargs: {},
     )
 
     warnings, _ = scan_reporting_analysis_mod.show_post_scan_analysis(
         diff={"new": 0, "auto_resolved": 0, "reopened": 0, "chronic_reopeners": []},
         state={
-            "findings": {},
+            "issues": {},
             "scan_path": ".",
             "scan_coverage": {
                 "python": {
@@ -361,7 +361,7 @@ def test_show_score_integrity_surfaces_wontfix_and_ignored(monkeypatch, capsys):
     assert "Score Integrity" in out
     assert "wontfix" in out
     assert "Biggest gaps:" in out
-    assert "suppressed 120 findings" in out
+    assert "suppressed 120 issues" in out
     assert "still count against strict and verified scores" in out
 
 
@@ -446,10 +446,10 @@ def test_print_llm_summary_respects_env_and_includes_dimension_table(
         state=state,
         badge_path=badge_path,
         narrative={
-            "headline": "Keep reducing high-tier findings",
+            "headline": "Keep reducing high-tier issues",
             "strategy": {"hint": "Use fixers before manual cleanup"},
             "actions": [
-                {"command": "desloppify next", "description": "Resolve top finding"}
+                {"command": "desloppify next", "description": "Resolve top issue"}
             ],
         },
         diff={"ignored": 4, "ignore_patterns": 2},
@@ -460,7 +460,7 @@ def test_print_llm_summary_respects_env_and_includes_dimension_table(
     assert "| Dimension | Health | Strict | Issues | Tier | Action |" in out
     assert "| **Subjective Dimensions** |" in out
     assert "Ignored: 4 (by 2 patterns)" in out
-    assert "Top action: `desloppify next` — Resolve top finding" in out
+    assert "Top action: `desloppify next` — Resolve top issue" in out
     assert "A scorecard image was saved to" in out
     assert "Score guide:" in out
     assert "your north star" in out
@@ -539,7 +539,7 @@ def test_show_scorecard_dimensions_and_dimension_hints(monkeypatch, capsys):
 
     monkeypatch.setattr(
         state_mod,
-        "path_scoped_findings",
+        "path_scoped_issues",
         lambda *_args, **_kwargs: {
             "sr1": {
                 "detector": "subjective_review",
@@ -581,7 +581,7 @@ def test_show_scorecard_dimensions_and_dimension_hints(monkeypatch, capsys):
     )
     scan_reporting_dimensions_mod.show_subjective_paths_section(
         {
-            "findings": {
+            "issues": {
                 "sr1": {
                     "detector": "subjective_review",
                     "status": "open",
@@ -618,7 +618,7 @@ def test_show_scorecard_dimensions_and_dimension_hints(monkeypatch, capsys):
     assert "show subjective" in subjective_out
 
     scan_reporting_dimensions_mod.show_subjective_paths_section(
-        {"findings": {}, "scan_path": ".", "strict_score": 96.0},
+        {"issues": {}, "scan_path": ".", "strict_score": 96.0},
         {
             "High Level Elegance": {
                 "score": 96.0,
@@ -760,7 +760,7 @@ def test_show_subjective_paths_prioritizes_integrity_gap(monkeypatch, capsys):
 
     monkeypatch.setattr(
         state_mod,
-        "path_scoped_findings",
+        "path_scoped_issues",
         lambda *_args, **_kwargs: {
             "subjective_review::.::holistic_unreviewed": {
                 "id": "subjective_review::.::holistic_unreviewed",
@@ -772,7 +772,7 @@ def test_show_subjective_paths_prioritizes_integrity_gap(monkeypatch, capsys):
         },
     )
     scan_reporting_dimensions_mod.show_subjective_paths_section(
-        {"findings": {}, "scan_path": ".", "strict_score": 80.0},
+        {"issues": {}, "scan_path": ".", "strict_score": 80.0},
         {
             "High elegance": {
                 "score": 0.0,
@@ -809,7 +809,7 @@ def test_show_subjective_paths_prints_out_of_scope_subjective_breakdown(monkeypa
         {
             "scan_path": "src",
             "strict_score": 98.0,
-            "findings": {
+            "issues": {
                 "a": {
                     "detector": "subjective_review",
                     "status": "open",
@@ -842,10 +842,10 @@ def test_show_subjective_paths_prints_out_of_scope_subjective_breakdown(monkeypa
 def test_show_subjective_paths_shows_target_match_reset_warning(monkeypatch, capsys):
     import desloppify.state as state_mod
 
-    monkeypatch.setattr(state_mod, "path_scoped_findings", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(state_mod, "path_scoped_issues", lambda *_args, **_kwargs: {})
     scan_reporting_dimensions_mod.show_subjective_paths_section(
         {
-            "findings": {},
+            "issues": {},
             "scan_path": ".",
             "strict_score": 94.0,
             "subjective_integrity": {
@@ -898,7 +898,7 @@ def test_show_subjective_paths_does_not_swallow_stale_only_entries(monkeypatch, 
         ],
     )
     scan_reporting_dimensions_mod.show_subjective_paths_section(
-        {"findings": {}, "scan_path": "."},
+        {"issues": {}, "scan_path": "."},
         {
             "High Level Elegance": {
                 "score": 97.0,

@@ -1,14 +1,14 @@
-"""Subjective code review: context building, file selection, and finding import.
+"""Subjective code review: context building, file selection, and issue import.
 
 Desloppify prepares structured review data (context + file batches + prompts)
-for an AI agent to evaluate. The agent returns structured findings that are
+for an AI agent to evaluate. The agent returns structured issues that are
 imported back into state like any other detector.
 
 No LLM calls happen here — this module is pure Python.
 """
 
 from desloppify.intelligence.integrity import (
-    is_holistic_subjective_finding,
+    is_holistic_subjective_issue,
     is_subjective_review_open,
     subjective_review_open_breakdown,
     unassessed_subjective_dimensions,
@@ -28,10 +28,10 @@ from desloppify.intelligence.review.dimensions.lang import (
 )
 from desloppify.intelligence.review.dimensions.selection import resolve_dimensions
 from desloppify.intelligence.review.importing.holistic import (
-    import_holistic_findings,
+    import_holistic_issues,
 )
 from desloppify.intelligence.review.importing.per_file import (
-    import_review_findings,
+    import_review_issues,
 )
 from desloppify.intelligence.review.policy import (
     DimensionPolicy,
@@ -91,13 +91,13 @@ __all__ = [
     "prepare_holistic_review",
     "build_investigation_batches",
     # import
-    "import_review_findings",
-    "import_holistic_findings",
+    "import_review_issues",
+    "import_holistic_issues",
     # remediation
     "generate_remediation_plan",
     # integrity
     "is_subjective_review_open",
-    "is_holistic_subjective_finding",
+    "is_holistic_subjective_issue",
     "subjective_review_open_breakdown",
     "unassessed_subjective_dimensions",
 ]

@@ -31,9 +31,9 @@ def _is_numeric(value: object) -> bool:
 class DetectorPhase:
     """A single phase in the scan pipeline.
 
-    Each phase runs one or more detectors and returns normalized findings.
+    Each phase runs one or more detectors and returns normalized issues.
     The `run` function handles both detection AND normalization (converting
-    raw detector output to findings with tiers/confidence).
+    raw detector output to issues with tiers/confidence).
     """
 
     label: str
@@ -105,7 +105,7 @@ class FixerConfig:
     label: str
     detect: Callable[[Path], list[dict]]
     fix: Callable[..., FixResult | list[dict]]
-    detector: str  # finding detector name (for state resolution)
+    detector: str  # issue detector name (for state resolution)
     verb: str = "Fixed"
     dry_verb: str = "Would fix"
     # Signature: (path, state, prev_score, dry_run, *, lang=None) -> None

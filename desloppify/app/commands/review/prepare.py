@@ -126,7 +126,7 @@ def _print_prepare_summary(
     )
     print(
         colorize(
-            "  2. Cloud/manual fallback: run external reviewers, merge to findings.json, then import",
+            "  2. Cloud/manual fallback: run external reviewers, merge to issues.json, then import",
             "dim",
         )
     )
@@ -138,7 +138,7 @@ def _print_prepare_summary(
     )
     print(
         colorize(
-            "  4. Findings-only fallback: `desloppify review --import findings.json`",
+            "  4. Issues-only fallback: `desloppify review --import issues.json`",
             "dim",
         )
     )

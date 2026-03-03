@@ -34,10 +34,10 @@ def build_scan_query_payload(
 ) -> ScanQueryPayload:
     """Build the canonical query payload persisted after a scan."""
     scores = score_snapshot(state)
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     open_scope = (
-        open_scope_breakdown(findings, state.get("scan_path"))
-        if isinstance(findings, dict)
+        open_scope_breakdown(issues, state.get("scan_path"))
+        if isinstance(issues, dict)
         else None
     )
     payload = {

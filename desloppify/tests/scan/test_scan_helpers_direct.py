@@ -68,7 +68,7 @@ def test_audit_excluded_dirs_reads_each_file_once(monkeypatch, tmp_path):
 
     monkeypatch.setattr(scan_helpers_mod, "read_file_text", _fake_read)
 
-    findings = scan_helpers_mod._audit_excluded_dirs(
+    issues = scan_helpers_mod._audit_excluded_dirs(
         ("used", "unused"),
         ["a.py", "b.py"],
         Path(tmp_path),
@@ -76,9 +76,9 @@ def test_audit_excluded_dirs_reads_each_file_once(monkeypatch, tmp_path):
 
     assert len(call_log) == 2
     assert all(str(Path(tmp_path)) in p for p in call_log)
-    assert len(findings) == 1
-    assert findings[0]["detector"] == "stale_exclude"
-    assert findings[0]["file"] == "unused"
+    assert len(issues) == 1
+    assert issues[0]["detector"] == "stale_exclude"
+    assert issues[0]["file"] == "unused"
 
 
 def test_audit_excluded_dirs_breaks_when_all_matched(monkeypatch, tmp_path):
@@ -93,11 +93,11 @@ def test_audit_excluded_dirs_breaks_when_all_matched(monkeypatch, tmp_path):
 
     monkeypatch.setattr(scan_helpers_mod, "read_file_text", _fake_read)
 
-    findings = scan_helpers_mod._audit_excluded_dirs(
+    issues = scan_helpers_mod._audit_excluded_dirs(
         ("alpha", "beta"),
         ["a.py", "b.py", "c.py"],
         Path(tmp_path),
     )
 
     assert calls["count"] == 1
-    assert findings == []
+    assert issues == []

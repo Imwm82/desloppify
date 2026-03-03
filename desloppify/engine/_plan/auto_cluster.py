@@ -1,4 +1,4 @@
-"""Auto-clustering algorithm — groups findings into task clusters."""
+"""Auto-clustering algorithm — groups issues into task clusters."""
 
 from __future__ import annotations
 
@@ -35,19 +35,19 @@ _MIN_UNSCORED_CLUSTER_SIZE = 1
 # Grouping key computation
 # ---------------------------------------------------------------------------
 
-def _extract_subtype(finding: dict) -> str | None:
-    """Extract the subtype/kind from a finding.
+def _extract_subtype(issue: dict) -> str | None:
+    """Extract the subtype/kind from a issue.
 
-    Checks detail.kind first, then falls back to parsing the finding ID
+    Checks detail.kind first, then falls back to parsing the issue ID
     (format: ``detector::file::subtype`` or ``detector::file::symbol::subtype``).
     """
-    detail = finding.get("detail") or {}
+    detail = issue.get("detail") or {}
     kind = detail.get("kind")
     if kind:
         return kind
 
-    # Parse from finding ID — third segment is often the subtype
-    fid = finding.get("id", "")
+    # Parse from issue ID — third segment is often the subtype
+    fid = issue.get("id", "")
     parts = fid.split("::")
     if len(parts) >= 3:
         # For IDs like smells::file.py::silent_except, the subtype is parts[2]
@@ -59,20 +59,20 @@ def _extract_subtype(finding: dict) -> str | None:
     return None
 
 
-def _grouping_key(finding: dict, meta: DetectorMeta | None) -> str | None:
-    """Compute a deterministic grouping key for a finding.
+def _grouping_key(issue: dict, meta: DetectorMeta | None) -> str | None:
+    """Compute a deterministic grouping key for a issue.
 
-    Returns None if the finding should not be auto-clustered.
+    Returns None if the issue should not be auto-clustered.
     """
-    detector = finding.get("detector", "")
+    detector = issue.get("detector", "")
 
     if meta is None:
         # Unknown detector — group by detector name
         return f"detector::{detector}"
 
-    # Review findings → group by dimension
+    # Review issues → group by dimension
     if detector in ("review", "subjective_review"):
-        detail = finding.get("detail") or {}
+        detail = issue.get("detail") or {}
         dimension = detail.get("dimension", "")
         if dimension:
             return f"review::{dimension}"
@@ -82,18 +82,18 @@ def _grouping_key(finding: dict, meta: DetectorMeta | None) -> str | None:
     if meta.needs_judgment and detector in (
         "structural", "responsibility_cohesion",
     ):
-        file = finding.get("file", "")
+        file = issue.get("file", "")
         if file:
             basename = os.path.basename(file)
             return f"file::{detector}::{basename}"
 
     # Needs-judgment detectors — group by subtype when available
     if meta.needs_judgment:
-        subtype = _extract_subtype(finding)
+        subtype = _extract_subtype(issue)
         if subtype:
             return f"typed::{detector}::{subtype}"
 
-    # Pure auto-fix (no judgment needed) → all findings by detector
+    # Pure auto-fix (no judgment needed) → all issues by detector
     if meta.action_type == "auto_fix" and not meta.needs_judgment:
         return f"auto::{detector}"
 
@@ -137,7 +137,7 @@ def _generate_description(
     if detector in ("review", "subjective_review"):
         detail = (members[0].get("detail") or {}) if members else {}
         dimension = detail.get("dimension", detector)
-        return f"Address {count} {dimension} review findings"
+        return f"Address {count} {dimension} review issues"
 
     if detector == "structural":
         files = {os.path.basename(m.get("file", "")) for m in members}
@@ -151,7 +151,7 @@ def _generate_description(
         return f"Fix {count} {label} issues"
 
     if meta and meta.action_type == "auto_fix" and not meta.needs_judgment:
-        return f"Remove {count} {display} findings"
+        return f"Remove {count} {display} issues"
 
     return f"Fix {count} {display} issues"
 
@@ -185,8 +185,8 @@ def _strip_guidance_examples(guidance: str) -> str:
 
 _ACTION_TYPE_TEMPLATES: dict[str, str] = {
     "reorganize": "reorganize with desloppify move",
-    "refactor": "review and refactor each finding",
-    "manual_fix": "review and fix each finding",
+    "refactor": "review and refactor each issue",
+    "manual_fix": "review and fix each issue",
 }
 
 
@@ -199,7 +199,7 @@ def _generate_action(
     Always returns a non-empty string — every cluster gets an action.
     """
     if meta is None:
-        return "review and fix each finding"
+        return "review and fix each issue"
 
     # For detectors with subtypes, only suggest a fixer if the subtype matches
     if subtype and meta.fixers:
@@ -221,7 +221,7 @@ def _generate_action(
 
     # Final fallback: action_type template
     return _ACTION_TYPE_TEMPLATES.get(
-        meta.action_type, "review and fix each finding"
+        meta.action_type, "review and fix each issue"
     )
 
 
@@ -272,10 +272,10 @@ def _sync_auto_cluster(
     existing_name = existing_by_key.get(cluster_key)
     if existing_name and existing_name in clusters:
         cluster = clusters[existing_name]
-        old_ids = set(cluster.get("finding_ids", []))
+        old_ids = set(cluster.get("issue_ids", []))
         new_ids_set = set(member_ids)
         if old_ids != new_ids_set or cluster.get("description") != description or cluster.get("action") != action:
-            cluster["finding_ids"] = list(member_ids)
+            cluster["issue_ids"] = list(member_ids)
             cluster["description"] = description
             cluster["action"] = action
             cluster["updated_at"] = now
@@ -284,7 +284,7 @@ def _sync_auto_cluster(
         new_cluster: Cluster = {
             "name": cluster_name,
             "description": description,
-            "finding_ids": list(member_ids),
+            "issue_ids": list(member_ids),
             "created_at": now,
             "updated_at": now,
             "auto": True,
@@ -303,7 +303,7 @@ def _sync_auto_cluster(
     current_name = existing_by_key.get(cluster_key, cluster_name)
     for fid in member_ids:
         if fid not in overrides:
-            overrides[fid] = {"finding_id": fid, "created_at": now}
+            overrides[fid] = {"issue_id": fid, "created_at": now}
         overrides[fid]["cluster"] = current_name
         overrides[fid]["updated_at"] = now
 
@@ -314,42 +314,42 @@ def _sync_auto_cluster(
 # Main algorithm
 # ---------------------------------------------------------------------------
 
-def _sync_finding_clusters(
+def _sync_issue_clusters(
     plan: PlanModel,
-    findings: dict,
+    issues: dict,
     clusters: dict,
     existing_by_key: dict[str, str],
     active_auto_keys: set[str],
     now: str,
 ) -> int:
-    """Group open findings by detector/subtype and sync auto-clusters."""
+    """Group open issues by detector/subtype and sync auto-clusters."""
     changes = 0
 
-    # Set of finding IDs in manual (non-auto) clusters
+    # Set of issue IDs in manual (non-auto) clusters
     manual_member_ids: set[str] = set()
     for cluster in clusters.values():
         if not cluster.get("auto"):
-            manual_member_ids.update(cluster.get("finding_ids", []))
+            manual_member_ids.update(cluster.get("issue_ids", []))
 
-    # Collect open, non-suppressed findings and group by key
+    # Collect open, non-suppressed issues and group by key
     groups: dict[str, list[str]] = defaultdict(list)
     finding_data: dict[str, dict] = {}
-    for fid, finding in findings.items():
-        if finding.get("status") != "open":
+    for fid, issue in issues.items():
+        if issue.get("status") != "open":
             continue
-        if finding.get("suppressed"):
+        if issue.get("suppressed"):
             continue
         if fid in manual_member_ids:
             continue
 
-        detector = finding.get("detector", "")
+        detector = issue.get("detector", "")
         meta = DETECTORS.get(detector)
-        key = _grouping_key(finding, meta)
+        key = _grouping_key(issue, meta)
         if key is None:
             continue
 
         groups[key].append(fid)
-        finding_data[fid] = finding
+        finding_data[fid] = issue
 
     # Drop singleton groups
     groups = {k: v for k, v in groups.items() if len(v) >= _MIN_CLUSTER_SIZE}
@@ -358,7 +358,7 @@ def _sync_finding_clusters(
         active_auto_keys.add(key)
         cluster_name = _cluster_name_from_key(key)
 
-        # Representative finding for metadata
+        # Representative issue for metadata
         rep = finding_data.get(member_ids[0], {})
         detector = rep.get("detector", "")
         meta = DETECTORS.get(detector)
@@ -376,17 +376,17 @@ def _sync_finding_clusters(
         if existing_name and existing_name in clusters:
             cluster = clusters[existing_name]
             if cluster.get("user_modified"):
-                existing_ids = set(cluster.get("finding_ids", []))
+                existing_ids = set(cluster.get("issue_ids", []))
                 new_ids = [fid for fid in member_ids if fid not in existing_ids]
                 if new_ids:
-                    cluster["finding_ids"].extend(new_ids)
+                    cluster["issue_ids"].extend(new_ids)
                     cluster["updated_at"] = now
                     changes += 1
                 # Still sync overrides for all members
                 overrides = plan.get("overrides", {})
                 for fid in member_ids:
                     if fid not in overrides:
-                        overrides[fid] = {"finding_id": fid, "created_at": now}
+                        overrides[fid] = {"issue_id": fid, "created_at": now}
                     overrides[fid]["cluster"] = existing_name
                     overrides[fid]["updated_at"] = now
                 continue
@@ -411,7 +411,7 @@ def _sync_finding_clusters(
 def _sync_subjective_clusters(
     plan: PlanModel,
     state: StateModel,
-    findings: dict,
+    issues: dict,
     clusters: dict,
     existing_by_key: dict[str, str],
     active_auto_keys: set[str],
@@ -489,7 +489,7 @@ def _sync_subjective_clusters(
     # Prune: remove IDs that were previously in the under-target cluster
     # but are no longer under target (they've improved above threshold).
     prev_ut_cluster = clusters.get(_UNDER_TARGET_NAME, {})
-    prev_ut_ids = set(prev_ut_cluster.get("finding_ids", []))
+    prev_ut_ids = set(prev_ut_cluster.get("issue_ids", []))
     order = plan.get("queue_order", [])
     _ut_prune = [
         fid for fid in prev_ut_ids
@@ -502,7 +502,7 @@ def _sync_subjective_clusters(
         order.remove(fid)
         changes += 1
 
-    # Guard: only inject under-target items when no objective findings
+    # Guard: only inject under-target items when no objective issues
     # remain open — mirror the guard used by sync_stale_dimensions().
     if policy is not None:
         has_objective_items = policy.has_objective_backlog
@@ -511,7 +511,7 @@ def _sync_subjective_clusters(
             f.get("status") == "open"
             and f.get("detector") not in NON_OBJECTIVE_DETECTORS
             and not f.get("suppressed")
-            for f in findings.values()
+            for f in issues.values()
         )
 
     if not has_objective_items and len(under_target_queue_ids) >= _MIN_CLUSTER_SIZE:
@@ -559,7 +559,7 @@ def _sync_subjective_clusters(
 
 def _prune_stale_clusters(
     plan: PlanModel,
-    findings: dict,
+    issues: dict,
     clusters: dict,
     active_auto_keys: set[str],
     now: str,
@@ -575,11 +575,11 @@ def _prune_stale_clusters(
             continue
         if cluster.get("user_modified"):
             # Keep user-modified clusters but prune dead member IDs
-            alive = [fid for fid in cluster.get("finding_ids", [])
-                     if fid in findings and findings[fid].get("status") == "open"]
+            alive = [fid for fid in cluster.get("issue_ids", [])
+                     if fid in issues and issues[fid].get("status") == "open"]
             if alive:
-                if len(alive) != len(cluster.get("finding_ids", [])):
-                    cluster["finding_ids"] = alive
+                if len(alive) != len(cluster.get("issue_ids", [])):
+                    cluster["issue_ids"] = alive
                     cluster["updated_at"] = now
                     changes += 1
                 continue
@@ -587,7 +587,7 @@ def _prune_stale_clusters(
         # Delete stale cluster
         del clusters[name]
         # Clear cluster refs from overrides
-        for fid in cluster.get("finding_ids", []):
+        for fid in cluster.get("issue_ids", []):
             override = plan.get("overrides", {}).get(fid)
             if override and override.get("cluster") == name:
                 override["cluster"] = None
@@ -598,7 +598,7 @@ def _prune_stale_clusters(
     return changes
 
 
-def auto_cluster_findings(
+def auto_cluster_issues(
     plan: PlanModel,
     state: StateModel,
     *,
@@ -606,13 +606,13 @@ def auto_cluster_findings(
     policy: SubjectiveVisibility | None = None,
     cycle_just_completed: bool = False,
 ) -> int:
-    """Regenerate auto-clusters from current open findings.
+    """Regenerate auto-clusters from current open issues.
 
     Returns count of changes made (clusters created, updated, or deleted).
     """
     ensure_plan_defaults(plan)
 
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     clusters = plan.get("clusters", {})
 
     # Map existing auto-clusters by cluster_key
@@ -627,17 +627,17 @@ def auto_cluster_findings(
     active_auto_keys: set[str] = set()
     changes = 0
 
-    changes += _sync_finding_clusters(
-        plan, findings, clusters, existing_by_key, active_auto_keys, now,
+    changes += _sync_issue_clusters(
+        plan, issues, clusters, existing_by_key, active_auto_keys, now,
     )
     changes += _sync_subjective_clusters(
-        plan, state, findings, clusters, existing_by_key, active_auto_keys, now,
+        plan, state, issues, clusters, existing_by_key, active_auto_keys, now,
         target_strict=target_strict,
         policy=policy,
         cycle_just_completed=cycle_just_completed,
     )
     changes += _prune_stale_clusters(
-        plan, findings, clusters, active_auto_keys, now,
+        plan, issues, clusters, active_auto_keys, now,
     )
     changes += _repair_ghost_cluster_refs(plan, now)
 
@@ -647,5 +647,5 @@ def auto_cluster_findings(
 
 __all__ = [
     "AUTO_PREFIX",
-    "auto_cluster_findings",
+    "auto_cluster_issues",
 ]

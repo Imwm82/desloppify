@@ -22,7 +22,7 @@ import desloppify.app.commands.review.state_payloads as state_payloads_mod
 import desloppify.app.commands.scan.plan_nudge as plan_nudge_mod
 import desloppify.engine._plan.persistence as plan_persistence_mod
 import desloppify.engine.planning.queue_policy as queue_policy_mod
-import desloppify.intelligence.review.finding_merge as finding_merge_mod
+import desloppify.intelligence.review.issue_merge as finding_merge_mod
 
 
 def test_direct_coverage_split_queue_batch_modules_smoke():

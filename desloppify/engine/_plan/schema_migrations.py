@@ -43,11 +43,11 @@ def migrate_deferred_to_skipped(plan: dict[str, Any]) -> None:
         return
 
     now = utc_now()
-    for finding_id in list(deferred):
-        if finding_id in skipped:
+    for issue_id in list(deferred):
+        if issue_id in skipped:
             continue
-        skipped[finding_id] = {
-            "finding_id": finding_id,
+        skipped[issue_id] = {
+            "issue_id": issue_id,
             "kind": "temporary",
             "reason": None,
             "note": None,
@@ -63,8 +63,8 @@ def normalize_cluster_defaults(plan: dict[str, Any]) -> None:
     for cluster in plan["clusters"].values():
         if not isinstance(cluster, dict):
             continue
-        if not isinstance(cluster.get("finding_ids"), list):
-            cluster["finding_ids"] = []
+        if not isinstance(cluster.get("issue_ids"), list):
+            cluster["issue_ids"] = []
         cluster.setdefault("auto", False)
         cluster.setdefault("cluster_key", "")
         cluster.setdefault("action", None)
@@ -86,7 +86,7 @@ def migrate_epics_to_clusters(plan: dict[str, Any]) -> None:
         clusters[name] = {
             "name": name,
             "description": epic.get("thesis", ""),
-            "finding_ids": epic.get("finding_ids", []),
+            "issue_ids": epic.get("issue_ids", []),
             "auto": True,
             "cluster_key": f"epic::{name}",
             "action": f"desloppify plan focus {name}",
@@ -136,8 +136,8 @@ def migrate_v5_to_v6(plan: dict[str, Any]) -> None:
     if plan.pop("pending_plan_gate", False):
         if WORKFLOW_CREATE_PLAN_ID not in order:
             insert_at = 0
-            for idx, finding_id in enumerate(order):
-                if finding_id.startswith("triage::") or finding_id.startswith("synthesis::"):
+            for idx, issue_id in enumerate(order):
+                if issue_id.startswith("triage::") or issue_id.startswith("synthesis::"):
                     insert_at = idx + 1
             order.insert(insert_at, WORKFLOW_CREATE_PLAN_ID)
     else:
@@ -166,7 +166,7 @@ def migrate_synthesis_to_triage(plan: dict[str, Any]) -> None:
         new_key = "triage::" + old_key[len("synthesis::"):]
         entry = skipped.pop(old_key)
         if isinstance(entry, dict):
-            entry["finding_id"] = new_key
+            entry["issue_id"] = new_key
         skipped[new_key] = entry
 
     # Rename epic_synthesis_meta → epic_triage_meta

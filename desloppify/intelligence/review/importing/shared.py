@@ -1,4 +1,4 @@
-"""Shared compatibility exports for review finding import workflows."""
+"""Shared compatibility exports for review issue import workflows."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from desloppify.intelligence.review.importing.payload import (
     review_tier,
 )
 from desloppify.intelligence.review.importing.resolution import (
-    auto_resolve_review_findings,
+    auto_resolve_review_issues,
 )
 from desloppify.intelligence.review.importing.state_helpers import (
     _lang_potentials,
@@ -27,7 +27,7 @@ __all__ = [
     "ReviewImportEnvelope",
     "_lang_potentials",
     "_review_file_cache",
-    "auto_resolve_review_findings",
+    "auto_resolve_review_issues",
     "extract_reviewed_files",
     "normalize_review_confidence",
     "parse_review_import_payload",

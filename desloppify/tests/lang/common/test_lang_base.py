@@ -1,10 +1,10 @@
-"""Tests for framework finding factories and structural signal helpers."""
+"""Tests for framework issue factories and structural signal helpers."""
 
 from desloppify.languages._framework.base.structural import (
     add_structural_signal,
     merge_structural_signals,
 )
-from desloppify.languages._framework.finding_factories import (
+from desloppify.languages._framework.issue_factories import (
     SMELL_TIER_MAP,
     make_cycle_findings,
     make_dupe_findings,
@@ -35,9 +35,9 @@ def _capture_log():
 # ── make_unused_findings ─────────────────────────────────────
 
 
-class TestMakeUnusedFindings:
+class TestMakeUnusedIssues:
     def test_imports_get_tier1(self):
-        """Unused imports produce tier 1 findings."""
+        """Unused imports produce tier 1 issues."""
         entries = [
             {"file": "/proj/a.py", "name": "os", "line": 1, "category": "imports"}
         ]
@@ -49,7 +49,7 @@ class TestMakeUnusedFindings:
         assert "Unused imports: os" in results[0]["summary"]
 
     def test_non_imports_get_tier2(self):
-        """Unused non-imports (exports, variables) produce tier 2 findings."""
+        """Unused non-imports (exports, variables) produce tier 2 issues."""
         entries = [
             {"file": "/proj/a.py", "name": "foo", "line": 5, "category": "exports"}
         ]
@@ -63,7 +63,7 @@ class TestMakeUnusedFindings:
         assert results == []
 
     def test_multiple_entries(self):
-        """Multiple entries each produce one finding."""
+        """Multiple entries each produce one issue."""
         entries = [
             {"file": "/proj/a.py", "name": "os", "line": 1, "category": "imports"},
             {"file": "/proj/b.py", "name": "sys", "line": 2, "category": "imports"},
@@ -85,7 +85,7 @@ class TestMakeUnusedFindings:
 # ── make_dupe_findings ───────────────────────────────────────
 
 
-class TestMakeDupeFindings:
+class TestMakeDupeIssues:
     def _make_entry(self, kind="exact", similarity=1.0, loc_a=50, loc_b=50):
         return {
             "fn_a": {"file": "/proj/a.py", "name": "foo", "line": 10, "loc": loc_a},
@@ -95,7 +95,7 @@ class TestMakeDupeFindings:
         }
 
     def test_exact_dupe_tier2(self):
-        """Exact duplicates produce tier 2 findings."""
+        """Exact duplicates produce tier 2 issues."""
         entries = [self._make_entry(kind="exact")]
         results = make_dupe_findings(entries, _noop_log)
         assert len(results) == 1
@@ -104,7 +104,7 @@ class TestMakeDupeFindings:
         assert "Exact dupe" in results[0]["summary"]
 
     def test_near_dupe_tier3(self):
-        """Near duplicates produce tier 3 findings."""
+        """Near duplicates produce tier 3 issues."""
         entries = [self._make_entry(kind="near", similarity=0.85)]
         results = make_dupe_findings(entries, _noop_log)
         assert len(results) == 1
@@ -133,7 +133,7 @@ class TestMakeDupeFindings:
         assert "cluster (4 functions" in results[0]["summary"]
 
     def test_detector_is_dupes(self):
-        """Findings have detector='dupes'."""
+        """Issues have detector='dupes'."""
         entries = [self._make_entry()]
         results = make_dupe_findings(entries, _noop_log)
         assert results[0]["detector"] == "dupes"
@@ -198,7 +198,7 @@ class TestStructuralSignals:
         assert results[0]["confidence"] == "medium"
 
     def test_merge_complexity_only_below_min_suppressed(self, tmp_path):
-        """Complexity-only findings below complexity_only_min are suppressed."""
+        """Complexity-only issues below complexity_only_min are suppressed."""
         filepath = str(tmp_path / "moderate.py")
         (tmp_path / "moderate.py").write_text("\n".join(["x = 1"] * 100))
         structural = {}
@@ -212,7 +212,7 @@ class TestStructuralSignals:
         assert any("below threshold" in m for m in messages)
 
     def test_merge_complexity_only_above_min_not_suppressed(self, tmp_path):
-        """Complexity-only findings at or above complexity_only_min pass through."""
+        """Complexity-only issues at or above complexity_only_min pass through."""
         filepath = str(tmp_path / "complex.py")
         (tmp_path / "complex.py").write_text("\n".join(["x = 1"] * 100))
         structural = {}
@@ -234,9 +234,9 @@ class TestStructuralSignals:
 # ── make_smell_findings ──────────────────────────────────────
 
 
-class TestMakeSmellFindings:
+class TestMakeSmellIssues:
     def test_high_severity_tier2(self):
-        """High severity smells produce tier 2 findings."""
+        """High severity smells produce tier 2 issues."""
         entries = [
             {
                 "id": "eval_exec",
@@ -256,7 +256,7 @@ class TestMakeSmellFindings:
         assert results[0]["confidence"] == "medium"
 
     def test_medium_severity_tier3(self):
-        """Medium severity smells produce tier 3 findings."""
+        """Medium severity smells produce tier 3 issues."""
         entries = [
             {
                 "id": "todo",
@@ -287,7 +287,7 @@ class TestMakeSmellFindings:
         assert results[0]["tier"] == 3
 
     def test_grouped_by_file(self):
-        """Matches across multiple files produce separate findings."""
+        """Matches across multiple files produce separate issues."""
         entries = [
             {
                 "id": "eval_exec",
@@ -311,7 +311,7 @@ class TestMakeSmellFindings:
         assert results == []
 
     def test_detail_contains_smell_info(self):
-        """Finding detail has smell_id, severity, count, lines."""
+        """Issue detail has smell_id, severity, count, lines."""
         entries = [
             {
                 "id": "eval_exec",
@@ -333,7 +333,7 @@ class TestMakeSmellFindings:
 # ── make_cycle_findings ──────────────────────────────────────
 
 
-class TestMakeCycleFindings:
+class TestMakeCycleIssues:
     def test_short_cycle_tier3(self):
         """Cycles of length <= 3 produce tier 3."""
         entries = [{"files": ["/proj/a.py", "/proj/b.py", "/proj/c.py"], "length": 3}]
@@ -371,9 +371,9 @@ class TestMakeCycleFindings:
 # ── make_orphaned_findings ───────────────────────────────────
 
 
-class TestMakeOrphanedFindings:
+class TestMakeOrphanedIssues:
     def test_produces_tier3_medium(self):
-        """Orphaned files produce tier 3 / medium findings."""
+        """Orphaned files produce tier 3 / medium issues."""
         entries = [{"file": "/proj/orphan.py", "loc": 150}]
         results = make_orphaned_findings(entries, _noop_log)
         assert len(results) == 1
@@ -391,12 +391,12 @@ class TestMakeOrphanedFindings:
 # ── make_single_use_findings ─────────────────────────────────
 
 
-class TestMakeSingleUseFindings:
+class TestMakeSingleUseIssues:
     def _make_entries(self, loc=300):
         return [{"file": "/proj/utils.py", "loc": loc, "sole_importer": "app/main.py"}]
 
     def test_outside_loc_range_produces_finding(self):
-        """Files outside the suppression LOC range produce findings."""
+        """Files outside the suppression LOC range produce issues."""
         entries = self._make_entries(loc=300)
         results = make_single_use_findings(
             entries,
@@ -482,9 +482,9 @@ class TestMakeSingleUseFindings:
 # ── make_passthrough_findings ────────────────────────────────
 
 
-class TestMakePassthroughFindings:
+class TestMakePassthroughIssues:
     def test_produces_findings_with_correct_fields(self):
-        """Passthrough entries produce props findings with correct structure."""
+        """Passthrough entries produce props issues with correct structure."""
         entries = [
             {
                 "file": "/proj/component.tsx",
@@ -523,9 +523,9 @@ class TestMakePassthroughFindings:
 # ── make_facade_findings ─────────────────────────────────────
 
 
-class TestMakeFacadeFindings:
+class TestMakeFacadeIssues:
     def test_file_facade(self):
-        """File-kind facades produce T2 findings with re-export summary."""
+        """File-kind facades produce T2 issues with re-export summary."""
         entries = [
             {
                 "file": "/proj/index.ts",

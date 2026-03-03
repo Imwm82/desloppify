@@ -42,7 +42,7 @@ def detect_prop_interface_bloat(
                 total_interfaces += 1
                 name = m.group(1)
                 start = m.end()
-                # Count properties by finding the closing brace
+                # Count properties by issue the closing brace
                 brace_depth = 1
                 pos = start
                 prop_count = 0

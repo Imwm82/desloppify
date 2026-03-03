@@ -47,17 +47,17 @@ def _triage_coverage(plan: dict) -> tuple[int, int, dict]:
     clusters = plan.get("clusters", {})
     all_cluster_ids: set[str] = set()
     for cluster in clusters.values():
-        all_cluster_ids.update(cluster.get("finding_ids", []))
-    queue_ids = [finding_id for finding_id in plan.get("queue_order", []) if finding_id != TRIAGE_ID]
-    organized = sum(1 for finding_id in queue_ids if finding_id in all_cluster_ids)
+        all_cluster_ids.update(cluster.get("issue_ids", []))
+    queue_ids = [issue_id for issue_id in plan.get("queue_order", []) if issue_id != TRIAGE_ID]
+    organized = sum(1 for issue_id in queue_ids if issue_id in all_cluster_ids)
     return organized, len(queue_ids), clusters
 
 
 def _unenriched_clusters(plan: dict) -> list[tuple[str, list[str]]]:
-    """Return clusters with findings that are missing required enrichment."""
+    """Return clusters with issues that are missing required enrichment."""
     gaps: list[tuple[str, list[str]]] = []
     for name, cluster in plan.get("clusters", {}).items():
-        if not cluster.get("finding_ids"):
+        if not cluster.get("issue_ids"):
             continue
         if cluster.get("auto"):
             continue
@@ -71,10 +71,10 @@ def _unenriched_clusters(plan: dict) -> list[tuple[str, list[str]]]:
     return gaps
 
 
-def _manual_clusters_with_findings(plan: dict) -> list[str]:
-    """Return names of non-auto clusters that have findings."""
+def _manual_clusters_with_issues(plan: dict) -> list[str]:
+    """Return names of non-auto clusters that have issues."""
     return [
         name
         for name, cluster in plan.get("clusters", {}).items()
-        if cluster.get("finding_ids") and not cluster.get("auto")
+        if cluster.get("issue_ids") and not cluster.get("auto")
     ]

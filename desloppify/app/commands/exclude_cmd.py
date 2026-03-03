@@ -29,25 +29,25 @@ def _state_file_for_runtime(runtime) -> Path:
     return state_mod.STATE_FILE
 
 
-def _prune_excluded_findings(state: dict, pattern: str) -> list[str]:
-    """Drop findings whose file path matches a new exclusion pattern."""
-    findings = state.get("findings")
-    if not isinstance(findings, dict):
+def _prune_excluded_issues(state: dict, pattern: str) -> list[str]:
+    """Drop issues whose file path matches a new exclusion pattern."""
+    issues = state.get("issues")
+    if not isinstance(issues, dict):
         return []
 
     removed_ids = [
-        finding_id
-        for finding_id, finding in findings.items()
-        if isinstance(finding, dict)
-        and matches_exclusion(str(finding.get("file", "")), pattern)
+        issue_id
+        for issue_id, issue in issues.items()
+        if isinstance(issue, dict)
+        and matches_exclusion(str(issue.get("file", "")), pattern)
     ]
-    for finding_id in removed_ids:
-        findings.pop(finding_id, None)
+    for issue_id in removed_ids:
+        issues.pop(issue_id, None)
     return removed_ids
 
 
 def _purge_removed_ids_from_plan(state_file: Path, removed_ids: list[str]) -> int:
-    """Remove pruned finding IDs from queue/skips/clusters in plan.json."""
+    """Remove pruned issue IDs from queue/skips/clusters in plan.json."""
     if not removed_ids:
         return 0
     plan_file = plan_path_for_state(state_file)
@@ -75,7 +75,7 @@ def cmd_exclude(args: argparse.Namespace) -> None:
     removed_ids: list[str] = []
     plan_purged = 0
     if state_file.exists():
-        removed_ids = _prune_excluded_findings(state, args.pattern)
+        removed_ids = _prune_excluded_issues(state, args.pattern)
         if removed_ids:
             try:
                 state_mod.save_state(state, state_file)
@@ -92,7 +92,7 @@ def cmd_exclude(args: argparse.Namespace) -> None:
 
     print(colorize(f"Added exclude pattern: {args.pattern}", "green"))
     if removed_ids:
-        print(f"  Removed {len(removed_ids)} matching findings from state.")
+        print(f"  Removed {len(removed_ids)} matching issues from state.")
         if plan_purged:
             print(
                 colorize(

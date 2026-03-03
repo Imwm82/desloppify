@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from desloppify.engine._plan.epic_triage import (
-    DismissedFinding,
+    DismissedIssue,
     TriageResult,
     apply_triage_to_plan,
     collect_triage_input,
@@ -32,23 +32,23 @@ from desloppify.engine._work_queue.synthetic import build_triage_stage_items
 # ---------------------------------------------------------------------------
 
 def _state_with_review_findings(*ids: str) -> dict:
-    """Build minimal state with open review findings."""
-    findings = {}
+    """Build minimal state with open review issues."""
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Review finding {fid}",
+            "summary": f"Review issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {"dimension": "abstraction_fitness"},
         }
-    return {"findings": findings, "scan_count": 5, "dimension_scores": {}}
+    return {"issues": issues, "scan_count": 5, "dimension_scores": {}}
 
 
 def _state_empty() -> dict:
-    return {"findings": {}, "scan_count": 1, "dimension_scores": {}}
+    return {"issues": {}, "scan_count": 1, "dimension_scores": {}}
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ class TestSnapshotHash:
 
     def test_hash_ignores_non_review(self):
         state = {
-            "findings": {
+            "issues": {
                 "unused::a": {"status": "open", "detector": "unused"},
                 "review::b": {"status": "open", "detector": "review"},
             }
@@ -120,7 +120,7 @@ class TestSnapshotHash:
 
     def test_hash_ignores_closed(self):
         state = {
-            "findings": {
+            "issues": {
                 "review::a": {"status": "fixed", "detector": "review"},
             }
         }
@@ -141,7 +141,7 @@ class TestSyncTriageNeeded:
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
     def test_no_injection_when_hash_up_to_date(self):
-        """No injection when snapshot hash matches (review findings unchanged)."""
+        """No injection when snapshot hash matches (review issues unchanged)."""
         state = _state_with_review_findings("r1")
         h = review_finding_snapshot_hash(state)
         plan = empty_plan()
@@ -153,7 +153,7 @@ class TestSyncTriageNeeded:
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
     def test_stages_preserved_when_no_review_findings(self):
-        """Triage stages preserved even if review findings vanish."""
+        """Triage stages preserved even if review issues vanish."""
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         state = _state_empty()
@@ -176,7 +176,7 @@ class TestSyncTriageNeeded:
         plan = empty_plan()
         plan["epic_triage_meta"] = {"finding_snapshot_hash": h}
         # Resolve r2
-        state["findings"]["r2"]["status"] = "fixed"
+        state["issues"]["r2"]["status"] = "fixed"
         result = sync_triage_needed(plan, state)
         assert result.injected
 
@@ -202,7 +202,7 @@ class TestSyncTriageNeeded:
         assert "triage::commit" in plan["queue_order"]
 
     def test_preserves_when_stages_in_progress_no_findings(self):
-        """Triage stages preserved even if all review findings vanish mid-triage."""
+        """Triage stages preserved even if all review issues vanish mid-triage."""
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         plan["epic_triage_meta"] = {
@@ -215,7 +215,7 @@ class TestSyncTriageNeeded:
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
     def test_no_auto_prune_when_new_findings_remain(self):
-        """Stages not pruned when genuinely new findings still exist."""
+        """Stages not pruned when genuinely new issues still exist."""
         state = _state_with_review_findings("r1")
         h = review_finding_snapshot_hash(state)
         plan = empty_plan()
@@ -230,7 +230,7 @@ class TestSyncTriageNeeded:
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
     def test_auto_prune_when_new_findings_resolved(self):
-        """Stages auto-pruned when all new findings that triggered injection
+        """Stages auto-pruned when all new issues that triggered injection
         have been resolved and triage was completed before (hash exists)."""
         # Start: r1 was triaged, then r2 appeared (triggering injection),
         # then r2 was resolved. Stages should be pruned.
@@ -293,7 +293,7 @@ class TestIsTriageStale:
 
     def test_not_stale_when_stages_present_but_no_new_findings(self):
         """Stages in queue alone should NOT make triage stale if all
-        new findings that triggered injection have been resolved."""
+        new issues that triggered injection have been resolved."""
         state = _state_with_review_findings("r1")
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
@@ -316,7 +316,7 @@ class TestIsTriageStale:
         assert is_triage_stale(plan, state)
 
     def test_not_stale_when_only_resolutions(self):
-        """Resolving triaged findings should not trigger staleness."""
+        """Resolving triaged issues should not trigger staleness."""
         state = _state_with_review_findings("r1")
         h = review_finding_snapshot_hash(state)
         # Add r2 to triaged_ids but r2 has been resolved (not in current state)
@@ -389,18 +389,18 @@ class TestCollectTriageInput:
     def test_collects_open_review_findings(self):
         plan = empty_plan()
         state = _state_with_review_findings("r1", "r2")
-        state["findings"]["u1"] = {"status": "open", "detector": "unused"}
+        state["issues"]["u1"] = {"status": "open", "detector": "unused"}
         si = collect_triage_input(plan, state)
-        assert len(si.open_findings) == 2
-        assert "r1" in si.open_findings
-        assert len(si.mechanical_findings) == 1
-        assert "u1" in si.mechanical_findings
+        assert len(si.open_issues) == 2
+        assert "r1" in si.open_issues
+        assert len(si.mechanical_issues) == 1
+        assert "u1" in si.mechanical_issues
 
     def test_includes_existing_epics(self):
         plan = empty_plan()
         plan["clusters"]["epic/test"] = {
             "name": "epic/test", "thesis": "test", "direction": "delete",
-            "finding_ids": [], "auto": True, "cluster_key": "epic::epic/test",
+            "issue_ids": [], "auto": True, "cluster_key": "epic::epic/test",
         }
         state = _state_with_review_findings("r1")
         si = collect_triage_input(plan, state)
@@ -430,7 +430,7 @@ class TestParseTriageResult:
                     "thesis": "Do the thing",
                     "direction": "delete",
                     "root_cause": "legacy code",
-                    "finding_ids": ["r1", "r2"],
+                    "issue_ids": ["r1", "r2"],
                     "dismissed": [],
                     "agent_safe": True,
                     "dependency_order": 1,
@@ -438,16 +438,16 @@ class TestParseTriageResult:
                     "status": "pending",
                 }
             ],
-            "dismissed_findings": [
-                {"finding_id": "r3", "reason": "false positive"}
+            "dismissed_issues": [
+                {"issue_id": "r3", "reason": "false positive"}
             ],
             "priority_rationale": "because",
         }
         result = parse_triage_result(raw, valid_ids)
         assert result.strategy_summary == "Test strategy"
         assert len(result.epics) == 1
-        assert result.epics[0]["finding_ids"] == ["r1", "r2"]
-        assert len(result.dismissed_findings) == 1
+        assert result.epics[0]["issue_ids"] == ["r1", "r2"]
+        assert len(result.dismissed_issues) == 1
 
     def test_rejects_invalid_finding_ids(self):
         valid_ids = {"r1"}
@@ -457,12 +457,12 @@ class TestParseTriageResult:
                     "name": "test",
                     "thesis": "x",
                     "direction": "delete",
-                    "finding_ids": ["r1", "invalid"],
+                    "issue_ids": ["r1", "invalid"],
                 }
             ]
         }
         result = parse_triage_result(raw, valid_ids)
-        assert result.epics[0]["finding_ids"] == ["r1"]
+        assert result.epics[0]["issue_ids"] == ["r1"]
 
     def test_rejects_invalid_direction(self):
         raw = {
@@ -471,7 +471,7 @@ class TestParseTriageResult:
                     "name": "test",
                     "thesis": "x",
                     "direction": "invalid_direction",
-                    "finding_ids": [],
+                    "issue_ids": [],
                 }
             ]
         }
@@ -480,13 +480,13 @@ class TestParseTriageResult:
 
     def test_dismissed_finding_requires_valid_id(self):
         raw = {
-            "dismissed_findings": [
-                {"finding_id": "valid", "reason": "x"},
-                {"finding_id": "invalid", "reason": "x"},
+            "dismissed_issues": [
+                {"issue_id": "valid", "reason": "x"},
+                {"issue_id": "invalid", "reason": "x"},
             ]
         }
         result = parse_triage_result(raw, {"valid"})
-        assert len(result.dismissed_findings) == 1
+        assert len(result.dismissed_issues) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -504,7 +504,7 @@ class TestApplyTriageToPlan:
                     "name": "test-cleanup",
                     "thesis": "Clean up test code",
                     "direction": "delete",
-                    "finding_ids": ["r1", "r2"],
+                    "issue_ids": ["r1", "r2"],
                     "agent_safe": True,
                     "dependency_order": 1,
                     "action_steps": ["step 1"],
@@ -525,7 +525,7 @@ class TestApplyTriageToPlan:
             "name": "epic/test",
             "thesis": "old",
             "direction": "delete",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "status": "pending",
             "created_at": "2025-01-01",
             "updated_at": "2025-01-01",
@@ -540,7 +540,7 @@ class TestApplyTriageToPlan:
                     "name": "epic/test",
                     "thesis": "new thesis",
                     "direction": "merge",
-                    "finding_ids": ["r1", "r2"],
+                    "issue_ids": ["r1", "r2"],
                     "dependency_order": 1,
                     "status": "pending",
                 }
@@ -556,7 +556,7 @@ class TestApplyTriageToPlan:
             "name": "epic/active",
             "thesis": "working on it",
             "direction": "delete",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "status": "in_progress",
             "created_at": "2025-01-01",
             "updated_at": "2025-01-01",
@@ -571,7 +571,7 @@ class TestApplyTriageToPlan:
                     "name": "epic/active",
                     "thesis": "updated",
                     "direction": "delete",
-                    "finding_ids": ["r1"],
+                    "issue_ids": ["r1"],
                     "dependency_order": 1,
                     "status": "pending",  # LLM says pending but we keep in_progress
                 }
@@ -587,8 +587,8 @@ class TestApplyTriageToPlan:
         triage_result = TriageResult(
             strategy_summary="x",
             epics=[],
-            dismissed_findings=[
-                DismissedFinding(finding_id="r3", reason="false positive"),
+            dismissed_issues=[
+                DismissedIssue(issue_id="r3", reason="false positive"),
             ],
         )
         result = apply_triage_to_plan(plan, state, triage_result)
@@ -618,7 +618,7 @@ class TestApplyTriageToPlan:
                     "name": "second",
                     "thesis": "second",
                     "direction": "merge",
-                    "finding_ids": ["r2"],
+                    "issue_ids": ["r2"],
                     "dependency_order": 2,
                     "status": "pending",
                 },
@@ -626,14 +626,14 @@ class TestApplyTriageToPlan:
                     "name": "first",
                     "thesis": "first",
                     "direction": "delete",
-                    "finding_ids": ["r1", "r3"],
+                    "issue_ids": ["r1", "r3"],
                     "dependency_order": 1,
                     "status": "pending",
                 },
             ],
         )
         apply_triage_to_plan(plan, state, triage_result)
-        # Epic findings ordered by dependency: r1, r3 (dep 1), r2 (dep 2), then non-epic
+        # Epic issues ordered by dependency: r1, r3 (dep 1), r2 (dep 2), then non-epic
         assert plan["queue_order"] == ["r1", "r3", "r2", "other"]
 
 
@@ -648,7 +648,7 @@ class TestReconcileWithEpics:
             "name": "epic/test",
             "thesis": "x",
             "direction": "delete",
-            "finding_ids": ["r1", "r2"],
+            "issue_ids": ["r1", "r2"],
             "dismissed": [],
             "status": "pending",
             "auto": True,
@@ -657,7 +657,7 @@ class TestReconcileWithEpics:
         # r1 still alive, r2 gone
         state = _state_with_review_findings("r1")
         result = reconcile_plan_after_scan(plan, state)
-        assert plan["clusters"]["epic/test"]["finding_ids"] == ["r1"]
+        assert plan["clusters"]["epic/test"]["issue_ids"] == ["r1"]
         assert result.changes > 0
 
     def test_deletes_empty_epics(self):
@@ -666,7 +666,7 @@ class TestReconcileWithEpics:
             "name": "epic/dead",
             "thesis": "x",
             "direction": "delete",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "dismissed": [],
             "status": "pending",
             "auto": True,
@@ -682,18 +682,18 @@ class TestReconcileWithEpics:
             "name": "epic/done",
             "thesis": "x",
             "direction": "delete",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "dismissed": ["r2"],
             "status": "pending",
             "auto": True,
             "cluster_key": "epic::epic/done",
         }
         # r1 resolved, r2 still alive (dismissed)
-        state = {"findings": {
+        state = {"issues": {
             "r2": {"status": "open", "detector": "review"},
         }}
         reconcile_plan_after_scan(plan, state)
-        # r1 is gone → epic has no finding_ids → gets deleted
+        # r1 is gone → epic has no issue_ids → gets deleted
         assert "epic/done" not in plan["clusters"]
 
 
@@ -718,7 +718,7 @@ class TestOperationsCompat:
             "name": "epic/test",
             "thesis": "x",
             "direction": "delete",
-            "finding_ids": ["r1"],
+            "issue_ids": ["r1"],
             "auto": True,
             "cluster_key": "epic::epic/test",
             "created_at": "2025-01-01",
@@ -744,7 +744,7 @@ class TestIdempotency:
                     "name": "test",
                     "thesis": "x",
                     "direction": "delete",
-                    "finding_ids": ["r1", "r2"],
+                    "issue_ids": ["r1", "r2"],
                     "dependency_order": 1,
                     "status": "pending",
                 }
@@ -776,7 +776,7 @@ class TestEpicMigration:
                     "name": "epic/cleanup",
                     "thesis": "Clean up dead code",
                     "direction": "delete",
-                    "finding_ids": ["r1", "r2"],
+                    "issue_ids": ["r1", "r2"],
                     "status": "pending",
                     "agent_safe": True,
                     "dependency_order": 1,
@@ -798,7 +798,7 @@ class TestEpicMigration:
         cluster = plan["clusters"]["epic/cleanup"]
         assert cluster["thesis"] == "Clean up dead code"
         assert cluster["direction"] == "delete"
-        assert cluster["finding_ids"] == ["r1", "r2"]
+        assert cluster["issue_ids"] == ["r1", "r2"]
         assert cluster["auto"] is True
         assert cluster["cluster_key"] == "epic::epic/cleanup"
         assert cluster["agent_safe"] is True
@@ -813,7 +813,7 @@ class TestEpicMigration:
                 "epic/existing": {
                     "name": "epic/existing",
                     "description": "Already here",
-                    "finding_ids": ["r1"],
+                    "issue_ids": ["r1"],
                     "auto": True,
                     "cluster_key": "epic::epic/existing",
                     "thesis": "Already migrated",
@@ -824,7 +824,7 @@ class TestEpicMigration:
                     "name": "epic/existing",
                     "thesis": "Old thesis",
                     "direction": "merge",
-                    "finding_ids": ["r1", "r2"],
+                    "issue_ids": ["r1", "r2"],
                     "status": "pending",
                 }
             },
@@ -837,11 +837,11 @@ class TestEpicMigration:
     def test_triage_clusters_helper(self):
         plan = empty_plan()
         plan["clusters"]["epic/a"] = {
-            "name": "epic/a", "thesis": "do thing", "finding_ids": [],
+            "name": "epic/a", "thesis": "do thing", "issue_ids": [],
             "auto": True, "cluster_key": "epic::epic/a",
         }
         plan["clusters"]["auto/b"] = {
-            "name": "auto/b", "finding_ids": [], "auto": True, "cluster_key": "auto::b",
+            "name": "auto/b", "issue_ids": [], "auto": True, "cluster_key": "auto::b",
         }
         result = triage_clusters(plan)
         assert "epic/a" in result

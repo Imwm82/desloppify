@@ -37,23 +37,23 @@ class TestOpenFilesByDetector:
         assert _open_files_by_detector({}) == {}
 
     def test_groups_by_detector(self):
-        findings = {
+        issues = {
             "f1": {"status": "open", "detector": "unused", "file": "a.ts"},
             "f2": {"status": "open", "detector": "unused", "file": "b.ts"},
             "f3": {"status": "open", "detector": "smells", "file": "a.ts"},
             "f4": {"status": "resolved", "detector": "unused", "file": "c.ts"},
         }
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert len(result["unused"]) == 2
         assert len(result["smells"]) == 1
         assert "resolved" not in str(result)
 
     def test_merges_structural(self):
-        findings = {
+        issues = {
             "f1": {"status": "open", "detector": "gods", "file": "big.ts"},
             "f2": {"status": "open", "detector": "large", "file": "huge.ts"},
         }
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert "structural" in result
         assert len(result["structural"]) == 2
 
@@ -78,9 +78,9 @@ class TestComputeStrategy:
         assert "lanes" in result
 
     def test_with_findings(self):
-        findings = {"f1": {"status": "open", "detector": "unused", "file": "a.ts"}}
+        issues = {"f1": {"status": "open", "detector": "unused", "file": "a.ts"}}
         result = _compute_strategy(
-            findings, {"unused": 5}, [], "early_momentum", "typescript"
+            issues, {"unused": 5}, [], "early_momentum", "typescript"
         )
         assert "hint" in result
         assert "fixer_leverage" in result
@@ -142,7 +142,7 @@ class TestAnalyzeDebt:
         assert "overall_gap" in result
 
     def test_with_wontfix(self):
-        findings = {
+        issues = {
             "f1": {
                 "status": "wontfix",
                 "confidence": "high",
@@ -151,7 +151,7 @@ class TestAnalyzeDebt:
                 "note": "intentional",
             },
         }
-        result = _analyze_debt({}, findings, [])
+        result = _analyze_debt({}, issues, [])
         assert isinstance(result["overall_gap"], int | float)
 
 

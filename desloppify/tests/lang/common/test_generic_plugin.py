@@ -243,23 +243,23 @@ class TestMakeToolPhase:
     def test_missing_tool_returns_no_findings(self):
         phase = make_tool_phase("test", "nonexistent_tool_xyz_123", "gnu", "test_id", 2)
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            findings, signals = phase.run(Path("."), None)
-        assert findings == []
+            issues, signals = phase.run(Path("."), None)
+        assert issues == []
         assert signals == {}
 
     def test_timeout_returns_no_findings(self):
         phase = make_tool_phase("test", "sleep 999", "gnu", "test_id", 2)
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 120)):
-            findings, signals = phase.run(Path("."), None)
-        assert findings == []
+            issues, signals = phase.run(Path("."), None)
+        assert issues == []
         assert signals == {}
 
     def test_missing_tool_records_coverage_degradation(self):
         phase = make_tool_phase("test", "nonexistent_tool_xyz_123", "gnu", "test_id", 2)
         lang = SimpleNamespace(detector_coverage={}, coverage_warnings=[])
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            findings, signals = phase.run(Path("."), lang)
-        assert findings == []
+            issues, signals = phase.run(Path("."), lang)
+        assert issues == []
         assert signals == {}
         assert lang.detector_coverage["test_id"]["status"] == "reduced"
         assert lang.detector_coverage["test_id"]["reason"] == "tool_not_found"
@@ -273,11 +273,11 @@ class TestMakeToolPhase:
             stderr="",
         )
         with patch("subprocess.run", return_value=mock_result):
-            findings, signals = phase.run(Path("."), None)
-        assert len(findings) == 2
+            issues, signals = phase.run(Path("."), None)
+        assert len(issues) == 2
         assert signals == {"test_lint": 2}
-        assert findings[0]["detector"] == "test_lint"
-        assert findings[0]["summary"] == "something wrong"
+        assert issues[0]["detector"] == "test_lint"
+        assert issues[0]["summary"] == "something wrong"
 
     def test_empty_output_returns_empty(self):
         phase = make_tool_phase("test", "fake", "gnu", "test_id", 2)
@@ -285,8 +285,8 @@ class TestMakeToolPhase:
             args="fake", returncode=0, stdout="", stderr=""
         )
         with patch("subprocess.run", return_value=mock_result):
-            findings, signals = phase.run(Path("."), None)
-        assert findings == []
+            issues, signals = phase.run(Path("."), None)
+        assert issues == []
         assert signals == {}
 
     def test_run_tool_parser_exception_returns_empty(self, tmp_path):

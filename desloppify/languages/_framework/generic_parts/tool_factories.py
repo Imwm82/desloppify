@@ -20,7 +20,7 @@ from desloppify.languages._framework.generic_parts.tool_runner import (
     run_tool_result,
 )
 from desloppify.languages._framework.generic_parts.tool_spec import ToolSpec
-from desloppify.state import make_finding
+from desloppify.state import make_issue
 
 
 def _record_tool_failure_coverage(
@@ -80,8 +80,8 @@ def make_tool_phase(
         entries = list(run_result.entries)
         if not entries:
             return [], {}
-        findings = [
-            make_finding(
+        issues = [
+            make_issue(
                 smell_id,
                 entry["file"],
                 f"{smell_id}::{entry['line']}",
@@ -91,7 +91,7 @@ def make_tool_phase(
             )
             for entry in entries
         ]
-        return findings, {smell_id: len(entries)}
+        return issues, {smell_id: len(entries)}
 
     return DetectorPhase(label, run)
 

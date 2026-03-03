@@ -253,14 +253,14 @@ class TestCreateParser:
                 "--min-loc",
                 "100",
                 "--sort",
-                "findings",
+                "issues",
                 "--detail",
             ]
         )
         assert args.depth == 4
         assert args.focus == "shared/components"
         assert args.min_loc == 100
-        assert args.sort == "findings"
+        assert args.sort == "issues"
         assert args.detail is True
 
     def test_detect_command(self, parser):
@@ -342,13 +342,13 @@ class TestCreateParser:
         assert args.prepare is True
 
     def test_review_allow_partial_flag(self, parser):
-        args = parser.parse_args(["review", "--import", "findings.json", "--allow-partial"])
-        assert args.import_file == "findings.json"
+        args = parser.parse_args(["review", "--import", "issues.json", "--allow-partial"])
+        assert args.import_file == "issues.json"
         assert args.allow_partial is True
 
     def test_review_validate_import_flag(self, parser):
-        args = parser.parse_args(["review", "--validate-import", "findings.json"])
-        assert args.validate_import_file == "findings.json"
+        args = parser.parse_args(["review", "--validate-import", "issues.json"])
+        assert args.validate_import_file == "issues.json"
 
     def test_review_external_start_flag(self, parser):
         args = parser.parse_args(
@@ -373,19 +373,19 @@ class TestCreateParser:
                 "--session-id",
                 "ext_20260223_000000_deadbeef",
                 "--import",
-                "findings.json",
+                "issues.json",
             ]
         )
         assert args.external_submit is True
         assert args.session_id == "ext_20260223_000000_deadbeef"
-        assert args.import_file == "findings.json"
+        assert args.import_file == "issues.json"
 
     def test_review_manual_override_flag(self, parser):
         args = parser.parse_args(
             [
                 "review",
                 "--import",
-                "findings.json",
+                "issues.json",
                 "--manual-override",
                 "--attest",
                 "manual calibration justified by independent reviewer output",
@@ -399,7 +399,7 @@ class TestCreateParser:
             [
                 "review",
                 "--import",
-                "findings.json",
+                "issues.json",
                 "--attested-external",
                 "--attest",
                 "I validated this review was completed without awareness of overall score and is unbiased.",

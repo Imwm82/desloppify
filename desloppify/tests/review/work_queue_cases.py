@@ -36,9 +36,9 @@ def _finding(
     }
 
 
-def _state(findings: list[dict], *, dimension_scores: dict | None = None) -> dict:
+def _state(issues: list[dict], *, dimension_scores: dict | None = None) -> dict:
     return {
-        "findings": {f["id"]: f for f in findings},
+        "issues": {f["id"]: f for f in issues},
         "dimension_scores": dimension_scores or {},
     }
 
@@ -59,7 +59,7 @@ def test_review_finding_uses_natural_tier():
     )
 
     queue = build_work_queue(state, count=None, include_subjective=False)
-    by_id = {item["id"]: item for item in queue["items"] if item["kind"] == "finding"}
+    by_id = {item["id"]: item for item in queue["items"] if item["kind"] == "issue"}
     assert "review::src/a.py::naming" in by_id
     assert "smells::src/a.py::x" in by_id
 
@@ -358,7 +358,7 @@ def test_invalid_status_raises_value_error():
 
 
 def test_legacy_string_detail_does_not_crash_queue_build():
-    """Queue building should tolerate findings whose detail is a plain string."""
+    """Queue building should tolerate issues whose detail is a plain string."""
     review = _finding(
         "review::src/a.py::legacy",
         detector="review",
@@ -499,12 +499,12 @@ def test_status_filter_all():
 
 
 def test_chronic_mode_filters_reopened_findings():
-    findings = [
+    issues = [
         {**_finding("chronic_one"), "reopen_count": 3},
         {**_finding("normal_one"), "reopen_count": 0},
         {**_finding("once_reopened"), "reopen_count": 1},
     ]
-    state = _state(findings)
+    state = _state(issues)
 
     queue = build_work_queue(state, chronic=True, count=None, include_subjective=False)
     ids = {item["id"] for item in queue["items"]}
@@ -571,7 +571,7 @@ def test_stale_subjective_gated_when_objective_backlog_exists():
 
 
 def test_stale_subjective_appear_when_no_objective_backlog():
-    """Stale subjective items surface when no objective findings remain."""
+    """Stale subjective items surface when no objective issues remain."""
     state = _state(
         [],
         dimension_scores={
@@ -602,7 +602,7 @@ def test_stale_subjective_appear_when_no_objective_backlog():
 
 
 def test_unassessed_subjective_appear_with_objective_backlog():
-    """Unassessed (placeholder) subjective items appear alongside objective findings."""
+    """Unassessed (placeholder) subjective items appear alongside objective issues."""
     objective_findings = [
         _finding(f"smells::src/{c}.py::x", detector="smells", tier=3)
         for c in "abcd"
@@ -644,7 +644,7 @@ def test_unassessed_subjective_appear_with_objective_backlog():
 
 def test_high_impact_subjective_before_low_impact_mechanical():
     """A subjective dimension with high headroom sorts before a mechanical
-    finding in a near-perfect dimension."""
+    issue in a near-perfect dimension."""
     from desloppify.engine._work_queue.ranking import enrich_with_impact, item_sort_key
 
     subj_item = {
@@ -655,7 +655,7 @@ def test_high_impact_subjective_before_low_impact_mechanical():
     }
     mech_item = {
         "id": "smells::src/a.py::x",
-        "kind": "finding",
+        "kind": "issue",
         "detector": "smells",
         "confidence": "high",
         "detail": {"count": 1},
@@ -696,14 +696,14 @@ def test_impact_fallback_when_no_dimension_scores():
     items = [
         {
             "id": "smells::src/a.py::x",
-            "kind": "finding",
+            "kind": "issue",
             "detector": "smells",
             "confidence": "high",
             "detail": {"count": 5},
         },
         {
             "id": "smells::src/b.py::y",
-            "kind": "finding",
+            "kind": "issue",
             "detector": "smells",
             "confidence": "medium",
             "detail": {"count": 2},
@@ -721,7 +721,7 @@ def test_impact_fallback_when_no_dimension_scores():
 
 
 def test_low_confidence_props_excluded_from_queue():
-    """Low-confidence findings from detectors with standalone_threshold are filtered."""
+    """Low-confidence issues from detectors with standalone_threshold are filtered."""
     state = _state(
         [_finding("props::src/a.tsx::big", detector="props", confidence="low")]
     )
@@ -730,7 +730,7 @@ def test_low_confidence_props_excluded_from_queue():
 
 
 def test_medium_confidence_props_included_in_queue():
-    """Medium-confidence findings pass the standalone_threshold='medium' check."""
+    """Medium-confidence issues pass the standalone_threshold='medium' check."""
     state = _state(
         [_finding("props::src/a.tsx::big", detector="props", confidence="medium")]
     )
@@ -740,7 +740,7 @@ def test_medium_confidence_props_included_in_queue():
 
 
 def test_high_confidence_always_passes():
-    """High-confidence findings always pass any standalone threshold."""
+    """High-confidence issues always pass any standalone threshold."""
     state = _state(
         [_finding("props::src/a.tsx::huge", detector="props", confidence="high")]
     )
@@ -760,33 +760,33 @@ def test_detector_without_threshold_unaffected():
 
 
 def test_evidence_only_finding_still_in_state():
-    """Evidence-only findings are filtered from queue but remain in state (scoring intact)."""
-    findings = [_finding("props::src/a.tsx::big", detector="props", confidence="low")]
-    state = _state(findings)
-    # Finding exists in state
-    assert "props::src/a.tsx::big" in state["findings"]
+    """Evidence-only issues are filtered from queue but remain in state (scoring intact)."""
+    issues = [_finding("props::src/a.tsx::big", detector="props", confidence="low")]
+    state = _state(issues)
+    # Issue exists in state
+    assert "props::src/a.tsx::big" in state["issues"]
     # But not in queue
     queue = build_work_queue(state, count=None, include_subjective=False)
     assert len(queue["items"]) == 0
 
 
 def test_evidence_only_reduces_objective_count():
-    """When evidence-only findings are filtered, objective count drops,
+    """When evidence-only issues are filtered, objective count drops,
     letting subjective items surface sooner."""
-    # All findings are low-confidence smells (has standalone_threshold)
-    findings = [
+    # All issues are low-confidence smells (has standalone_threshold)
+    issues = [
         _finding(f"smells::src/{c}.py::x", detector="smells", confidence="low")
         for c in "abcd"
     ]
     state = _state(
-        findings,
+        issues,
         dimension_scores={
             "Naming quality": {"score": 70.0, "strict": 70.0, "failing": 1},
         },
     )
 
     queue = build_work_queue(state, count=None, include_subjective=True)
-    # All mechanical findings filtered (evidence-only), so subjective can surface
+    # All mechanical issues filtered (evidence-only), so subjective can surface
     subj_ids = [
         item["id"] for item in queue["items"]
         if item["kind"] == "subjective_dimension"
@@ -795,7 +795,7 @@ def test_evidence_only_reduces_objective_count():
 
 
 def test_impact_floor_filters_negligible_impact():
-    """Mechanical findings with estimated_impact < 0.05 are dropped."""
+    """Mechanical issues with estimated_impact < 0.05 are dropped."""
     state = _state(
         [_finding("unused::src/a.py::x", detector="unused", confidence="high")],
         dimension_scores={
@@ -805,7 +805,7 @@ def test_impact_floor_filters_negligible_impact():
     queue = build_work_queue(state, count=None, include_subjective=False)
     # Impact is near-zero because dimension is at ceiling
     ids = {item["id"] for item in queue["items"]}
-    # The finding should be filtered by the impact floor
+    # The issue should be filtered by the impact floor
     assert "unused::src/a.py::x" not in ids
 
 
@@ -851,19 +851,19 @@ def test_collapse_clusters_preserves_order():
         "name": "auto/unused",
         "auto": True,
         "cluster_key": "auto::unused",
-        "finding_ids": ["u1", "u2"],
-        "description": "Remove 2 unused findings",
+        "issue_ids": ["u1", "u2"],
+        "description": "Remove 2 unused issues",
         "action": "desloppify autofix unused-imports --dry-run",
         "user_modified": False,
     }
 
     # Place a non-cluster item first, then the two cluster members
     items = [
-        {"id": "other", "kind": "finding", "detector": "structural",
+        {"id": "other", "kind": "issue", "detector": "structural",
          "confidence": "medium", "detail": {}},
-        {"id": "u1", "kind": "finding", "detector": "unused",
+        {"id": "u1", "kind": "issue", "detector": "unused",
          "confidence": "high", "detail": {}, "estimated_impact": 1.0},
-        {"id": "u2", "kind": "finding", "detector": "unused",
+        {"id": "u2", "kind": "issue", "detector": "unused",
          "confidence": "high", "detail": {}, "estimated_impact": 1.0},
     ]
 
@@ -943,13 +943,13 @@ def test_plan_ordered_stale_subjective_surfaces_with_objective_backlog():
     assert queue_with_plan["items"][0]["id"] == "subjective::naming_quality"
 
 
-# ── Wontfix / resolved findings excluded (#193) ──────────
+# ── Wontfix / resolved issues excluded (#193) ──────────
 
 
 def test_wontfixed_findings_excluded_from_queue():
-    """Findings with status 'wontfix' never appear in the default queue.
+    """Issues with status 'wontfix' never appear in the default queue.
 
-    Regression test for #193: wontfixed findings were leaking into the
+    Regression test for #193: wontfixed issues were leaking into the
     auto-generated queue because filtering was spread across multiple
     modules and easy to miss.
     """
@@ -971,7 +971,7 @@ def test_wontfixed_findings_excluded_from_queue():
 
 
 def test_wontfixed_findings_excluded_with_plan():
-    """Wontfixed findings stay out even when a plan is active."""
+    """Wontfixed issues stay out even when a plan is active."""
     from desloppify.engine._plan.schema import empty_plan
 
     plan = empty_plan()

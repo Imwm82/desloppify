@@ -171,7 +171,7 @@ def _run_review_mode(
 
 
 def cmd_review(args: argparse.Namespace) -> None:
-    """Prepare or import subjective code review findings."""
+    """Prepare or import subjective code review issues."""
     _enable_live_review_output()
     runtime = command_runtime(args)
     state_file = runtime.state_path

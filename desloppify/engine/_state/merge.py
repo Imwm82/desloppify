@@ -1,4 +1,4 @@
-"""Scan merge/update operations for persisted findings state."""
+"""Scan merge/update operations for persisted issues state."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ __all__ = [
     "merge_scan",
 ]
 
-from desloppify.engine._state.merge_findings import (
+from desloppify.engine._state.merge_issues import (
     auto_resolve_disappeared,
     find_suspect_detectors,
-    upsert_findings,
+    upsert_issues,
 )
 from desloppify.engine._state.merge_history import (
     _append_scan_history,
@@ -32,7 +32,7 @@ from desloppify.engine._state.schema import (
 from desloppify.engine._state.scoring import _recompute_stats
 
 # Mechanical detectors → subjective dimensions they provide evidence for.
-# When findings from these detectors change during a scan, the corresponding
+# When issues from these detectors change during a scan, the corresponding
 # subjective assessments are marked stale so reviewers know to re-evaluate.
 _DETECTOR_SUBJECTIVE_DIMENSIONS: dict[str, tuple[str, ...]] = {
     "structural": ("design_coherence", "abstraction_fitness"),
@@ -58,7 +58,7 @@ def _mark_stale_on_mechanical_change(
     changed_detectors: set[str],
     now: str,
 ) -> None:
-    """Mark subjective assessments stale when mechanical findings change.
+    """Mark subjective assessments stale when mechanical issues change.
 
     Only marks dimensions that already have an assessment — doesn't create
     new entries for dimensions that have never been reviewed.
@@ -130,14 +130,14 @@ def merge_scan(
         codebase_metrics=resolved_options.codebase_metrics,
     )
 
-    existing = state["findings"]
+    existing = state["issues"]
     ignore_patterns = (
         resolved_options.ignore
         if resolved_options.ignore is not None
         else state.get("config", {}).get("ignore", [])
     )
     current_ids, new_count, reopened_count, current_by_detector, ignored_count, upsert_changed = (
-        upsert_findings(
+        upsert_issues(
             existing,
             current_findings,
             ignore_patterns,
@@ -170,7 +170,7 @@ def merge_scan(
         exclude=resolved_options.exclude,
     )
 
-    # Mark subjective assessments stale when mechanical findings changed.
+    # Mark subjective assessments stale when mechanical issues changed.
     changed_detectors = upsert_changed | resolve_changed
     if changed_detectors:
         _mark_stale_on_mechanical_change(
@@ -195,9 +195,9 @@ def merge_scan(
     )
 
     chronic_reopeners = [
-        finding
-        for finding in existing.values()
-        if finding.get("reopen_count", 0) >= 2 and finding["status"] == "open"
+        issue
+        for issue in existing.values()
+        if issue.get("reopen_count", 0) >= 2 and issue["status"] == "open"
     ]
 
     validate_state_invariants(state)

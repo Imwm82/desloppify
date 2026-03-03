@@ -29,18 +29,18 @@ def cmd_stage_organize(args: argparse.Namespace) -> None:
             print(colorize('  Run: desloppify plan triage --stage reflect --report "..."', "dim"))
         return
 
-    manual_clusters = triage_shared_mod._manual_clusters_with_findings(plan)
+    manual_clusters = triage_shared_mod._manual_clusters_with_issues(plan)
     if not manual_clusters:
         any_clusters = [
-            name for name, cluster in plan.get("clusters", {}).items() if cluster.get("finding_ids")
+            name for name, cluster in plan.get("clusters", {}).items() if cluster.get("issue_ids")
         ]
         if any_clusters:
             print(colorize("  Cannot organize: only auto-clusters exist.", "red"))
-            print(colorize("  Create manual clusters that group findings by root cause:", "dim"))
+            print(colorize("  Create manual clusters that group issues by root cause:", "dim"))
         else:
-            print(colorize("  Cannot organize: no clusters with findings exist.", "red"))
+            print(colorize("  Cannot organize: no clusters with issues exist.", "red"))
         print(colorize('    desloppify plan cluster create <name> --description "..."', "dim"))
-        print(colorize("    desloppify plan cluster add <name> <finding-patterns>", "dim"))
+        print(colorize("    desloppify plan cluster add <name> <issue-patterns>", "dim"))
         return
 
     gaps = triage_shared_mod._unenriched_clusters(plan)
@@ -66,7 +66,7 @@ def cmd_stage_organize(args: argparse.Namespace) -> None:
         min_chars=100,
         missing_guidance=[
             "Summarize your prioritized organization:",
-            "- Did you defer contradictory findings before clustering?",
+            "- Did you defer contradictory issues before clustering?",
             "- What clusters did you create and why?",
             "- Explicit priority ordering: which cluster 1st, 2nd, 3rd and why?",
             "- What depends on what? What unblocks the most?",
@@ -84,7 +84,7 @@ def cmd_stage_organize(args: argparse.Namespace) -> None:
         stage="organize",
         report=validated_report,
         cited_ids=[],
-        finding_count=len(manual_clusters),
+        issue_count=len(manual_clusters),
     )
 
     print(
@@ -100,7 +100,7 @@ def cmd_stage_organize(args: argparse.Namespace) -> None:
         desc_str = f" \u2014 {desc}" if desc else ""
         print(
             colorize(
-                f"    {name}: {len(cluster.get('finding_ids', []))} findings, {len(steps)} steps{desc_str}",
+                f"    {name}: {len(cluster.get('issue_ids', []))} issues, {len(steps)} steps{desc_str}",
                 "dim",
             )
         )

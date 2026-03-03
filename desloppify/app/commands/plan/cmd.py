@@ -67,7 +67,7 @@ def _cmd_plan_show(args: argparse.Namespace) -> None:
     if clusters:
         for name, cluster in clusters.items():
             desc = cluster.get("description") or ""
-            member_count = len(cluster.get("finding_ids", []))
+            member_count = len(cluster.get("issue_ids", []))
             marker = " (focused)" if name == active else ""
             desc_str = f" — {desc}" if desc else ""
             print(f"    {name}: {member_count} items{desc_str}{marker}")
@@ -91,7 +91,7 @@ def _cmd_plan_show(args: argparse.Namespace) -> None:
             pr_str = f"  PR: #{pr_num}" if pr_num else ""
             print(
                 f"  Commit tracking:  {ct['uncommitted']} uncommitted, "
-                f"{ct['committed']} committed ({ct['total']} findings){pr_str}"
+                f"{ct['committed']} committed ({ct['total']} issues){pr_str}"
             )
 
 

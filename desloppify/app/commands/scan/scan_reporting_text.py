@@ -26,12 +26,12 @@ def build_workflow_guide(attest_example: str) -> str:
         6. **Subjective review**: `desloppify review --run-batches --runner codex --parallel --scan-after-import`
            (or `review --prepare` → review → import for manual path).
         7. **Triage** (after review): `desloppify plan triage` — staged workflow to analyze
-           findings before fixing. Complete all 4 stages (observe → reflect → organize → commit).
+           issues before fixing. Complete all 4 stages (observe → reflect → organize → commit).
         8. **Check progress**: `desloppify status` — dimension scores dashboard.
 
         ### Decision Guide
-        - **Tackle**: T1/T2 (high impact), auto-fixable, security findings
-        - **Consider skipping**: T4 low-confidence, test/config zone findings (lower impact)
+        - **Tackle**: T1/T2 (high impact), auto-fixable, security issues
+        - **Consider skipping**: T4 low-confidence, test/config zone issues (lower impact)
         - **Wontfix**: Intentional patterns, false positives →
           `desloppify plan skip --permanent "<id>" --note "<why>" --attest "{attest_example}"`
         - **Batch wontfix**: Multiple intentional patterns →
@@ -47,7 +47,7 @@ def build_workflow_guide(attest_example: str) -> str:
 
         ### Understanding Dimensions
         - **Mechanical** (File health, Code quality, etc.): Fix code → rescan
-        - **Subjective** (Naming quality, Logic clarity, etc.): Address review findings → re-review
+        - **Subjective** (Naming quality, Logic clarity, etc.): Address review issues → re-review
         """
     ).strip()
 

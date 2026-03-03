@@ -67,7 +67,7 @@ def _dimension_name(detector: str) -> str:
 def _fixer_has_applicable_findings(
     state: StateModel, detector: str, fixer_name: str
 ) -> bool:
-    """For the smells detector, verify the fixer has matching open findings.
+    """For the smells detector, verify the fixer has matching open issues.
 
     The smells detector aggregates many smell types but each fixer only handles
     one sub-type (e.g. ``dead-useeffect`` only fixes ``dead_useeffect`` smells).
@@ -84,7 +84,7 @@ def _fixer_has_applicable_findings(
         and not f.get("suppressed")
         and f.get("detector") == "smells"
         and f.get("detail", {}).get("smell_id") == smell_id
-        for f in state.get("findings", {}).values()
+        for f in state.get("issues", {}).values()
     )
 
 
@@ -117,7 +117,7 @@ def _append_auto_fix_actions(
                     "detector": detector,
                     "count": count,
                     "description": (
-                        f"{count} {detector} findings — inspect with "
+                        f"{count} {detector} issues — inspect with "
                         f"`desloppify next` and fix manually"
                     ),
                     "command": f"desloppify show {detector} --status open",
@@ -134,7 +134,7 @@ def _append_auto_fix_actions(
                 "detector": detector,
                 "count": count,
                 "description": (
-                    f"{count} {detector} findings — run "
+                    f"{count} {detector} issues — run "
                     f"`desloppify autofix {fixer} --dry-run` to preview, then apply"
                 ),
                 "command": f"desloppify autofix {fixer} --dry-run",
@@ -163,7 +163,7 @@ def _append_reorganize_actions(
                 "type": "reorganize",
                 "detector": detector,
                 "count": count,
-                "description": f"{count} {detector} findings — {guidance}",
+                "description": f"{count} {detector} issues — {guidance}",
                 "command": f"desloppify show {detector} --status open",
                 "impact": round(impact_for(detector, count), 1),
                 "dimension": _dimension_name(detector),
@@ -188,13 +188,13 @@ def _build_refactor_entry(
         command = "desloppify show review --status open"
         suffix = "s" if count != 1 else ""
         description = (
-            f"{count} review finding{suffix} need investigation — "
+            f"{count} review issue{suffix} need investigation — "
             "run `desloppify show review --status open` to see them"
         )
         adjusted_info = {**adjusted_info, "action_type": "refactor"}
     else:
         command = f"desloppify show {detector} --status open"
-        description = f"{count} {detector} findings — {guidance}"
+        description = f"{count} {detector} issues — {guidance}"
 
     return {
         "type": adjusted_info["action_type"],
@@ -298,7 +298,7 @@ def _annotate_with_clusters(
             count = action.get("count", 0)
             display = action.get("detector", "unknown")
             action["description"] = (
-                f"{count} {display} findings in {len(matching)} cluster(s) — "
+                f"{count} {display} issues in {len(matching)} cluster(s) — "
                 f"run `desloppify next`"
             )
 

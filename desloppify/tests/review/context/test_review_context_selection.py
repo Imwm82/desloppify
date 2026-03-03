@@ -65,7 +65,7 @@ class TestBuildReviewContext:
             mock_rel.side_effect = _fake_rel
             ctx = build_review_context(tmp_path, mock_lang, state_with_findings)
 
-        assert "src/foo.ts" in ctx.existing_findings
+        assert "src/foo.ts" in ctx.existing_issues
 
     def test_existing_findings_are_scoped_to_selected_files(
         self, mock_lang, state_with_findings, tmp_path
@@ -82,8 +82,8 @@ class TestBuildReviewContext:
             mock_rel.side_effect = _fake_rel
             ctx = build_review_context(tmp_path, mock_lang, state_with_findings)
 
-        assert "src/foo.ts" in ctx.existing_findings
-        assert "src/utils.ts" not in ctx.existing_findings
+        assert "src/foo.ts" in ctx.existing_issues
+        assert "src/utils.ts" not in ctx.existing_issues
 
     def test_codebase_stats(self, mock_lang, empty_state, tmp_path):
         (tmp_path / "foo.ts").write_text("line1\nline2\nline3")
@@ -183,7 +183,7 @@ class TestSelectFilesForReview:
                     "cached.ts": {
                         "content_hash": content_hash,
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     }
                 }
             }
@@ -212,7 +212,7 @@ class TestSelectFilesForReview:
                     "stale.ts": {
                         "content_hash": content_hash,
                         "reviewed_at": old_time,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     }
                 }
             }
@@ -240,7 +240,7 @@ class TestSelectFilesForReview:
                     "changed.ts": {
                         "content_hash": "old_hash_different",
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     }
                 }
             }
@@ -267,7 +267,7 @@ class TestSelectFilesForReview:
                     "cached.ts": {
                         "content_hash": content_hash,
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     }
                 }
             }

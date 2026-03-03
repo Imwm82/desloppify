@@ -5,7 +5,7 @@ with a fast-track CONFIRM-EXISTING skip path.
 
 Stage gates validate **plan data enrichment**, not text reports:
 - OBSERVE: lightweight — write an analysis of themes/root causes (100 char min)
-- REFLECT: compare current findings against completed work (recurring patterns)
+- REFLECT: compare current issues against completed work (recurring patterns)
 - ORGANIZE: structural — each manual cluster must have description + action_steps
 - COMMIT: strategy must be substantive (200 char min) or "same"
 """
@@ -31,7 +31,7 @@ from desloppify.app.commands.plan.triage_playbook import (
     TRIAGE_CMD_REFLECT,
 )
 from desloppify.app.commands.plan.triage.shared import _unenriched_clusters
-from desloppify.app.commands.helpers.display import short_finding_id
+from desloppify.app.commands.helpers.display import short_issue_id
 from desloppify.core.output_api import colorize
 from desloppify.engine.plan import (
     TRIAGE_IDS,
@@ -40,7 +40,7 @@ from desloppify.engine.plan import (
     build_triage_prompt,
     collect_triage_input,
     detect_recurring_patterns,
-    extract_finding_citations,
+    extract_issue_citations,
     load_plan,
     purge_ids,
     review_finding_snapshot_hash,
@@ -113,9 +113,9 @@ def _print_cascade_clear_feedback(cleared: list[str], stages: dict) -> None:
 
 
 def _observe_dimension_breakdown(si) -> tuple[dict[str, int], list[str]]:
-    """Count findings per dimension from a TriageInput. Returns (by_dim, sorted_dim_names)."""
+    """Count issues per dimension from a TriageInput. Returns (by_dim, sorted_dim_names)."""
     by_dim: dict[str, int] = defaultdict(int)
-    for _fid, f in si.open_findings.items():
+    for _fid, f in si.open_issues.items():
         detail = f.get("detail", {}) if isinstance(f.get("detail"), dict) else {}
         dim = detail.get("dimension", "unknown")
         by_dim[dim] += 1
@@ -124,9 +124,9 @@ def _observe_dimension_breakdown(si) -> tuple[dict[str, int], list[str]]:
 
 
 def _open_review_ids_from_state(state: dict) -> set[str]:
-    """Return IDs of all open review/concerns findings in state."""
+    """Return IDs of all open review/concerns issues in state."""
     return {
-        fid for fid, f in state.get("findings", {}).items()
+        fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open" and f.get("detector") in ("review", "concerns")
     }
 
@@ -135,15 +135,15 @@ def _triage_coverage(
     plan: dict,
     open_review_ids: set[str] | None = None,
 ) -> tuple[int, int, dict]:
-    """Return (organized, total, clusters) for review findings in triage.
+    """Return (organized, total, clusters) for review issues in triage.
 
     When *open_review_ids* is provided, use it as the full set of review
-    findings (from state) instead of falling back to queue_order.
+    issues (from state) instead of falling back to queue_order.
     """
     clusters = plan.get("clusters", {})
     all_cluster_ids: set[str] = set()
     for c in clusters.values():
-        all_cluster_ids.update(c.get("finding_ids", []))
+        all_cluster_ids.update(c.get("issue_ids", []))
     if open_review_ids is not None:
         review_ids = list(open_review_ids)
     else:
@@ -155,11 +155,11 @@ def _triage_coverage(
     return organized, len(review_ids), clusters
 
 
-def _manual_clusters_with_findings(plan: dict) -> list[str]:
-    """Return names of non-auto clusters that have findings."""
+def _manual_clusters_with_issues(plan: dict) -> list[str]:
+    """Return names of non-auto clusters that have issues."""
     return [
         name for name, c in plan.get("clusters", {}).items()
-        if c.get("finding_ids") and not c.get("auto")
+        if c.get("issue_ids") and not c.get("auto")
     ]
 
 
@@ -180,7 +180,7 @@ def _print_stage_progress(stages: dict, plan: dict | None = None) -> None:
     # Show enrichment gaps when in the organize stage
     if plan and "reflect" in stages and "organize" not in stages:
         gaps = _unenriched_clusters(plan)
-        manual = _manual_clusters_with_findings(plan)
+        manual = _manual_clusters_with_issues(plan)
         if not manual:
             print(colorize("\n    No manual clusters yet. Create clusters and enrich them.", "yellow"))
         elif gaps:
@@ -195,18 +195,18 @@ def _print_stage_progress(stages: dict, plan: dict | None = None) -> None:
             print(colorize(f"\n    All {len(manual)} manual cluster(s) enriched.", "green"))
 
 
-def _print_progress(plan: dict, open_findings: dict) -> None:
-    """Show cluster state and unclustered findings."""
+def _print_progress(plan: dict, open_issues: dict) -> None:
+    """Show cluster state and unclustered issues."""
     clusters = plan.get("clusters", {})
-    # Only show clusters that actually have findings (hide empty/stale ones)
+    # Only show clusters that actually have issues (hide empty/stale ones)
     active_clusters = {
         name: c for name, c in clusters.items()
-        if c.get("finding_ids")
+        if c.get("issue_ids")
     }
     if active_clusters:
         print(colorize("\n  Current clusters:", "cyan"))
         for name, cluster in active_clusters.items():
-            count = len(cluster.get("finding_ids", []))
+            count = len(cluster.get("issue_ids", []))
             desc = cluster.get("description") or ""
             steps = cluster.get("action_steps", [])
             auto = cluster.get("auto", False)
@@ -228,20 +228,20 @@ def _print_progress(plan: dict, open_findings: dict) -> None:
 
     all_clustered: set[str] = set()
     for c in clusters.values():
-        all_clustered.update(c.get("finding_ids", []))
-    unclustered = [fid for fid in open_findings if fid not in all_clustered]
+        all_clustered.update(c.get("issue_ids", []))
+    unclustered = [fid for fid in open_issues if fid not in all_clustered]
     if unclustered:
-        print(colorize(f"\n  {len(unclustered)} findings not yet in a cluster:", "yellow"))
+        print(colorize(f"\n  {len(unclustered)} issues not yet in a cluster:", "yellow"))
         for fid in unclustered[:10]:
-            f = open_findings[fid]
+            f = open_issues[fid]
             dim = (f.get("detail", {}) or {}).get("dimension", "") if isinstance(f.get("detail"), dict) else ""
-            short = short_finding_id(fid)
+            short = short_issue_id(fid)
             print(f"    [{short}] [{dim}] {f.get('summary', '')}")
         if len(unclustered) > 10:
             print(colorize(f"    ... and {len(unclustered) - 10} more", "dim"))
-    elif open_findings:
-        organized, total, _ = _triage_coverage(plan, open_review_ids=set(open_findings.keys()))
-        print(colorize(f"\n  All {organized}/{total} findings are in clusters.", "green"))
+    elif open_issues:
+        organized, total, _ = _triage_coverage(plan, open_review_ids=set(open_issues.keys()))
+        print(colorize(f"\n  All {organized}/{total} issues are in clusters.", "green"))
 
 
 def _apply_completion(args: argparse.Namespace, plan: dict, strategy: str) -> None:
@@ -261,7 +261,7 @@ def _apply_completion(args: argparse.Namespace, plan: dict, strategy: str) -> No
     meta = plan.setdefault("epic_triage_meta", {})
     meta["finding_snapshot_hash"] = current_hash
     open_review_ids = sorted(
-        fid for fid, f in state.get("findings", {}).items()
+        fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open" and f.get("detector") in ("review", "concerns")
     )
     meta["triaged_ids"] = open_review_ids
@@ -283,8 +283,8 @@ def _apply_completion(args: argparse.Namespace, plan: dict, strategy: str) -> No
 
     save_plan(plan)
 
-    cluster_count = len([c for c in clusters.values() if c.get("finding_ids")])
-    print(colorize(f"  Triage complete: {organized}/{total} findings in {cluster_count} cluster(s).", "green"))
+    cluster_count = len([c for c in clusters.values() if c.get("issue_ids")])
+    print(colorize(f"  Triage complete: {organized}/{total} issues in {cluster_count} cluster(s).", "green"))
     effective_strategy = strategy if strategy.strip().lower() != "same" else meta.get("strategy_summary", "")
     if effective_strategy:
         print(colorize(f"  Strategy: {effective_strategy}", "cyan"))
@@ -326,22 +326,22 @@ def _cmd_stage_observe(args: argparse.Namespace) -> None:
         is_reuse = True
     elif not report:
         print(colorize("  --report is required for --stage observe.", "red"))
-        print(colorize("  Write an analysis of the findings: themes, root causes, contradictions.", "dim"))
-        print(colorize("  Identify findings that contradict each other (opposite recommendations).", "dim"))
-        print(colorize("  Do NOT just list finding IDs — describe what you actually observe.", "dim"))
+        print(colorize("  Write an analysis of the issues: themes, root causes, contradictions.", "dim"))
+        print(colorize("  Identify issues that contradict each other (opposite recommendations).", "dim"))
+        print(colorize("  Do NOT just list issue IDs — describe what you actually observe.", "dim"))
         return
 
     si = collect_triage_input(plan, state)
-    finding_count = len(si.open_findings)
+    issue_count = len(si.open_issues)
 
-    # Edge case: 0 findings
-    if finding_count == 0:
+    # Edge case: 0 issues
+    if issue_count == 0:
         stages["observe"] = {
             "stage": "observe",
             "report": report,
             "cited_ids": [],
             "timestamp": utc_now(),
-            "finding_count": 0,
+            "issue_count": 0,
         }
         if is_reuse and existing_stage and existing_stage.get("confirmed_at"):
             stages["observe"]["confirmed_at"] = existing_stage["confirmed_at"]
@@ -351,7 +351,7 @@ def _cmd_stage_observe(args: argparse.Namespace) -> None:
             stages["observe"].pop("confirmed_at", None)
             stages["observe"].pop("confirmed_text", None)
         save_plan(plan)
-        print(colorize("  Observe stage recorded (no findings to analyse).", "green"))
+        print(colorize("  Observe stage recorded (no issues to analyse).", "green"))
         if is_reuse:
             print(colorize("  Observe data preserved (no changes).", "dim"))
             if cleared:
@@ -359,22 +359,22 @@ def _cmd_stage_observe(args: argparse.Namespace) -> None:
         return
 
     # Validation: report length (no citation counting)
-    min_chars = 50 if finding_count <= 3 else 100
+    min_chars = 50 if issue_count <= 3 else 100
     if len(report) < min_chars:
         print(colorize(f"  Report too short: {len(report)} chars (minimum {min_chars}).", "red"))
-        print(colorize("  Describe themes, root causes, contradictions, and how findings relate.", "dim"))
+        print(colorize("  Describe themes, root causes, contradictions, and how issues relate.", "dim"))
         return
 
     # Save stage (still extract citations for analytics, but don't gate on them)
-    valid_ids = set(si.open_findings.keys())
-    cited = extract_finding_citations(report, valid_ids)
+    valid_ids = set(si.open_issues.keys())
+    cited = extract_issue_citations(report, valid_ids)
 
     stages["observe"] = {
         "stage": "observe",
         "report": report,
         "cited_ids": sorted(cited),
         "timestamp": utc_now(),
-        "finding_count": finding_count,
+        "issue_count": issue_count,
     }
 
     # Jump-back: preserve or clear confirmation
@@ -386,12 +386,12 @@ def _cmd_stage_observe(args: argparse.Namespace) -> None:
     save_plan(plan)
 
     append_log_entry(plan, "triage_observe", actor="user",
-                     detail={"finding_count": finding_count, "cited_ids": sorted(cited),
+                     detail={"issue_count": issue_count, "cited_ids": sorted(cited),
                              "reuse": is_reuse})
     save_plan(plan)
 
     print(colorize(
-        f"  Observe stage recorded: {finding_count} findings analysed.",
+        f"  Observe stage recorded: {issue_count} issues analysed.",
         "green",
     ))
     if is_reuse:
@@ -404,10 +404,10 @@ def _cmd_stage_observe(args: argparse.Namespace) -> None:
 
 
 def _cmd_stage_reflect(args: argparse.Namespace) -> None:
-    """Record the REFLECT stage: compare current findings against completed work.
+    """Record the REFLECT stage: compare current issues against completed work.
 
     Forces the agent to consider what was previously resolved and whether
-    similar issues are recurring. Requires a 100-char report (50 if ≤3 findings).
+    similar issues are recurring. Requires a 100-char report (50 if ≤3 issues).
     If recurring patterns are detected, the report must mention at least one
     recurring dimension name.
     """
@@ -433,7 +433,7 @@ def _cmd_stage_reflect(args: argparse.Namespace) -> None:
         is_reuse = True
     elif not report:
         print(colorize("  --report is required for --stage reflect.", "red"))
-        print(colorize("  Compare current findings against completed work and form a holistic strategy:", "dim"))
+        print(colorize("  Compare current issues against completed work and form a holistic strategy:", "dim"))
         print(colorize("  - What clusters were previously completed? Did fixes hold?", "dim"))
         print(colorize("  - Are any dimensions recurring (resolved before, open again)?", "dim"))
         print(colorize("  - What contradictions did you find? Which direction will you take?", "dim"))
@@ -465,17 +465,17 @@ def _cmd_stage_reflect(args: argparse.Namespace) -> None:
             print(colorize("  Or pass --attestation to auto-confirm observe inline.", "dim"))
             return
 
-    finding_count = len(si.open_findings)
+    issue_count = len(si.open_issues)
 
     # Validation: report length
-    min_chars = 50 if finding_count <= 3 else 100
+    min_chars = 50 if issue_count <= 3 else 100
     if len(report) < min_chars:
         print(colorize(f"  Report too short: {len(report)} chars (minimum {min_chars}).", "red"))
-        print(colorize("  Describe how current findings relate to previously completed work.", "dim"))
+        print(colorize("  Describe how current issues relate to previously completed work.", "dim"))
         return
 
     # Detect recurring patterns
-    recurring = detect_recurring_patterns(si.open_findings, si.resolved_findings)
+    recurring = detect_recurring_patterns(si.open_issues, si.resolved_issues)
     recurring_dims = sorted(recurring.keys())
 
     # If recurring patterns exist, report must mention at least one dimension
@@ -504,7 +504,7 @@ def _cmd_stage_reflect(args: argparse.Namespace) -> None:
         "report": report,
         "cited_ids": [],
         "timestamp": utc_now(),
-        "finding_count": finding_count,
+        "issue_count": issue_count,
         "recurring_dims": recurring_dims,
     }
     stages["reflect"] = reflect_stage
@@ -518,12 +518,12 @@ def _cmd_stage_reflect(args: argparse.Namespace) -> None:
     save_plan(plan)
 
     append_log_entry(plan, "triage_reflect", actor="user",
-                     detail={"finding_count": finding_count, "recurring_dims": recurring_dims,
+                     detail={"issue_count": issue_count, "recurring_dims": recurring_dims,
                              "reuse": is_reuse})
     save_plan(plan)
 
     _print_reflect_result(
-        finding_count=finding_count,
+        issue_count=issue_count,
         recurring_dims=recurring_dims,
         recurring=recurring,
         report=report,
@@ -535,7 +535,7 @@ def _cmd_stage_reflect(args: argparse.Namespace) -> None:
 
 def _print_reflect_result(
     *,
-    finding_count: int,
+    issue_count: int,
     recurring_dims: list[str],
     recurring: dict,
     report: str,
@@ -545,7 +545,7 @@ def _print_reflect_result(
 ) -> None:
     """Print the reflect stage output including briefing box and next steps."""
     print(colorize(
-        f"  Reflect stage recorded: {finding_count} findings, "
+        f"  Reflect stage recorded: {issue_count} issues, "
         f"{len(recurring_dims)} recurring dimension(s).",
         "green",
     ))
@@ -600,7 +600,7 @@ def _print_reflect_result(
         "dim",
     ))
     print(colorize(
-        "    desloppify plan cluster add <name> <finding-patterns>",
+        "    desloppify plan cluster add <name> <issue-patterns>",
         "dim",
     ))
     print(colorize(
@@ -654,7 +654,7 @@ def _cmd_stage_organize(args: argparse.Namespace) -> None:
         if attestation and len(attestation.strip()) >= _MIN_ATTESTATION_LEN:
             runtime = command_runtime(args)
             si = collect_triage_input(plan, runtime.state)
-            recurring = detect_recurring_patterns(si.open_findings, si.resolved_findings)
+            recurring = detect_recurring_patterns(si.open_issues, si.resolved_issues)
             _by_dim, observe_dims = _observe_dimension_breakdown(si)
             reflect_dims = sorted(set((list(recurring.keys()) if recurring else []) + observe_dims))
             reflect_clusters = [n for n in plan.get("clusters", {}) if not plan["clusters"][n].get("auto")]
@@ -675,21 +675,21 @@ def _cmd_stage_organize(args: argparse.Namespace) -> None:
             print(colorize("  Or pass --attestation to auto-confirm reflect inline.", "dim"))
             return
 
-    # Validate: at least 1 manual cluster with findings
-    manual_clusters = _manual_clusters_with_findings(plan)
+    # Validate: at least 1 manual cluster with issues
+    manual_clusters = _manual_clusters_with_issues(plan)
     if not manual_clusters:
-        # Check if there are ANY clusters with findings (including auto)
+        # Check if there are ANY clusters with issues (including auto)
         any_clusters = [
             name for name, c in plan.get("clusters", {}).items()
-            if c.get("finding_ids")
+            if c.get("issue_ids")
         ]
         if any_clusters:
             print(colorize("  Cannot organize: only auto-clusters exist.", "red"))
-            print(colorize("  Create manual clusters that group findings by root cause:", "dim"))
+            print(colorize("  Create manual clusters that group issues by root cause:", "dim"))
         else:
-            print(colorize("  Cannot organize: no clusters with findings exist.", "red"))
+            print(colorize("  Cannot organize: no clusters with issues exist.", "red"))
         print(colorize('    desloppify plan cluster create <name> --description "..."', "dim"))
-        print(colorize("    desloppify plan cluster add <name> <finding-patterns>", "dim"))
+        print(colorize("    desloppify plan cluster add <name> <issue-patterns>", "dim"))
         return
 
     # Validate: all manual clusters are enriched
@@ -711,7 +711,7 @@ def _cmd_stage_organize(args: argparse.Namespace) -> None:
     if not report:
         print(colorize("  --report is required for --stage organize.", "red"))
         print(colorize("  Summarize your prioritized organization:", "dim"))
-        print(colorize("  - Did you defer contradictory findings before clustering?", "dim"))
+        print(colorize("  - Did you defer contradictory issues before clustering?", "dim"))
         print(colorize("  - What clusters did you create and why?", "dim"))
         print(colorize("  - Explicit priority ordering: which cluster 1st, 2nd, 3rd and why?", "dim"))
         print(colorize("  - What depends on what? What unblocks the most?", "dim"))
@@ -727,7 +727,7 @@ def _cmd_stage_organize(args: argparse.Namespace) -> None:
         "report": report,
         "cited_ids": [],
         "timestamp": utc_now(),
-        "finding_count": len(manual_clusters),
+        "issue_count": len(manual_clusters),
     }
 
     # Jump-back: preserve or clear confirmation
@@ -778,7 +778,7 @@ def _print_organize_result(
         steps = cluster.get("action_steps", [])
         desc = cluster.get("description", "")
         desc_str = f" \u2014 {desc}" if desc else ""
-        print(colorize(f"    {name}: {len(cluster.get('finding_ids', []))} findings, {len(steps)} steps{desc_str}", "dim"))
+        print(colorize(f"    {name}: {len(cluster.get('issue_ids', []))} issues, {len(steps)} steps{desc_str}", "dim"))
 
     print()
     print(colorize("  \u250c\u2500 Prioritized organization (share with user) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510", "cyan"))
@@ -845,7 +845,7 @@ def _cmd_triage_complete(args: argparse.Namespace) -> None:
                     "dim",
                 ))
             else:
-                manual = _manual_clusters_with_findings(plan)
+                manual = _manual_clusters_with_issues(plan)
                 if manual:
                     print(colorize("  Clusters are enriched. Record the organize stage first:", "dim"))
                     print(colorize(f"    {TRIAGE_CMD_ORGANIZE}", "dim"))
@@ -879,14 +879,14 @@ def _cmd_triage_complete(args: argparse.Namespace) -> None:
 
     # Re-validate cluster enrichment at completion time (prevents bypassing
     # organize gate by editing plan.json directly)
-    manual_clusters = _manual_clusters_with_findings(plan)
+    manual_clusters = _manual_clusters_with_issues(plan)
     if not manual_clusters:
         any_clusters = [
             name for name, c in plan.get("clusters", {}).items()
-            if c.get("finding_ids")
+            if c.get("issue_ids")
         ]
         if not any_clusters:
-            print(colorize("  Cannot complete: no clusters with findings exist.", "red"))
+            print(colorize("  Cannot complete: no clusters with issues exist.", "red"))
             print(colorize('  Create clusters: desloppify plan cluster create <name> --description "..."', "dim"))
             return
 
@@ -905,14 +905,14 @@ def _cmd_triage_complete(args: argparse.Namespace) -> None:
     organized, total, clusters = _triage_coverage(plan, open_review_ids=review_ids)
 
     if total > 0 and organized == 0:
-        print(colorize("  Cannot complete: no findings have been organized into clusters.", "red"))
-        print(colorize(f"  {total} findings are waiting.", "dim"))
+        print(colorize("  Cannot complete: no issues have been organized into clusters.", "red"))
+        print(colorize(f"  {total} issues are waiting.", "dim"))
         return
 
     if total > 0 and organized < total:
         remaining = total - organized
         print(colorize(
-            f"  Warning: {remaining}/{total} findings are not yet in any cluster.",
+            f"  Warning: {remaining}/{total} issues are not yet in any cluster.",
             "yellow",
         ))
 
@@ -940,7 +940,7 @@ def _cmd_triage_complete(args: argparse.Namespace) -> None:
     print(colorize("  Triage summary:", "bold"))
     if "observe" in stages:
         obs = stages["observe"]
-        print(colorize(f"    Observe: {obs.get('finding_count', '?')} findings analysed", "dim"))
+        print(colorize(f"    Observe: {obs.get('issue_count', '?')} issues analysed", "dim"))
     if "reflect" in stages:
         ref = stages["reflect"]
         recurring = ref.get("recurring_dims", [])
@@ -949,7 +949,7 @@ def _cmd_triage_complete(args: argparse.Namespace) -> None:
         else:
             print(colorize("    Reflect: no recurring patterns", "dim"))
     if "organize" in stages:
-        manual = _manual_clusters_with_findings(plan)
+        manual = _manual_clusters_with_issues(plan)
         print(colorize(f"    Organize: {len(manual)} enriched cluster(s)", "dim"))
         for name in manual:
             cluster = plan.get("clusters", {}).get(name, {})
@@ -1008,7 +1008,7 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
         # Full ceremony: require observe + reflect
         if "observe" not in stages:
             print(colorize("  Cannot confirm existing: observe stage not complete.", "red"))
-            print(colorize("  You must read findings first.", "dim"))
+            print(colorize("  You must read issues first.", "dim"))
             print(colorize('  Run: desloppify plan triage --stage observe --report "..."', "dim"))
             return
         if "reflect" not in stages:
@@ -1018,16 +1018,16 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
             return
     else:
         # Light path: show new items for review, no prior stages needed
-        print(colorize(f"  {len(si.new_since_last)} new finding(s) since last triage:", "cyan"))
+        print(colorize(f"  {len(si.new_since_last)} new issue(s) since last triage:", "cyan"))
         for fid in sorted(si.new_since_last):
-            f = si.open_findings.get(fid, {})
-            print(f"    * [{short_finding_id(fid)}] {f.get('summary', '')}")
+            f = si.open_issues.get(fid, {})
+            print(f"    * [{short_issue_id(fid)}] {f.get('summary', '')}")
         print()
 
     # Require existing enriched clusters
-    clusters_with_findings = _manual_clusters_with_findings(plan)
+    clusters_with_findings = _manual_clusters_with_issues(plan)
     if not clusters_with_findings:
-        print(colorize("  Cannot confirm existing: no clusters with findings exist.", "red"))
+        print(colorize("  Cannot confirm existing: no clusters with issues exist.", "red"))
         print(colorize("  Use the full organize flow instead.", "dim"))
         return
 
@@ -1069,15 +1069,15 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
         print(colorize('\n  Add --confirmed "I validate this plan..." to proceed.', "dim"))
         return
 
-    # Validate: note cites at least 1 new/changed finding (if there are any)
+    # Validate: note cites at least 1 new/changed issue (if there are any)
     new_ids = si.new_since_last
     if new_ids:
-        valid_ids = set(si.open_findings.keys())
-        cited = extract_finding_citations(note, valid_ids)
+        valid_ids = set(si.open_issues.keys())
+        cited = extract_issue_citations(note, valid_ids)
         new_cited = cited & new_ids
         if not new_cited:
-            print(colorize("  Note must cite at least 1 new/changed finding.", "red"))
-            print(colorize(f"  {len(new_ids)} new finding(s) since last triage:", "dim"))
+            print(colorize("  Note must cite at least 1 new/changed issue.", "red"))
+            print(colorize(f"  {len(new_ids)} new issue(s) since last triage:", "dim"))
             for fid in sorted(new_ids)[:5]:
                 print(colorize(f"    {fid}", "dim"))
             if len(new_ids) > 5:
@@ -1091,7 +1091,7 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
         "report": f"[confirmed-existing] {note}",
         "cited_ids": [],
         "timestamp": utc_now(),
-        "finding_count": len(clusters_with_findings),
+        "issue_count": len(clusters_with_findings),
         "confirmed_at": utc_now(),
         "confirmed_text": confirmed.strip(),
     }
@@ -1108,19 +1108,19 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def _print_reflect_dashboard(si: object, plan: dict) -> None:
-    """Show completed clusters, resolved findings, and recurring patterns."""
+    """Show completed clusters, resolved issues, and recurring patterns."""
     # si is a TriageInput
     completed = getattr(si, "completed_clusters", [])
-    resolved = getattr(si, "resolved_findings", {})
-    open_findings = getattr(si, "open_findings", {})
+    resolved = getattr(si, "resolved_issues", {})
+    open_issues = getattr(si, "open_issues", {})
 
     if completed:
         print(colorize("\n  Previously completed clusters:", "cyan"))
         for c in completed[:10]:
             name = c.get("name", "?")
-            count = len(c.get("finding_ids", []))
+            count = len(c.get("issue_ids", []))
             thesis = c.get("thesis", "")
-            print(f"    {name}: {count} findings")
+            print(f"    {name}: {count} issues")
             if thesis:
                 print(colorize(f"      {thesis}", "dim"))
             for step in c.get("action_steps", [])[:3]:
@@ -1129,7 +1129,7 @@ def _print_reflect_dashboard(si: object, plan: dict) -> None:
             print(colorize(f"    ... and {len(completed) - 10} more", "dim"))
 
     if resolved:
-        print(colorize(f"\n  Resolved findings since last triage: {len(resolved)}", "cyan"))
+        print(colorize(f"\n  Resolved issues since last triage: {len(resolved)}", "cyan"))
         for fid, f in sorted(resolved.items())[:10]:
             status = f.get("status", "")
             summary = f.get("summary", "")
@@ -1140,7 +1140,7 @@ def _print_reflect_dashboard(si: object, plan: dict) -> None:
         if len(resolved) > 10:
             print(colorize(f"    ... and {len(resolved) - 10} more", "dim"))
 
-    recurring = detect_recurring_patterns(open_findings, resolved)
+    recurring = detect_recurring_patterns(open_issues, resolved)
     if recurring:
         print(colorize("\n  Recurring patterns detected:", "yellow"))
         for dim, info in sorted(recurring.items()):
@@ -1155,7 +1155,7 @@ def _print_reflect_dashboard(si: object, plan: dict) -> None:
         print(colorize("\n  First triage — no prior work to compare against.", "dim"))
         print(colorize("  Focus your reflect report on your strategy:", "yellow"))
         print(colorize("  - How will you resolve contradictions you identified in observe?", "dim"))
-        print(colorize("  - Which findings will you cluster together vs defer?", "dim"))
+        print(colorize("  - Which issues will you cluster together vs defer?", "dim"))
         print(colorize("  - What's the overall arc of work and why?", "dim"))
 
 
@@ -1164,7 +1164,7 @@ def _print_reflect_dashboard(si: object, plan: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
-    """Default view: show findings, stage progress, and next command."""
+    """Default view: show issues, stage progress, and next command."""
     runtime = command_runtime(args)
     state = runtime.state
     plan = load_plan()
@@ -1174,7 +1174,7 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
 
     print(colorize("  Epic triage \u2014 manual", "bold"))
     print(colorize("  " + "\u2500" * 60, "dim"))
-    print(f"  Open review findings: {len(si.open_findings)}")
+    print(f"  Open review issues: {len(si.open_issues)}")
     print(colorize("  Goal: identify contradictions, resolve them, then group the coherent", "cyan"))
     print(colorize("  remainder into clusters by root cause with action steps and priorities.", "cyan"))
     if si.existing_epics:
@@ -1182,13 +1182,13 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
     if si.new_since_last:
         print(colorize(f"  New since last triage: {len(si.new_since_last)}", "yellow"))
         for fid in sorted(si.new_since_last):
-            f = si.open_findings.get(fid, {})
+            f = si.open_issues.get(fid, {})
             dim = ""
             detail = f.get("detail")
             if isinstance(detail, dict):
                 dim = detail.get("dimension", "")
             dim_tag = f" ({dim})" if dim else ""
-            print(colorize(f"    * [{short_finding_id(fid)}] {f.get('summary', '')}{dim_tag}", "yellow"))
+            print(colorize(f"    * [{short_issue_id(fid)}] {f.get('summary', '')}{dim_tag}", "yellow"))
     if si.resolved_since_last:
         print(f"  Resolved since last triage: {len(si.resolved_since_last)}")
 
@@ -1198,7 +1198,7 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
     if meta.get("stage_refresh_required"):
         print(
             colorize(
-                "  Note: review findings changed since stage progress started; "
+                "  Note: review issues changed since stage progress started; "
                 "refresh stage reports before completion.",
                 "yellow",
             )
@@ -1222,20 +1222,20 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
     elif "observe" not in stages:
         print(colorize("  Next step:", "yellow"))
         print(f"    {TRIAGE_CMD_OBSERVE}")
-        print(colorize("    (themes, root causes, contradictions between findings — NOT a list of IDs)", "dim"))
+        print(colorize("    (themes, root causes, contradictions between issues — NOT a list of IDs)", "dim"))
     elif "reflect" not in stages:
         print(colorize("  Next step: use the completed work and patterns below to write your reflect report.", "yellow"))
         print(f"    {TRIAGE_CMD_REFLECT}")
         print(colorize("    (Contradictions, recurring patterns, which direction to take, what to defer)", "dim"))
     elif "organize" not in stages:
         gaps = _unenriched_clusters(plan)
-        manual = _manual_clusters_with_findings(plan)
+        manual = _manual_clusters_with_issues(plan)
 
         if not manual:
             print(colorize("  Next steps:", "yellow"))
-            print("    0. Defer contradictory findings: `desloppify plan skip <hash>`")
+            print("    0. Defer contradictory issues: `desloppify plan skip <hash>`")
             print(f"    1. Create clusters:  {TRIAGE_CMD_CLUSTER_CREATE}")
-            print(f"    2. Add findings:     {TRIAGE_CMD_CLUSTER_ADD}")
+            print(f"    2. Add issues:     {TRIAGE_CMD_CLUSTER_ADD}")
             print(f"    3. Enrich clusters:  {TRIAGE_CMD_CLUSTER_STEPS}")
             print(f"    4. Record stage:     {TRIAGE_CMD_ORGANIZE}")
         elif gaps:
@@ -1278,16 +1278,16 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
             if len(ref_report.strip().splitlines()) > 8:
                 print(colorize("    ...", "dim"))
 
-    # --- Findings data ---
-    # Group findings by dimension with suggestions to surface contradictions
+    # --- Issues data ---
+    # Group issues by dimension with suggestions to surface contradictions
     by_dim: dict[str, list[tuple[str, dict]]] = defaultdict(list)
-    for fid, f in si.open_findings.items():
+    for fid, f in si.open_issues.items():
         detail = f.get("detail", {}) if isinstance(f.get("detail"), dict) else {}
         dim = detail.get("dimension", "unknown")
         by_dim[dim].append((fid, f))
 
-    print(colorize("\n  Review findings by dimension:", "cyan"))
-    print(colorize("  (Look for contradictions: findings in the same dimension that", "dim"))
+    print(colorize("\n  Review issues by dimension:", "cyan"))
+    print(colorize("  (Look for contradictions: issues in the same dimension that", "dim"))
     print(colorize("  recommend opposite changes. These must be resolved before clustering.)", "dim"))
     max_per_dim = 5
     for dim in sorted(by_dim, key=lambda d: (-len(by_dim[d]), d)):
@@ -1295,7 +1295,7 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
         print(colorize(f"\n    {dim} ({len(items)}):", "bold"))
         for fid, f in items[:max_per_dim]:
             summary = f.get("summary", "")
-            short = short_finding_id(fid)
+            short = short_issue_id(fid)
             detail = f.get("detail", {}) if isinstance(f.get("detail"), dict) else {}
             suggestion = (detail.get("suggestion") or "")[:120]
             print(f"      [{short}] {summary}")
@@ -1310,7 +1310,7 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
         _print_reflect_dashboard(si, plan)
 
     # Show current cluster progress
-    _print_progress(plan, si.open_findings)
+    _print_progress(plan, si.open_issues)
 
 
 # ---------------------------------------------------------------------------
@@ -1320,7 +1320,7 @@ def _cmd_triage_dashboard(args: argparse.Namespace) -> None:
 def _find_cluster_for(fid: str, clusters: dict) -> str | None:
     """Return the cluster name containing *fid*, or None."""
     for name, c in clusters.items():
-        if fid in c.get("finding_ids", []):
+        if fid in c.get("issue_ids", []):
             return name
     return None
 
@@ -1339,14 +1339,14 @@ def _show_plan_summary(plan: dict, state: dict) -> None:
     clusters = plan.get("clusters", {})
     active = {
         n: c for n, c in clusters.items()
-        if c.get("finding_ids") and not c.get("auto")
+        if c.get("issue_ids") and not c.get("auto")
     }
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
 
     if active:
         print(colorize(f"\n  Clusters ({len(active)}):", "bold"))
         for name, cluster in active.items():
-            count = len(cluster.get("finding_ids", []))
+            count = len(cluster.get("issue_ids", []))
             steps = len(cluster.get("action_steps", []))
             desc = (cluster.get("description") or "")[:60]
             print(f"    {name}: {count} items, {steps} steps — {desc}")
@@ -1359,7 +1359,7 @@ def _show_plan_summary(plan: dict, state: dict) -> None:
         show = min(15, len(queue_order))
         print(colorize(f"\n  Queue order (first {show} of {len(queue_order)}):", "bold"))
         for i, fid in enumerate(queue_order[:show]):
-            f = findings.get(fid, {})
+            f = issues.get(fid, {})
             summary = (f.get("summary") or fid)[:60]
             detector = f.get("detector", "?")
             cn = _find_cluster_for(fid, active)
@@ -1434,20 +1434,20 @@ def _confirm_observe(args: argparse.Namespace, plan: dict, stages: dict, attesta
     si = collect_triage_input(plan, runtime.state)
     obs = stages["observe"]
 
-    print(colorize("  Stage: OBSERVE — Analyse findings & spot contradictions", "bold"))
+    print(colorize("  Stage: OBSERVE — Analyse issues & spot contradictions", "bold"))
     print(colorize("  " + "─" * 54, "dim"))
 
     # Dimension breakdown
     by_dim, dim_names = _observe_dimension_breakdown(si)
 
-    finding_count = obs.get("finding_count", len(si.open_findings))
-    print(f"  Your analysis covered {finding_count} findings across {len(by_dim)} dimensions:")
+    issue_count = obs.get("issue_count", len(si.open_issues))
+    print(f"  Your analysis covered {issue_count} issues across {len(by_dim)} dimensions:")
     for dim in dim_names:
-        print(f"    {dim}: {by_dim[dim]} findings")
+        print(f"    {dim}: {by_dim[dim]} issues")
 
     cited = obs.get("cited_ids", [])
     if cited:
-        print(f"  You cited {len(cited)} finding IDs in your report.")
+        print(f"  You cited {len(cited)} issue IDs in your report.")
 
     if not attestation or len(attestation.strip()) < _MIN_ATTESTATION_LEN:
         if attestation:
@@ -1457,7 +1457,7 @@ def _confirm_observe(args: argparse.Namespace, plan: dict, stages: dict, attesta
             ))
         print(colorize("\n  If satisfied, confirm:", "dim"))
         print(colorize('    desloppify plan triage --confirm observe --attestation "I have thoroughly reviewed..."', "dim"))
-        print(colorize("  If not, continue reviewing findings before reflecting.", "dim"))
+        print(colorize("  If not, continue reviewing issues before reflecting.", "dim"))
         return
 
     # Validate attestation references actual data
@@ -1495,7 +1495,7 @@ def _confirm_reflect(args: argparse.Namespace, plan: dict, stages: dict, attesta
     print(colorize("  " + "─" * 50, "dim"))
 
     # Recurring dimensions
-    recurring = detect_recurring_patterns(si.open_findings, si.resolved_findings)
+    recurring = detect_recurring_patterns(si.open_issues, si.resolved_issues)
     if recurring:
         print(f"  Your strategy identified {len(recurring)} recurring dimension(s):")
         for dim, info in sorted(recurring.items()):
@@ -1675,7 +1675,7 @@ def _cmd_triage_start(args: argparse.Namespace) -> None:
     runtime = command_runtime(args)
     si = collect_triage_input(plan, runtime.state)
     print(colorize("  Planning mode started (4 stages queued).", "green"))
-    print(f"  Open review findings: {len(si.open_findings)}")
+    print(f"  Open review issues: {len(si.open_issues)}")
     print(colorize("  Begin with observe:", "dim"))
     print(colorize(f"    {TRIAGE_CMD_OBSERVE}", "dim"))
 
@@ -1730,7 +1730,7 @@ def cmd_plan_triage(args: argparse.Namespace) -> None:
         prompt = build_triage_prompt(si)
         print(colorize("  Epic triage \u2014 dry run", "bold"))
         print(colorize("  " + "\u2500" * 60, "dim"))
-        print(f"  Open review findings: {len(si.open_findings)}")
+        print(f"  Open review issues: {len(si.open_issues)}")
         print(f"  Existing epics: {len(si.existing_epics)}")
         print(f"  New since last: {len(si.new_since_last)}")
         print(f"  Resolved since last: {len(si.resolved_since_last)}")

@@ -14,18 +14,18 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # ---------------------------------------------------------------------------
 
 def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Review finding {fid}",
+            "summary": f"Review issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {"dimension": dimension},
         }
-    return {"findings": findings, "scan_count": 5, "dimension_scores": {}}
+    return {"issues": issues, "scan_count": 5, "dimension_scores": {}}
 
 
 def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
@@ -42,12 +42,12 @@ def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
             ),
             "cited_ids": [],
             "timestamp": "2025-06-01T00:00:00Z",
-            "finding_count": 5,
+            "issue_count": 5,
         }
         if confirmed:
             stages[name]["confirmed_at"] = "2025-06-01T00:01:00Z"
             stages[name]["confirmed_text"] = (
-                "I have thoroughly reviewed all the findings in naming dimension "
+                "I have thoroughly reviewed all the issues in naming dimension "
                 "and this stage analysis is complete"
             )
     return plan
@@ -58,7 +58,7 @@ def _plan_with_enriched_clusters(stage_names, confirmed=False):
     plan = _plan_with_stages(*stage_names, confirmed=confirmed)
     plan["clusters"]["fix-naming"] = {
         "name": "fix-naming",
-        "finding_ids": ["r1", "r2"],
+        "issue_ids": ["r1", "r2"],
         "description": "Fix naming issues",
         "action_steps": ["step 1", "step 2"],
         "auto": False,
@@ -111,7 +111,7 @@ class TestReflectFoldConfirmObserve:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p: None)
 
         attestation = (
-            "I have thoroughly reviewed all the naming dimension findings "
+            "I have thoroughly reviewed all the naming dimension issues "
             "and the observation analysis is correct and complete"
         )
         reflect_report = (
@@ -146,7 +146,7 @@ class TestReflectFoldConfirmObserve:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p: None)
 
         reflect_report = (
-            "Strategy analysis of current findings with enough length to pass validation."
+            "Strategy analysis of current issues with enough length to pass validation."
         )
         args = _fake_args(stage="reflect", report=reflect_report)
         triage_mod.cmd_plan_triage(args)
@@ -217,7 +217,7 @@ class TestOrganizeFoldConfirmReflect:
             "approach addresses the core naming dimension issues properly"
         )
         organize_report = (
-            "Organized all findings into fix-naming cluster. Priority is to "
+            "Organized all issues into fix-naming cluster. Priority is to "
             "address the naming conventions first as they affect readability. "
             "This is the primary focus and unblocks future work."
         )
@@ -304,7 +304,7 @@ class TestExistingConfirmPathUnchanged:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p: None)
 
         attestation = (
-            "I have thoroughly reviewed all the naming dimension findings "
+            "I have thoroughly reviewed all the naming dimension issues "
             "and the observation analysis is correct and complete"
         )
         args = _fake_args(confirm="observe", attestation=attestation)
@@ -326,9 +326,9 @@ class TestCompleteArchivesStages:
         plan = _plan_with_enriched_clusters(
             ["observe", "reflect", "organize"], confirmed=True,
         )
-        # Add review findings to queue_order and cluster so coverage check works
+        # Add review issues to queue_order and cluster so coverage check works
         plan["queue_order"] = [*TRIAGE_STAGE_IDS, "review::test.py::r1", "review::test.py::r2"]
-        plan["clusters"]["fix-naming"]["finding_ids"] = ["review::test.py::r1", "review::test.py::r2"]
+        plan["clusters"]["fix-naming"]["issue_ids"] = ["review::test.py::r1", "review::test.py::r2"]
         state = _state_with_findings("review::test.py::r1", "review::test.py::r2")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
@@ -341,7 +341,7 @@ class TestCompleteArchivesStages:
             "issues across the codebase. Start with the most impactful files "
             "and work outward. Verify each fix with a scan afterwards. "
             "The approach addresses root causes rather than symptoms. "
-            "After naming is clean, reassess remaining findings."
+            "After naming is clean, reassess remaining issues."
         )
         args = _fake_args(complete=True, strategy=strategy)
         triage_mod.cmd_plan_triage(args)

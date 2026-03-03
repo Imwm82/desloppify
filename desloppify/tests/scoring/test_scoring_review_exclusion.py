@@ -1,4 +1,4 @@
-"""Tests that review findings are excluded from detection-side scoring."""
+"""Tests that review issues are excluded from detection-side scoring."""
 
 from __future__ import annotations
 
@@ -31,20 +31,20 @@ def _finding(
     }
 
 
-def _findings_dict(*findings: dict) -> dict:
-    return {str(i): f for i, f in enumerate(findings)}
+def _findings_dict(*issues: dict) -> dict:
+    return {str(i): f for i, f in enumerate(issues)}
 
 
-class TestReviewFindingsExcludedFromScoring:
-    """Review findings must not contribute to detection-side scores."""
+class TestReviewIssuesExcludedFromScoring:
+    """Review issues must not contribute to detection-side scores."""
 
     def test_review_detector_returns_perfect_pass_rate(self):
         """detector_pass_rate('review', ...) always returns (1.0, 0, 0.0)."""
         f = _finding("review", confidence="high", file=".")
         f["detail"] = {"holistic": True}
-        findings = _findings_dict(f)
+        issues = _findings_dict(f)
 
-        rate, issues, weighted = detector_pass_rate("review", findings, 60)
+        rate, issues, weighted = detector_pass_rate("review", issues, 60)
         assert rate == 1.0
         assert issues == 0
         assert weighted == 0.0
@@ -53,9 +53,9 @@ class TestReviewFindingsExcludedFromScoring:
         """All scoring modes return perfect scores for review detector."""
         f = _finding("review", confidence="high", file=".")
         f["detail"] = {"holistic": True}
-        findings = _findings_dict(f)
+        issues = _findings_dict(f)
 
-        result = detector_stats_by_mode("review", findings, 60)
+        result = detector_stats_by_mode("review", issues, 60)
         for mode in SCORING_MODES:
             rate, issues, weighted = result[mode]
             assert rate == 1.0
@@ -63,24 +63,24 @@ class TestReviewFindingsExcludedFromScoring:
             assert weighted == 0.0
 
     def test_open_review_findings_do_not_affect_score_bundle(self):
-        """Open review findings don't change objective/strict scores."""
+        """Open review issues don't change objective/strict scores."""
         potentials = {"unused": 100, "review": 10}
 
-        # No review findings
+        # No review issues
         baseline = compute_score_bundle({}, potentials)
 
-        # Add open review findings
+        # Add open review issues
         review_f = _finding("review", confidence="high", file=".")
         review_f["detail"] = {"holistic": True, "dimension": "naming_quality"}
         result = compute_score_bundle(_findings_dict(review_f), potentials)
 
-        # Scores should be identical — review findings don't affect scoring
+        # Scores should be identical — review issues don't affect scoring
         assert result.overall_score == baseline.overall_score
         assert result.strict_score == baseline.strict_score
         assert result.objective_score == baseline.objective_score
 
     def test_resolving_review_finding_does_not_change_scores(self):
-        """Resolving a review finding results in identical scores."""
+        """Resolving a review issue results in identical scores."""
         review_open = _finding("review", status="open", confidence="high", file=".")
         review_open["detail"] = {"holistic": True, "dimension": "naming_quality"}
         potentials = {"unused": 100, "review": 10}
@@ -102,9 +102,9 @@ class TestReviewFindingsExcludedFromScoring:
     def test_non_review_detectors_still_scored_normally(self):
         """Other detectors are unaffected by the review exclusion."""
         f = _finding("unused", confidence="high")
-        findings = _findings_dict(f)
+        issues = _findings_dict(f)
 
-        rate, issues, weighted = detector_pass_rate("unused", findings, 100)
+        rate, issues, weighted = detector_pass_rate("unused", issues, 100)
         assert issues == 1
         assert weighted == pytest.approx(1.0)
         assert rate < 1.0

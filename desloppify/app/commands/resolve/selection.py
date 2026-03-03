@@ -103,13 +103,13 @@ def _previous_score_snapshot(state: dict) -> state_mod.ScoreSnapshot:
 
 
 def _preview_resolve_count(state: dict, patterns: list[str]) -> int:
-    """Count unique open findings matching the provided patterns."""
+    """Count unique open issues matching the provided patterns."""
     matched_ids: set[str] = set()
     for pattern in patterns:
-        for finding in state_mod.match_findings(state, pattern, status_filter="open"):
-            finding_id = finding.get("id")
-            if finding_id:
-                matched_ids.add(finding_id)
+        for issue in state_mod.match_issues(state, pattern, status_filter="open"):
+            issue_id = issue.get("id")
+            if issue_id:
+                matched_ids.add(issue_id)
     return len(matched_ids)
 
 
@@ -155,7 +155,7 @@ def _enforce_batch_wontfix_confirmation(
         attestation=attestation,
         resolve_all_patterns_fn=resolve_all_patterns_fn,
     )
-    _emit_warning(f"Large wontfix batch detected ({preview_count} findings).")
+    _emit_warning(f"Large wontfix batch detected ({preview_count} issues).")
     if strict_delta > 0:
         _emit_warning(f"Estimated strict-score debt added now: {strict_delta:.1f} points.")
     raise CommandError(

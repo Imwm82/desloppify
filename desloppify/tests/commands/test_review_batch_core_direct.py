@@ -13,7 +13,7 @@ from desloppify.app.commands.review.batch_scoring import (
 from desloppify.app.commands.review import batch_core as batch_core_mod
 from desloppify.intelligence.review.feedback_contract import (
     LOW_SCORE_FINDING_THRESHOLD,
-    max_batch_findings_for_dimension_count,
+    max_batch_issues_for_dimension_count,
 )
 
 _ABSTRACTION_SUB_AXES = (
@@ -50,7 +50,7 @@ def test_merge_penalizes_high_scores_when_severe_findings_exist():
                         "issues_preventing_higher_score": "major refactor required",
                     }
                 },
-                "findings": [
+                "issues": [
                     {
                         "dimension": "high_level_elegance",
                         "identifier": "core_boundary_drift",
@@ -84,7 +84,7 @@ def test_merge_keeps_scores_without_findings():
                         "issues_preventing_higher_score": "minor seam churn remains",
                     }
                 },
-                "findings": [],
+                "issues": [],
                 "quality": {},
             }
         ]
@@ -104,7 +104,7 @@ def test_batch_prompt_requires_score_and_finding_consistency():
             "files_to_read": ["core.py", "scan.py"],
         },
     )
-    assert "Score/finding consistency is required" in prompt
+    assert "Score/issue consistency is required" in prompt
     assert "Seed files (start here):" in prompt
     assert "Start with the seed files, then freely explore additional repository files" in prompt
     assert "Evaluate ONLY listed files and ONLY listed dimensions" not in prompt
@@ -117,7 +117,7 @@ def test_dimension_merge_scorer_penalizes_higher_pressure():
             weighted_mean=92.0,
             floor=90.0,
             finding_pressure=1.0,
-            finding_count=1,
+            issue_count=1,
         )
     )
     high = scorer.score_dimension(
@@ -125,7 +125,7 @@ def test_dimension_merge_scorer_penalizes_higher_pressure():
             weighted_mean=92.0,
             floor=90.0,
             finding_pressure=4.08,
-            finding_count=1,
+            issue_count=1,
         )
     )
     assert low.final_score > high.final_score
@@ -138,7 +138,7 @@ def test_dimension_merge_scorer_penalizes_additional_findings():
             weighted_mean=92.0,
             floor=90.0,
             finding_pressure=2.0,
-            finding_count=1,
+            issue_count=1,
         )
     )
     three_findings = scorer.score_dimension(
@@ -146,7 +146,7 @@ def test_dimension_merge_scorer_penalizes_additional_findings():
             weighted_mean=92.0,
             floor=90.0,
             finding_pressure=2.0,
-            finding_count=3,
+            issue_count=3,
         )
     )
     assert one_finding.final_score > three_findings.final_score
@@ -166,7 +166,7 @@ def test_merge_batch_results_merges_same_identifier_findings():
                         "issues_preventing_higher_score": "",
                     }
                 },
-                "findings": [
+                "issues": [
                     {
                         "dimension": "logic_clarity",
                         "identifier": "processing_filter_predicate_mismatch",
@@ -192,7 +192,7 @@ def test_merge_batch_results_merges_same_identifier_findings():
                         "issues_preventing_higher_score": "",
                     }
                 },
-                "findings": [
+                "issues": [
                     {
                         "dimension": "logic_clarity",
                         "identifier": "processing_filter_predicate_mismatch",
@@ -209,13 +209,13 @@ def test_merge_batch_results_merges_same_identifier_findings():
             },
         ]
     )
-    findings = merged["findings"]
-    assert len(findings) == 1
-    finding = findings[0]
-    assert finding["identifier"] == "processing_filter_predicate_mismatch"
-    assert finding["summary"] == "Processing predicate mismatch across hooks"
-    assert set(finding["related_files"]) == {"src/a.ts", "src/b.ts", "src/c.ts"}
-    assert set(finding["evidence"]) == {"branch A uses OR", "branch B uses AND"}
+    issues = merged["issues"]
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue["identifier"] == "processing_filter_predicate_mismatch"
+    assert issue["summary"] == "Processing predicate mismatch across hooks"
+    assert set(issue["related_files"]) == {"src/a.ts", "src/b.ts", "src/c.ts"}
+    assert set(issue["evidence"]) == {"branch A uses OR", "branch B uses AND"}
 
 
 def test_normalize_batch_result_rejects_low_score_without_same_dimension_finding():
@@ -232,17 +232,17 @@ def test_normalize_batch_result_rejects_low_score_without_same_dimension_finding
                         "issues_preventing_higher_score": "",
                     }
                 },
-                "findings": [],
+                "issues": [],
             },
             allowed_dims={"logic_clarity"},
-            max_batch_findings=max_batch_findings_for_dimension_count(1),
+            max_batch_issues=max_batch_issues_for_dimension_count(1),
             abstraction_sub_axes=_ABSTRACTION_SUB_AXES,
         )
-    assert "low-score dimensions must include at least one explicit finding" in str(exc.value)
+    assert "low-score dimensions must include at least one explicit issue" in str(exc.value)
 
 
 def test_normalize_batch_result_accepts_low_score_with_same_dimension_finding():
-    assessments, findings, _notes, _quality = batch_core_mod.normalize_batch_result(
+    assessments, issues, _notes, _quality = batch_core_mod.normalize_batch_result(
         payload={
             "assessments": {"logic_clarity": LOW_SCORE_FINDING_THRESHOLD - 10.0},
             "dimension_notes": {
@@ -254,7 +254,7 @@ def test_normalize_batch_result_accepts_low_score_with_same_dimension_finding():
                     "issues_preventing_higher_score": "",
                 }
             },
-            "findings": [
+            "issues": [
                 {
                     "dimension": "logic_clarity",
                     "identifier": "divergent_predicates",
@@ -269,11 +269,11 @@ def test_normalize_batch_result_accepts_low_score_with_same_dimension_finding():
             ],
         },
         allowed_dims={"logic_clarity"},
-        max_batch_findings=max_batch_findings_for_dimension_count(1),
+        max_batch_issues=max_batch_issues_for_dimension_count(1),
         abstraction_sub_axes=_ABSTRACTION_SUB_AXES,
     )
     assert assessments["logic_clarity"] == LOW_SCORE_FINDING_THRESHOLD - 10.0
-    assert len(findings) == 1
+    assert len(issues) == 1
 
 
 def test_normalize_batch_result_accepts_legacy_unreported_risk_key():
@@ -289,7 +289,7 @@ def test_normalize_batch_result_accepts_legacy_unreported_risk_key():
                     "unreported_risk": "legacy note still provided",
                 }
             },
-            "findings": [
+            "issues": [
                 {
                     "dimension": "logic_clarity",
                     "identifier": "legacy_note_path",
@@ -304,7 +304,7 @@ def test_normalize_batch_result_accepts_legacy_unreported_risk_key():
             ],
         },
         allowed_dims={"logic_clarity"},
-        max_batch_findings=max_batch_findings_for_dimension_count(1),
+        max_batch_issues=max_batch_issues_for_dimension_count(1),
         abstraction_sub_axes=_ABSTRACTION_SUB_AXES,
     )
     assert (

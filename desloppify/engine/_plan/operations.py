@@ -32,7 +32,7 @@ def append_log_entry(
     plan: PlanModel,
     action: str,
     *,
-    finding_ids: list[str] | None = None,
+    issue_ids: list[str] | None = None,
     cluster_name: str | None = None,
     actor: str = "user",
     note: str | None = None,
@@ -43,7 +43,7 @@ def append_log_entry(
     entry: ExecutionLogEntry = {
         "timestamp": utc_now(),
         "action": action,
-        "finding_ids": finding_ids or [],
+        "issue_ids": issue_ids or [],
         "cluster_name": cluster_name,
         "actor": actor,
         "note": note,
@@ -59,13 +59,13 @@ def append_log_entry(
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _remove_id_from_lists(plan: PlanModel, finding_id: str) -> None:
-    """Remove a finding ID from queue_order and skipped."""
+def _remove_id_from_lists(plan: PlanModel, issue_id: str) -> None:
+    """Remove a issue ID from queue_order and skipped."""
     order: list[str] = plan["queue_order"]
     skipped: dict[str, SkipEntry] = plan.get("skipped", {})
-    if finding_id in order:
-        order.remove(finding_id)
-    skipped.pop(finding_id, None)
+    if issue_id in order:
+        order.remove(issue_id)
+    skipped.pop(issue_id, None)
 
 
 def _resolve_position(
@@ -73,14 +73,14 @@ def _resolve_position(
     position: str,
     target: str | None = None,
     offset: int | None = None,
-    finding_ids: list[str] | None = None,
+    issue_ids: list[str] | None = None,
 ) -> int:
     """Resolve a position specifier to an insertion index.
 
-    *finding_ids* are the IDs being moved — used to calculate relative
+    *issue_ids* are the IDs being moved — used to calculate relative
     positions when they already exist in the list.
     """
-    moving = set(finding_ids or [])
+    moving = set(issue_ids or [])
 
     if position == "top":
         return 0
@@ -96,7 +96,7 @@ def _resolve_position(
             moving,
             position=position,
             offset=offset,
-            finding_ids=finding_ids,
+            issue_ids=issue_ids,
         )
 
     return len(order)
@@ -128,11 +128,11 @@ def _resolve_offset_position(
     *,
     position: str,
     offset: int,
-    finding_ids: list[str] | None,
+    issue_ids: list[str] | None,
 ) -> int:
-    if not finding_ids:
+    if not issue_ids:
         return 0 if position == "up" else len(order)
-    first_id = finding_ids[0]
+    first_id = issue_ids[0]
     clean_order = [x for x in order if x not in moving]
     current_idx = _find_index(clean_order, first_id)
     if current_idx is None:
@@ -150,37 +150,37 @@ def _resolve_offset_position(
 
 def move_items(
     plan: PlanModel,
-    finding_ids: list[str],
+    issue_ids: list[str],
     position: str,
     target: str | None = None,
     offset: int | None = None,
 ) -> int:
-    """Move finding IDs to a position in queue_order. Returns count moved."""
+    """Move issue IDs to a position in queue_order. Returns count moved."""
     ensure_plan_defaults(plan)
 
     # Triage stage IDs are workflow-managed and cannot be manually reordered
     from desloppify.engine._plan.stale_dimensions import TRIAGE_IDS
-    finding_ids = [fid for fid in finding_ids if fid not in TRIAGE_IDS]
-    if not finding_ids:
+    issue_ids = [fid for fid in issue_ids if fid not in TRIAGE_IDS]
+    if not issue_ids:
         return 0
 
     order: list[str] = plan["queue_order"]
 
     # Remove from skipped if present
     skipped: dict[str, SkipEntry] = plan.get("skipped", {})
-    for fid in finding_ids:
+    for fid in issue_ids:
         skipped.pop(fid, None)
 
     # Remove from current position in order
-    for fid in finding_ids:
+    for fid in issue_ids:
         if fid in order:
             order.remove(fid)
 
     # Resolve insertion point
-    idx = _resolve_position(order, position, target, offset, finding_ids)
+    idx = _resolve_position(order, position, target, offset, issue_ids)
 
     # Insert in original order
-    for i, fid in enumerate(finding_ids):
+    for i, fid in enumerate(issue_ids):
         order.insert(idx + i, fid)
 
     # Track user-promoted IDs only when explicitly moved to the front.
@@ -188,13 +188,13 @@ def move_items(
     if position == "top":
         promoted: list[str] = plan.get("promoted_ids", [])
         existing_promoted = set(promoted)
-        for fid in finding_ids:
+        for fid in issue_ids:
             if fid not in existing_promoted:
                 promoted.append(fid)
                 existing_promoted.add(fid)
         plan["promoted_ids"] = promoted
 
-    return len(finding_ids)
+    return len(issue_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +203,7 @@ def move_items(
 
 def skip_items(
     plan: PlanModel,
-    finding_ids: list[str],
+    issue_ids: list[str],
     *,
     kind: str = "temporary",
     reason: str | None = None,
@@ -212,18 +212,18 @@ def skip_items(
     review_after: int | None = None,
     scan_count: int = 0,
 ) -> int:
-    """Move finding IDs to the skipped dict. Returns count skipped."""
+    """Move issue IDs to the skipped dict. Returns count skipped."""
     ensure_plan_defaults(plan)
     now = utc_now()
     count = 0
     skipped: dict[str, SkipEntry] = plan["skipped"]
-    skip_set = set(finding_ids)
+    skip_set = set(issue_ids)
     promoted: list[str] = plan.get("promoted_ids", [])
     plan["promoted_ids"] = [p for p in promoted if p not in skip_set]
-    for fid in finding_ids:
+    for fid in issue_ids:
         _remove_id_from_lists(plan, fid)
         skipped[fid] = {
-            "finding_id": fid,
+            "issue_id": fid,
             "kind": kind,
             "reason": reason,
             "note": note,
@@ -237,9 +237,9 @@ def skip_items(
 
 
 def unskip_items(
-    plan: PlanModel, finding_ids: list[str]
+    plan: PlanModel, issue_ids: list[str]
 ) -> tuple[int, list[str]]:
-    """Bring finding IDs back from skipped to the end of queue_order.
+    """Bring issue IDs back from skipped to the end of queue_order.
 
     Returns ``(count_unskipped, permanent_ids_needing_state_reopen)``
     where the second list contains IDs that were permanent or false_positive
@@ -249,7 +249,7 @@ def unskip_items(
     count = 0
     need_reopen: list[str] = []
     skipped: dict[str, SkipEntry] = plan["skipped"]
-    for fid in finding_ids:
+    for fid in issue_ids:
         entry = skipped.pop(fid, None)
         if entry is not None:
             if entry.get("kind") in ("permanent", "false_positive"):
@@ -265,7 +265,7 @@ def resurface_stale_skips(
 ) -> list[str]:
     """Move temporary skips past their review_after threshold back to queue.
 
-    Returns list of resurfaced finding IDs.
+    Returns list of resurfaced issue IDs.
     """
     ensure_plan_defaults(plan)
     skipped: dict[str, SkipEntry] = plan["skipped"]
@@ -291,29 +291,29 @@ def resurface_stale_skips(
 # ---------------------------------------------------------------------------
 
 def describe_finding(
-    plan: PlanModel, finding_id: str, description: str | None
+    plan: PlanModel, issue_id: str, description: str | None
 ) -> None:
-    """Set or clear an augmented description on a finding."""
+    """Set or clear an augmented description on a issue."""
     ensure_plan_defaults(plan)
     now = utc_now()
     overrides = plan["overrides"]
-    if finding_id not in overrides:
-        overrides[finding_id] = {"finding_id": finding_id, "created_at": now}
-    overrides[finding_id]["description"] = description
-    overrides[finding_id]["updated_at"] = now
+    if issue_id not in overrides:
+        overrides[issue_id] = {"issue_id": issue_id, "created_at": now}
+    overrides[issue_id]["description"] = description
+    overrides[issue_id]["updated_at"] = now
 
 
 def annotate_finding(
-    plan: PlanModel, finding_id: str, note: str | None
+    plan: PlanModel, issue_id: str, note: str | None
 ) -> None:
-    """Set or clear a note on a finding."""
+    """Set or clear a note on a issue."""
     ensure_plan_defaults(plan)
     now = utc_now()
     overrides = plan["overrides"]
-    if finding_id not in overrides:
-        overrides[finding_id] = {"finding_id": finding_id, "created_at": now}
-    overrides[finding_id]["note"] = note
-    overrides[finding_id]["updated_at"] = now
+    if issue_id not in overrides:
+        overrides[issue_id] = {"issue_id": issue_id, "created_at": now}
+    overrides[issue_id]["note"] = note
+    overrides[issue_id]["updated_at"] = now
 
 
 # ---------------------------------------------------------------------------
@@ -342,7 +342,7 @@ def create_cluster(
     cluster: Cluster = {
         "name": name,
         "description": description,
-        "finding_ids": [],
+        "issue_ids": [],
         "created_at": now,
         "updated_at": now,
         "auto": False,
@@ -355,25 +355,25 @@ def create_cluster(
 
 
 def add_to_cluster(
-    plan: PlanModel, cluster_name: str, finding_ids: list[str]
+    plan: PlanModel, cluster_name: str, issue_ids: list[str]
 ) -> int:
-    """Add finding IDs to a cluster. Returns count added."""
+    """Add issue IDs to a cluster. Returns count added."""
     ensure_plan_defaults(plan)
     cluster = plan["clusters"].get(cluster_name)
     if cluster is None:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
 
-    member_ids: list[str] = cluster["finding_ids"]
+    member_ids: list[str] = cluster["issue_ids"]
     count = 0
     now = utc_now()
-    for fid in finding_ids:
+    for fid in issue_ids:
         if fid not in member_ids:
             member_ids.append(fid)
             count += 1
         # Update override to track cluster membership
         overrides = plan["overrides"]
         if fid not in overrides:
-            overrides[fid] = {"finding_id": fid, "created_at": now}
+            overrides[fid] = {"issue_id": fid, "created_at": now}
         overrides[fid]["cluster"] = cluster_name
         overrides[fid]["updated_at"] = now
 
@@ -382,18 +382,18 @@ def add_to_cluster(
 
 
 def remove_from_cluster(
-    plan: PlanModel, cluster_name: str, finding_ids: list[str]
+    plan: PlanModel, cluster_name: str, issue_ids: list[str]
 ) -> int:
-    """Remove finding IDs from a cluster. Returns count removed."""
+    """Remove issue IDs from a cluster. Returns count removed."""
     ensure_plan_defaults(plan)
     cluster = plan["clusters"].get(cluster_name)
     if cluster is None:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
 
-    member_ids: list[str] = cluster["finding_ids"]
+    member_ids: list[str] = cluster["issue_ids"]
     now = utc_now()
     count = 0
-    for fid in finding_ids:
+    for fid in issue_ids:
         if fid in member_ids:
             member_ids.remove(fid)
             count += 1
@@ -418,7 +418,7 @@ def delete_cluster(plan: PlanModel, name: str) -> list[str]:
     if cluster is None:
         raise ValueError(f"Cluster {name!r} does not exist")
 
-    orphaned = list(cluster.get("finding_ids", []))
+    orphaned = list(cluster.get("issue_ids", []))
     now = utc_now()
     for fid in orphaned:
         override = plan["overrides"].get(fid)
@@ -435,7 +435,7 @@ def delete_cluster(plan: PlanModel, name: str) -> list[str]:
 def merge_clusters(
     plan: PlanModel, source_name: str, target_name: str
 ) -> tuple[int, list[str]]:
-    """Move all source findings to target, copy missing metadata, delete source.
+    """Move all source issues to target, copy missing metadata, delete source.
 
     Returns ``(added_count, source_finding_ids)``.
     """
@@ -449,11 +449,11 @@ def merge_clusters(
     if target is None:
         raise ValueError(f"Target cluster {target_name!r} does not exist")
 
-    source_ids = list(source.get("finding_ids", []))
-    target_ids: list[str] = target["finding_ids"]
+    source_ids = list(source.get("issue_ids", []))
+    target_ids: list[str] = target["issue_ids"]
     now = utc_now()
 
-    # Add source findings to target (deduplicate)
+    # Add source issues to target (deduplicate)
     existing = set(target_ids)
     added = 0
     for fid in source_ids:
@@ -464,7 +464,7 @@ def merge_clusters(
         # Update override to point to target cluster
         overrides = plan["overrides"]
         if fid not in overrides:
-            overrides[fid] = {"finding_id": fid, "created_at": now}
+            overrides[fid] = {"issue_id": fid, "created_at": now}
         overrides[fid]["cluster"] = target_name
         overrides[fid]["updated_at"] = now
 
@@ -499,7 +499,7 @@ def move_cluster(
     if cluster is None:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
 
-    member_ids = list(cluster.get("finding_ids", []))
+    member_ids = list(cluster.get("issue_ids", []))
     if not member_ids:
         return 0
 
@@ -544,8 +544,8 @@ def reset_plan(plan: PlanModel) -> None:
     plan["plan_start_scores"] = {"reset": True}
 
 
-def purge_ids(plan: PlanModel, finding_ids: list[str]) -> int:
-    """Remove finding IDs from the plan entirely.
+def purge_ids(plan: PlanModel, issue_ids: list[str]) -> int:
+    """Remove issue IDs from the plan entirely.
 
     Cleans queue_order, skipped, and all cluster memberships.
     Does NOT touch overrides (descriptions/notes are kept for history).
@@ -554,13 +554,13 @@ def purge_ids(plan: PlanModel, finding_ids: list[str]) -> int:
     ensure_plan_defaults(plan)
     found = 0
 
-    purge_set = set(finding_ids)
+    purge_set = set(issue_ids)
     promoted: list[str] = plan.get("promoted_ids", [])
     plan["promoted_ids"] = [p for p in promoted if p not in purge_set]
 
     order: list[str] = plan["queue_order"]
     skipped: dict[str, SkipEntry] = plan["skipped"]
-    for fid in finding_ids:
+    for fid in issue_ids:
         was_present = False
         if fid in order:
             order.remove(fid)
@@ -569,7 +569,7 @@ def purge_ids(plan: PlanModel, finding_ids: list[str]) -> int:
             skipped.pop(fid)
             was_present = True
         for cluster in plan.get("clusters", {}).values():
-            ids = cluster.get("finding_ids", [])
+            ids = cluster.get("issue_ids", [])
             if fid in ids:
                 ids.remove(fid)
                 was_present = True

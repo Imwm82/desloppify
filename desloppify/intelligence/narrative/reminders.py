@@ -12,24 +12,24 @@ from desloppify.intelligence.narrative._constants import (
     _REMINDER_DECAY_THRESHOLD,
     STRUCTURAL_MERGE,
 )
-from desloppify.state import StateModel, get_strict_score, path_scoped_findings
+from desloppify.state import StateModel, get_strict_score, path_scoped_issues
 
 logger = logging.getLogger(__name__)
 
 
-def _compute_fp_rates(findings: dict) -> dict[tuple[str, str], float]:
-    """Compute false_positive rate per (detector, zone) from historical findings."""
+def _compute_fp_rates(issues: dict) -> dict[tuple[str, str], float]:
+    """Compute false_positive rate per (detector, zone) from historical issues."""
     counts: dict[tuple[str, str], dict[str, int]] = {}
-    for finding in findings.values():
-        detector = finding.get("detector", "unknown")
+    for issue in issues.values():
+        detector = issue.get("detector", "unknown")
         if detector in STRUCTURAL_MERGE:
             detector = "structural"
-        zone = finding.get("zone", "production")
+        zone = issue.get("zone", "production")
         key = (detector, zone)
         if key not in counts:
             counts[key] = {"total": 0, "fp": 0}
         counts[key]["total"] += 1
-        if finding.get("status") == "false_positive":
+        if issue.get("status") == "false_positive":
             counts[key]["fp"] += 1
 
     rates: dict[tuple[str, str], float] = {}
@@ -52,7 +52,7 @@ def _auto_fixer_reminder(actions: list[dict]) -> list[dict]:
     return [
         {
             "type": "auto_fixers_available",
-            "message": f"{total} findings are auto-fixable. Run `{first_cmd}`.",
+            "message": f"{total} issues are auto-fixable. Run `{first_cmd}`.",
             "command": first_cmd,
         }
     ]
@@ -64,7 +64,7 @@ def _rescan_needed_reminder(command: str | None) -> list[dict]:
     return [
         {
             "type": "rescan_needed",
-            "message": "Rescan to verify — cascading effects may create new findings.",
+            "message": "Rescan to verify — cascading effects may create new issues.",
             "command": "desloppify scan",
         }
     ]
@@ -108,10 +108,10 @@ def _wontfix_debt_reminders(state: StateModel, debt: dict, command: str | None) 
         return reminders
 
     stale_wontfix = []
-    for finding in state.get("findings", {}).values():
-        if finding.get("status") != "wontfix":
+    for issue in state.get("issues", {}).values():
+        if issue.get("status") != "wontfix":
             continue
-        resolved_at = finding.get("resolved_at")
+        resolved_at = issue.get("resolved_at")
         if not resolved_at:
             continue
         try:
@@ -122,7 +122,7 @@ def _wontfix_debt_reminders(state: StateModel, debt: dict, command: str | None) 
             )
             continue
         if age_days > 60:
-            stale_wontfix.append(finding)
+            stale_wontfix.append(issue)
 
     if stale_wontfix:
         reminders.append(
@@ -231,7 +231,7 @@ def _fp_calibration_reminders(fp_rates: dict[tuple[str, str], float]) -> list[di
             {
                 "type": f"fp_calibration_{detector}_{zone}",
                 "message": (
-                    f"{pct}% of {detector} findings in {zone} zone are false positives. "
+                    f"{pct}% of {detector} issues in {zone} zone are false positives. "
                     f"Consider reviewing detection rules for {zone} files."
                 ),
                 "command": None,
@@ -242,27 +242,27 @@ def _fp_calibration_reminders(fp_rates: dict[tuple[str, str], float]) -> list[di
 
 def _review_queue_reminders(
     state: StateModel,
-    scoped_findings: dict,
+    scoped_issues: dict,
     command: str | None,
     strict_score: float | None,
 ) -> list[dict]:
     reminders: list[dict] = []
     open_review = [
-        finding
-        for finding in scoped_findings.values()
-        if finding.get("status") == "open" and finding.get("detector") == "review"
+        issue
+        for issue in scoped_issues.values()
+        if issue.get("status") == "open" and issue.get("detector") == "review"
     ]
     if open_review:
         uninvestigated = [
-            finding
-            for finding in open_review
-            if not finding.get("detail", {}).get("investigation")
+            issue
+            for issue in open_review
+            if not issue.get("detail", {}).get("investigation")
         ]
         if uninvestigated:
             reminders.append(
                 {
                     "type": "review_findings_pending",
-                    "message": f"{len(uninvestigated)} review finding(s) need investigation. "
+                    "message": f"{len(uninvestigated)} review issue(s) need investigation. "
                     f"Run `desloppify show review --status open` to see the work queue.",
                     "command": "desloppify show review --status open",
                 }
@@ -297,17 +297,17 @@ def _review_queue_reminders(
     return reminders
 
 
-def _has_open_findings(state: StateModel) -> bool:
-    """True when any non-suppressed open findings remain in the queue."""
+def _has_open_issues(state: StateModel) -> bool:
+    """True when any non-suppressed open issues remain in the queue."""
     return any(
         f.get("status") == "open" and not f.get("suppressed")
-        for f in (state.get("findings") or {}).values()
+        for f in (state.get("issues") or {}).values()
     )
 
 
 def _stale_assessment_reminder(state: StateModel) -> list[dict]:
     """Nudge when mechanical changes have staled subjective assessments."""
-    if _has_open_findings(state):
+    if _has_open_issues(state):
         return []
     assessments = state.get("subjective_assessments") or {}
     stale_dims = [
@@ -387,7 +387,7 @@ def _feedback_reminder(
     else:
         nudge_msg = (
             f"If you notice patterns desloppify doesn't detect, false positives, "
-            f"or findings that seem off, file an issue at {_FEEDBACK_URL} — "
+            f"or issues that seem off, file an issue at {_FEEDBACK_URL} — "
             f"include the file and what you expected. It helps improve the tool."
         )
     return [
@@ -491,10 +491,10 @@ def _compute_reminders(
 
     strict_score = get_strict_score(state)
     reminder_history = state.get("reminder_history", {})
-    scoped_findings = path_scoped_findings(
-        state.get("findings", {}), state.get("scan_path")
+    scoped_issues = path_scoped_issues(
+        state.get("issues", {}), state.get("scan_path")
     )
-    fp_rates = _compute_fp_rates(scoped_findings)
+    fp_rates = _compute_fp_rates(scoped_issues)
 
     reminders: list[dict] = []
     reminders.extend(_report_scores_reminder(command))
@@ -508,7 +508,7 @@ def _compute_reminders(
     reminders.extend(_zone_classification_reminder(state))
     reminders.extend(_fp_calibration_reminders(fp_rates))
     reminders.extend(
-        _review_queue_reminders(state, scoped_findings, command, strict_score)
+        _review_queue_reminders(state, scoped_issues, command, strict_score)
     )
     reminders.extend(_stale_assessment_reminder(state))
     reminders.extend(_review_staleness_reminder(state, config))

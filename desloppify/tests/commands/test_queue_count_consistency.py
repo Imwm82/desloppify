@@ -1,7 +1,7 @@
 """Tests for queue count disagreement fixes (#194, #195, #196).
 
 Covers:
-- Fix 1: auto_resolve_disappeared resolves out-of-scope findings
+- Fix 1: auto_resolve_disappeared resolves out-of-scope issues
 - Fix 2: queue counting functions pass scan_path
 - Fix 3: compute_subjective_visibility respects scan_path + plan
 - Fix 4a: workflow::run-scan synthetic item
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from desloppify.engine._state.merge_findings import auto_resolve_disappeared
+from desloppify.engine._state.merge_issues import auto_resolve_disappeared
 from desloppify.engine._plan.subjective_policy import compute_subjective_visibility
 
 
@@ -38,20 +38,20 @@ def _finding(
     return f
 
 
-def _state_with_findings(*findings: dict) -> dict:
+def _state_with_findings(*issues: dict) -> dict:
     return {
-        "findings": {f["id"]: f for f in findings},
+        "issues": {f["id"]: f for f in issues},
         "scan_count": 5,
     }
 
 
 # ---------------------------------------------------------------------------
-# Fix 1: auto_resolve_disappeared resolves out-of-scope findings
+# Fix 1: auto_resolve_disappeared resolves out-of-scope issues
 # ---------------------------------------------------------------------------
 
 class TestAutoResolveOutOfScope:
     def test_out_of_scope_findings_are_resolved(self):
-        """Findings outside scan_path are auto-resolved, not skipped."""
+        """Issues outside scan_path are auto-resolved, not skipped."""
         existing = {
             "f1": {
                 "id": "f1", "status": "open", "file": "supabase/fn.ts",
@@ -80,7 +80,7 @@ class TestAutoResolveOutOfScope:
         assert "unused" in detectors
 
     def test_out_of_scope_resolution_attestation(self):
-        """Out-of-scope findings get scan_verified attestation with scope note."""
+        """Out-of-scope issues get scan_verified attestation with scope note."""
         existing = {
             "f1": {
                 "id": "f1", "status": "open", "file": "supabase/fn.ts",
@@ -100,7 +100,7 @@ class TestAutoResolveOutOfScope:
         assert "scan_path: src" in attestation["text"]
 
     def test_no_scan_path_skips_nothing(self):
-        """When scan_path is None, all disappeared findings are resolved normally."""
+        """When scan_path is None, all disappeared issues are resolved normally."""
         existing = {
             "f1": {
                 "id": "f1", "status": "open", "file": "anywhere/file.ts",
@@ -138,7 +138,7 @@ class TestAutoResolveOutOfScope:
         assert out_of_scope == 0
 
     def test_out_of_scope_adds_to_resolved_detectors(self):
-        """Out-of-scope resolved findings contribute to resolved_detectors set."""
+        """Out-of-scope resolved issues contribute to resolved_detectors set."""
         existing = {
             "f1": {
                 "id": "f1", "status": "open", "file": "other/file.ts",
@@ -162,11 +162,11 @@ class TestAutoResolveOutOfScope:
 
 class TestQueueCountingScanPath:
     def test_queue_count_respects_scan_path_from_state(self):
-        """build_work_queue auto-reads scan_path from state and filters findings."""
+        """build_work_queue auto-reads scan_path from state and filters issues."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
         state: dict = {
-            "findings": {
+            "issues": {
                 "f1": {
                     "id": "f1", "detector": "unused", "status": "open",
                     "file": "src/a.ts", "tier": 1, "confidence": "high",
@@ -192,11 +192,11 @@ class TestQueueCountingScanPath:
         assert result["total"] == 1
 
     def test_queue_count_no_scan_path_returns_all(self):
-        """Without scan_path in state, all findings are returned."""
+        """Without scan_path in state, all issues are returned."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
         state: dict = {
-            "findings": {
+            "issues": {
                 "f1": {
                     "id": "f1", "detector": "unused", "status": "open",
                     "file": "src/a.ts", "tier": 1, "confidence": "high",
@@ -221,7 +221,7 @@ class TestQueueCountingScanPath:
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
         state: dict = {
-            "findings": {
+            "issues": {
                 "f1": {
                     "id": "f1", "detector": "unused", "status": "open",
                     "file": "src/a.ts", "tier": 1, "confidence": "high",
@@ -250,7 +250,7 @@ class TestQueueCountingScanPath:
 
 class TestSubjectivePolicyScanPathAndPlan:
     def test_scan_path_excludes_out_of_scope_findings(self):
-        """Findings outside scan_path don't count toward objective backlog."""
+        """Issues outside scan_path don't count toward objective backlog."""
         state = _state_with_findings(
             _finding("f1", "unused", file="src/app.ts"),
             _finding("f2", "unused", file="supabase/fn.ts"),
@@ -266,8 +266,8 @@ class TestSubjectivePolicyScanPathAndPlan:
         assert policy_scoped.has_objective_backlog is True
 
     def test_scan_path_drains_backlog_correctly(self):
-        """When all in-scope findings are resolved, backlog is drained even
-        if out-of-scope findings remain open."""
+        """When all in-scope issues are resolved, backlog is drained even
+        if out-of-scope issues remain open."""
         state = _state_with_findings(
             _finding("f1", "unused", file="supabase/fn.ts"),
             _finding("f2", "unused", file="supabase/other.ts"),
@@ -277,7 +277,7 @@ class TestSubjectivePolicyScanPathAndPlan:
         assert policy.has_objective_backlog is False
 
     def test_plan_skipped_findings_excluded(self):
-        """Findings in plan['skipped'] don't count toward objective backlog."""
+        """Issues in plan['skipped'] don't count toward objective backlog."""
         state = _state_with_findings(
             _finding("f1", "unused", file="src/a.ts"),
             _finding("f2", "unused", file="src/b.ts"),
@@ -300,7 +300,7 @@ class TestSubjectivePolicyScanPathAndPlan:
         assert policy.has_objective_backlog is True
 
     def test_no_params_backward_compat(self):
-        """Without new params, behavior is unchanged (all findings counted)."""
+        """Without new params, behavior is unchanged (all issues counted)."""
         state = _state_with_findings(
             _finding("f1", "unused", file="anywhere/a.ts"),
         )
@@ -317,7 +317,7 @@ class TestWorkflowRunScanItem:
         """When queue is empty and plan_start_scores exist, workflow::run-scan appears."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
-        state: dict = {"findings": {}, "scan_count": 5}
+        state: dict = {"issues": {}, "scan_count": 5}
         plan = {
             "plan_start_scores": {"strict": 75.0},
             "queue_order": [],
@@ -338,11 +338,11 @@ class TestWorkflowRunScanItem:
         assert "scan" in items[0]["primary_command"]
 
     def test_run_scan_not_injected_when_real_items_exist(self):
-        """When queue has real findings, no workflow::run-scan item."""
+        """When queue has real issues, no workflow::run-scan item."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
         state: dict = {
-            "findings": {
+            "issues": {
                 "f1": {
                     "id": "f1", "detector": "unused", "status": "open",
                     "file": "src/a.ts", "tier": 1, "confidence": "high",
@@ -371,7 +371,7 @@ class TestWorkflowRunScanItem:
         """No workflow::run-scan when plan_start_scores is empty (no active cycle)."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
-        state: dict = {"findings": {}, "scan_count": 5}
+        state: dict = {"issues": {}, "scan_count": 5}
         plan = {
             "plan_start_scores": {},
             "queue_order": [],
@@ -391,7 +391,7 @@ class TestWorkflowRunScanItem:
         """No workflow::run-scan when no plan is provided."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
-        state: dict = {"findings": {}, "scan_count": 5}
+        state: dict = {"issues": {}, "scan_count": 5}
         result = build_work_queue(
             state,
             options=QueueBuildOptions(
@@ -409,7 +409,7 @@ class TestWorkflowRunScanItem:
             plan_aware_queue_breakdown,
         )
 
-        state: dict = {"findings": {}, "scan_count": 5}
+        state: dict = {"issues": {}, "scan_count": 5}
         plan = {
             "plan_start_scores": {"strict": 75.0},
             "queue_order": [],
@@ -441,7 +441,7 @@ class TestRenderQueueHeaderWorkflow:
         from desloppify.app.commands.next_parts.render_support import render_queue_header
         queue = {
             "total": 5,
-            "items": [{"id": "f1", "kind": "finding"}],
+            "items": [{"id": "f1", "kind": "issue"}],
         }
         render_queue_header(queue, explain=False)
         output = capsys.readouterr().out
@@ -460,14 +460,14 @@ class TestQueueGuardScanPath:
         from desloppify.app.commands.resolve.queue_guard import _check_queue_order_guard
 
         state = {
-            "findings": {
+            "issues": {
                 "f1": {"id": "f1", "status": "open", "file": "src/a.ts"},
             },
             "scan_path": "src",
         }
         mock_result = {
             "total": 1,
-            "items": [{"id": "f1", "kind": "finding"}],
+            "items": [{"id": "f1", "kind": "issue"}],
             "grouped": {},
             "new_ids": set(),
         }

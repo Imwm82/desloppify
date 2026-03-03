@@ -1,4 +1,4 @@
-"""show command: dig into findings by file, directory, detector, or pattern."""
+"""show command: dig into issues by file, directory, detector, or pattern."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ from .scope import load_matches, resolve_entity, resolve_noise, resolve_show_sco
 
 
 def cmd_show(args: argparse.Namespace) -> None:
-    """Show all findings for a file, directory, detector, or pattern."""
+    """Show all issues for a file, directory, detector, or pattern."""
     runtime = command_runtime(args)
     state = runtime.state
     config = runtime.config

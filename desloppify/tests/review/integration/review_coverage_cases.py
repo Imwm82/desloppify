@@ -21,7 +21,7 @@ from desloppify.intelligence.review import (
     DIMENSIONS as REVIEW_DIMENSIONS,
 )
 from desloppify.intelligence.review import (
-    import_review_findings as _import_review_findings_impl,
+    import_review_issues as _import_review_issues_impl,
 )
 from desloppify.languages._framework.runtime import make_lang_run
 from desloppify.languages.python import PythonConfig
@@ -65,9 +65,9 @@ def _hash_content(path):
         return hashlib.sha256(f.read()).hexdigest()[:16]
 
 
-def import_review_findings(findings_data, state, lang_name):
-    payload = findings_data if isinstance(findings_data, dict) else {"findings": findings_data}
-    return _import_review_findings_impl(payload, state, lang_name)
+def import_review_issues(issues_data, state, lang_name):
+    payload = issues_data if isinstance(issues_data, dict) else {"issues": issues_data}
+    return _import_review_issues_impl(payload, state, lang_name)
 
 
 # ── Part A: review_coverage detector (renamed to subjective_review) ──
@@ -124,7 +124,7 @@ class TestReviewCoverageHolisticBaseline:
             holistic_cache={
                 "reviewed_at": now,
                 "file_count_at_review": 1,
-                "finding_count": 0,
+                "issue_count": 0,
             },
             holistic_total_files=1,
         )
@@ -142,7 +142,7 @@ class TestReviewCoverageHolisticBaseline:
             holistic_cache={
                 "reviewed_at": old,
                 "file_count_at_review": 1,
-                "finding_count": 0,
+                "issue_count": 0,
             },
             holistic_total_files=1,
         )
@@ -161,7 +161,7 @@ class TestReviewCoverageHolisticBaseline:
             holistic_cache={
                 "reviewed_at": now,
                 "file_count_at_review": 1,
-                "finding_count": 0,
+                "issue_count": 0,
                 "full_sweep_included": False,
             },
             holistic_total_files=1,
@@ -218,7 +218,7 @@ class TestReviewCoverageZoneFiltering:
 
 
 class TestReviewCoverageFreshCache:
-    """Fresh cache → zero findings."""
+    """Fresh cache → zero issues."""
 
     def test_fresh_no_findings(self, tmp_path):
         f = _make_file(str(tmp_path), "module.py")
@@ -229,7 +229,7 @@ class TestReviewCoverageFreshCache:
             rpath: {
                 "content_hash": content_hash,
                 "reviewed_at": now,
-                "finding_count": 0,
+                "issue_count": 0,
             }
         }
         with patch("desloppify.engine.detectors.review_coverage.rel", return_value=rpath):
@@ -241,7 +241,7 @@ class TestReviewCoverageFreshCache:
 
 
 class TestReviewCoverageStaleCache:
-    """Stale/changed/expired cache → correct findings."""
+    """Stale/changed/expired cache → correct issues."""
 
     def test_changed_file(self, tmp_path):
         f = _make_file(str(tmp_path), "module.py")
@@ -251,7 +251,7 @@ class TestReviewCoverageStaleCache:
             rpath: {
                 "content_hash": "old_hash_doesnt_match",
                 "reviewed_at": now,
-                "finding_count": 0,
+                "issue_count": 0,
             }
         }
         with patch("desloppify.engine.detectors.review_coverage.rel", return_value=rpath):
@@ -274,7 +274,7 @@ class TestReviewCoverageStaleCache:
             rpath: {
                 "content_hash": content_hash,
                 "reviewed_at": old_date,
-                "finding_count": 0,
+                "issue_count": 0,
             }
         }
         with patch("desloppify.engine.detectors.review_coverage.rel", return_value=rpath):
@@ -294,7 +294,7 @@ class TestReviewCoverageStaleCache:
             rpath: {
                 "content_hash": content_hash,
                 "reviewed_at": "",
-                "finding_count": 0,
+                "issue_count": 0,
             }
         }
         with patch("desloppify.engine.detectors.review_coverage.rel", return_value=rpath):
@@ -306,7 +306,7 @@ class TestReviewCoverageStaleCache:
         assert entries[0]["name"] == "unreviewed"
 
 
-# ── Part A: review findings protected from auto-resolve ──────────
+# ── Part A: review issues protected from auto-resolve ──────────
 
 
 class TestReviewProtectedFromAutoResolve:
@@ -320,7 +320,7 @@ class TestReviewProtectedFromAutoResolve:
                 "status": "open",
             }
         }
-        # Even with 0 current findings, review should be suspect
+        # Even with 0 current issues, review should be suspect
         suspect = find_suspect_detectors(existing, {}, force_resolve=False)
         assert "review" in suspect
 
@@ -354,10 +354,10 @@ class TestReviewProtectedFromAutoResolve:
 
 
 class TestIDCollision:
-    """Two findings same file+dimension+identifier get distinct IDs."""
+    """Two issues same file+dimension+identifier get distinct IDs."""
 
     def test_distinct_ids_with_evidence_lines(self):
-        findings_data = [
+        issues_data = [
             {
                 "file": "module.py",
                 "dimension": "naming_quality",
@@ -380,15 +380,15 @@ class TestIDCollision:
             },
         ]
         state = empty_state()
-        _ = import_review_findings(findings_data, state, "python")
+        _ = import_review_issues(issues_data, state, "python")
 
         # Both should be present with distinct IDs (content-hash disambiguated)
-        ids = list(state["findings"].keys())
+        ids = list(state["issues"].keys())
         assert len(ids) == 2
         assert ids[0] != ids[1]
 
     def test_distinct_ids_without_evidence_lines(self):
-        findings_data = [
+        issues_data = [
             {
                 "file": "module.py",
                 "dimension": "naming_quality",
@@ -411,15 +411,15 @@ class TestIDCollision:
             },
         ]
         state = empty_state()
-        _ = import_review_findings(findings_data, state, "python")
+        _ = import_review_issues(issues_data, state, "python")
 
-        ids = list(state["findings"].keys())
+        ids = list(state["issues"].keys())
         assert len(ids) == 2
         assert ids[0] != ids[1]
 
     def test_same_finding_same_id(self):
         """Same evidence lines → same ID (stable across re-imports)."""
-        findings_data = [
+        issues_data = [
             {
                 "file": "module.py",
                 "dimension": "naming_quality",
@@ -432,13 +432,13 @@ class TestIDCollision:
             },
         ]
         state = empty_state()
-        import_review_findings(findings_data, state, "python")
-        id1 = list(state["findings"].keys())[0]
+        import_review_issues(issues_data, state, "python")
+        id1 = list(state["issues"].keys())[0]
 
-        # Re-import same finding
+        # Re-import same issue
         state2 = empty_state()
-        import_review_findings(findings_data, state2, "python")
-        id2 = list(state2["findings"].keys())[0]
+        import_review_issues(issues_data, state2, "python")
+        id2 = list(state2["issues"].keys())[0]
 
         assert id1 == id2
 
@@ -466,14 +466,14 @@ class TestNewDimensions:
         assert len(prompt["look_for"]) >= 3
 
     def test_new_dimensions_accepted_by_import(self):
-        """New dimensions should not be rejected by import_review_findings validation."""
+        """New dimensions should not be rejected by import_review_issues validation."""
         for dim in ("type_safety", "cross_module_architecture", "abstraction_fitness"):
-            findings_data = [
+            issues_data = [
                 {
                     "file": "module.py",
                     "dimension": dim,
                     "identifier": "test_symbol",
-                    "summary": f"Test finding for {dim}",
+                    "summary": f"Test issue for {dim}",
                     "confidence": "medium",
                     "evidence_lines": [10],
                     "evidence": ["test"],
@@ -481,8 +481,8 @@ class TestNewDimensions:
                 }
             ]
             state = empty_state()
-            import_review_findings(findings_data, state, "python")
-            assert len(state["findings"]) == 1, f"Finding for {dim} was rejected"
+            import_review_issues(issues_data, state, "python")
+            assert len(state["issues"]) == 1, f"Issue for {dim} was rejected"
 
 
 # ── Registry and scoring integration ─────────────────────────────
@@ -551,7 +551,7 @@ class TestHolisticStalenessInCoverage:
             "holistic": {
                 "reviewed_at": now,
                 "file_count_at_review": 50,
-                "finding_count": 1,
+                "issue_count": 1,
             }
         }
         entries = detect_holistic_review_staleness(cache, total_files=50)
@@ -565,7 +565,7 @@ class TestHolisticStalenessInCoverage:
             "holistic": {
                 "reviewed_at": old,
                 "file_count_at_review": 50,
-                "finding_count": 1,
+                "issue_count": 1,
             }
         }
         entries = detect_holistic_review_staleness(cache, total_files=50)
@@ -578,7 +578,7 @@ class TestHolisticStalenessInCoverage:
             "holistic": {
                 "reviewed_at": now,
                 "file_count_at_review": 50,
-                "finding_count": 1,
+                "issue_count": 1,
             }
         }
         entries = detect_holistic_review_staleness(cache, total_files=100)  # 100% drift
@@ -625,7 +625,7 @@ class TestReviewNeverExpires:
             "holistic": {
                 "reviewed_at": old,
                 "file_count_at_review": 50,
-                "finding_count": 1,
+                "issue_count": 1,
             }
         }
         entries = detect_holistic_review_staleness(

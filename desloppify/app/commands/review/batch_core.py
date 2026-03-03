@@ -17,14 +17,14 @@ from desloppify.intelligence.review.feedback_contract import (
     LOW_SCORE_FINDING_THRESHOLD,
     REVIEW_QUALITY_HIGH_SCORE_MISSING_ISSUES_KEY,
 )
-from desloppify.intelligence.review.finding_merge import (
+from desloppify.intelligence.review.issue_merge import (
     merge_list_fields,
     normalize_word_set,
     pick_longer_text,
     track_merged_from,
 )
 from desloppify.intelligence.review.importing.contracts import (
-    ReviewFindingPayload,
+    ReviewIssuePayload,
     validate_review_finding_payload,
 )
 
@@ -32,8 +32,8 @@ _DIMENSION_SCORER = DimensionMergeScorer()
 
 
 @dataclass(frozen=True)
-class NormalizedBatchFinding:
-    """Typed internal finding contract for normalized batch payloads."""
+class NormalizedBatchIssue:
+    """Typed internal issue contract for normalized batch payloads."""
 
     dimension: str
     identifier: str
@@ -107,7 +107,7 @@ def extract_json_payload(raw: str, *, log_fn) -> dict[str, object] | None:
         if (
             isinstance(obj, dict)
             and isinstance(obj.get("assessments"), dict)
-            and isinstance(obj.get("findings"), list)
+            and isinstance(obj.get("issues"), list)
         ):
             return obj
     if last_decode_error is not None:
@@ -188,34 +188,34 @@ def _normalize_abstraction_sub_axes(
     return normalized
 
 
-def _normalize_findings(
+def _normalize_issues(
     raw_findings: object,
     dimension_notes: dict[str, dict[str, Any]],
     *,
-    max_batch_findings: int,
+    max_batch_issues: int,
     allowed_dims: set[str],
     low_score_dimensions: set[str] | None = None,
-) -> list[NormalizedBatchFinding]:
-    """Validate and normalize the findings array from a batch payload."""
+) -> list[NormalizedBatchIssue]:
+    """Validate and normalize the issues array from a batch payload."""
     if not isinstance(raw_findings, list):
-        raise ValueError("findings must be an array")
+        raise ValueError("issues must be an array")
 
-    findings: list[NormalizedBatchFinding] = []
+    issues: list[NormalizedBatchIssue] = []
     errors: list[str] = []
     for idx, item in enumerate(raw_findings):
-        finding: ReviewFindingPayload | None
-        finding, finding_errors = validate_review_finding_payload(
+        issue: ReviewIssuePayload | None
+        issue, finding_errors = validate_review_finding_payload(
             item,
-            label=f"findings[{idx}]",
+            label=f"issues[{idx}]",
             allowed_dimensions=allowed_dims,
             allow_dismissed=False,
         )
         if finding_errors:
             errors.extend(finding_errors)
             continue
-        assert finding is not None
+        assert issue is not None
 
-        dim = finding["dimension"]
+        dim = issue["dimension"]
         note = dimension_notes.get(dim, {})
         impact_scope = str(
             (item if isinstance(item, dict) else {}).get(
@@ -229,24 +229,24 @@ def _normalize_findings(
         ).strip()
         if not impact_scope or not fix_scope:
             errors.append(
-                f"findings[{idx}] requires impact_scope and fix_scope "
+                f"issues[{idx}] requires impact_scope and fix_scope "
                 "(or dimension_notes defaults)"
             )
             continue
-        findings.append(
-            NormalizedBatchFinding(
-                dimension=finding["dimension"],
-                identifier=finding["identifier"],
-                summary=finding["summary"],
-                confidence=finding["confidence"],
-                suggestion=finding["suggestion"],
-                related_files=list(finding.get("related_files", [])),
-                evidence=list(finding.get("evidence", [])),
+        issues.append(
+            NormalizedBatchIssue(
+                dimension=issue["dimension"],
+                identifier=issue["identifier"],
+                summary=issue["summary"],
+                confidence=issue["confidence"],
+                suggestion=issue["suggestion"],
+                related_files=list(issue.get("related_files", [])),
+                evidence=list(issue.get("evidence", [])),
                 impact_scope=impact_scope,
                 fix_scope=fix_scope,
-                reasoning=str(finding.get("reasoning", "")),
-                evidence_lines=list(finding.get("evidence_lines", []))
-                if isinstance(finding.get("evidence_lines"), list)
+                reasoning=str(issue.get("reasoning", "")),
+                evidence_lines=list(issue.get("evidence_lines", []))
+                if isinstance(issue.get("evidence_lines"), list)
                 else None,
             )
         )
@@ -254,40 +254,40 @@ def _normalize_findings(
         visible = errors[:10]
         remaining = len(errors) - len(visible)
         if remaining > 0:
-            visible.append(f"... {remaining} additional finding schema error(s) omitted")
+            visible.append(f"... {remaining} additional issue schema error(s) omitted")
         raise ValueError("; ".join(visible))
-    if len(findings) <= max_batch_findings:
-        return findings
+    if len(issues) <= max_batch_issues:
+        return issues
 
     required_dims = set(low_score_dimensions or set())
     if not required_dims:
-        return findings[:max_batch_findings]
+        return issues[:max_batch_issues]
 
-    # Preserve at least one finding per low-score dimension before trimming.
-    selected: list[NormalizedBatchFinding] = []
+    # Preserve at least one issue per low-score dimension before trimming.
+    selected: list[NormalizedBatchIssue] = []
     selected_indexes: set[int] = set()
     covered: set[str] = set()
-    for idx, finding in enumerate(findings):
-        if len(selected) >= max_batch_findings:
+    for idx, issue in enumerate(issues):
+        if len(selected) >= max_batch_issues:
             break
-        dim = finding.dimension.strip()
+        dim = issue.dimension.strip()
         if dim not in required_dims or dim in covered:
             continue
-        selected.append(finding)
+        selected.append(issue)
         selected_indexes.add(idx)
         covered.add(dim)
 
-    for idx, finding in enumerate(findings):
-        if len(selected) >= max_batch_findings:
+    for idx, issue in enumerate(issues):
+        if len(selected) >= max_batch_issues:
             break
         if idx in selected_indexes:
             continue
-        selected.append(finding)
+        selected.append(issue)
     return selected
 
 
 def _low_score_dimensions(assessments: dict[str, float]) -> set[str]:
-    """Return assessed dimensions requiring explicit defect findings."""
+    """Return assessed dimensions requiring explicit defect issues."""
     return {
         dim
         for dim, score in assessments.items()
@@ -295,31 +295,31 @@ def _low_score_dimensions(assessments: dict[str, float]) -> set[str]:
     }
 
 
-def _enforce_low_score_findings(
+def _enforce_low_score_issues(
     *,
     assessments: dict[str, float],
-    findings: list[NormalizedBatchFinding],
+    issues: list[NormalizedBatchIssue],
 ) -> None:
-    """Fail closed when low scores do not report explicit findings."""
+    """Fail closed when low scores do not report explicit issues."""
     required_dims = _low_score_dimensions(assessments)
     if not required_dims:
         return
-    finding_dims = {
-        finding.dimension.strip() for finding in findings
+    issue_dims = {
+        issue.dimension.strip() for issue in issues
     }
-    missing = sorted(dim for dim in required_dims if dim not in finding_dims)
+    missing = sorted(dim for dim in required_dims if dim not in issue_dims)
     if not missing:
         return
     joined = ", ".join(missing)
     raise ValueError(
-        "low-score dimensions must include at least one explicit finding: "
+        "low-score dimensions must include at least one explicit issue: "
         f"{joined} (threshold {LOW_SCORE_FINDING_THRESHOLD:.1f})"
     )
 
 
 def _compute_batch_quality(
     assessments: dict[str, float],
-    findings: list[NormalizedBatchFinding],
+    issues: list[NormalizedBatchIssue],
     dimension_notes: dict[str, dict[str, Any]],
     allowed_dims: set[str],
     high_score_missing_issue_note: float,
@@ -332,7 +332,7 @@ def _compute_batch_quality(
         ),
         "evidence_density": round(
             sum(len(note.get("evidence", [])) for note in dimension_notes.values())
-            / max(len(findings), 1),
+            / max(len(issues), 1),
             3,
         ),
         REVIEW_QUALITY_HIGH_SCORE_MISSING_ISSUES_KEY: high_score_missing_issue_note,
@@ -343,7 +343,7 @@ def normalize_batch_result(
     payload: dict[str, object],
     allowed_dims: set[str],
     *,
-    max_batch_findings: int,
+    max_batch_issues: int,
     abstraction_sub_axes: tuple[str, ...],
 ) -> tuple[
     dict[str, float],
@@ -354,8 +354,11 @@ def normalize_batch_result(
     """Validate and normalize one batch payload."""
     if "assessments" not in payload:
         raise ValueError("payload missing required key: assessments")
-    if "findings" not in payload:
-        raise ValueError("payload missing required key: findings")
+    # Accept both "issues" (canonical) and "findings" (legacy)
+    if "findings" in payload and "issues" not in payload:
+        payload["issues"] = payload.pop("findings")
+    if "issues" not in payload:
+        raise ValueError("payload missing required key: issues")
 
     raw_assessments = payload.get("assessments")
     if not isinstance(raw_assessments, dict):
@@ -404,25 +407,25 @@ def normalize_batch_result(
         if normalized_sub_axes:
             dimension_notes[key]["sub_axes"] = normalized_sub_axes
 
-    findings = _normalize_findings(
-        payload.get("findings"),
+    issues = _normalize_issues(
+        payload.get("issues"),
         dimension_notes,
-        max_batch_findings=max_batch_findings,
+        max_batch_issues=max_batch_issues,
         allowed_dims=allowed_dims,
         low_score_dimensions=_low_score_dimensions(assessments),
     )
-    _enforce_low_score_findings(assessments=assessments, findings=findings)
+    _enforce_low_score_issues(assessments=assessments, issues=issues)
 
     quality = _compute_batch_quality(
         assessments,
-        findings,
+        issues,
         dimension_notes,
         allowed_dims,
         high_score_missing_issue_note,
     )
     return (
         assessments,
-        [finding.to_payload() for finding in findings],
+        [issue.to_payload() for issue in issues],
         dimension_notes,
         quality,
     )
@@ -431,7 +434,7 @@ def normalize_batch_result(
 def assessment_weight(
     *,
     dimension: str,
-    findings: list[dict[str, Any]],
+    issues: list[dict[str, Any]],
     dimension_notes: dict[str, dict[str, Any]],
 ) -> float:
     """Evidence-weighted assessment score weight with a neutral floor.
@@ -441,22 +444,22 @@ def assessment_weight(
     """
     note = dimension_notes.get(dimension, {})
     note_evidence = len(note.get("evidence", [])) if isinstance(note, dict) else 0
-    finding_count = sum(
+    issue_count = sum(
         1
-        for finding in findings
-        if str(finding.get("dimension", "")).strip() == dimension
+        for issue in issues
+        if str(issue.get("dimension", "")).strip() == dimension
     )
-    return float(1 + note_evidence + finding_count)
+    return float(1 + note_evidence + issue_count)
 
 
-def _finding_pressure_by_dimension(
-    findings: list[dict[str, Any]],
+def _issue_pressure_by_dimension(
+    issues: list[dict[str, Any]],
     *,
     dimension_notes: dict[str, dict[str, Any]],
 ) -> tuple[dict[str, float], dict[str, int]]:
-    """Summarize how strongly findings should pull dimension scores down."""
-    return _DIMENSION_SCORER.finding_pressure_by_dimension(
-        findings,
+    """Summarize how strongly issues should pull dimension scores down."""
+    return _DIMENSION_SCORER.issue_pressure_by_dimension(
+        issues,
         dimension_notes=dimension_notes,
     )
 
@@ -471,7 +474,7 @@ def _accumulate_batch_scores(
     abstraction_sub_axes: tuple[str, ...],
 ) -> None:
     """Accumulate assessment scores, dimension notes, and sub-axis data from one batch."""
-    result_findings = result.get("findings", [])
+    result_findings = result.get("issues", [])
     result_notes = result.get("dimension_notes", {})
     for key, score in result.get("assessments", {}).items():
         if isinstance(score, bool):
@@ -479,7 +482,7 @@ def _accumulate_batch_scores(
         score_value = float(score)
         weight = assessment_weight(
             dimension=key,
-            findings=result_findings,
+            issues=result_findings,
             dimension_notes=result_notes,
         )
         score_buckets.setdefault(key, []).append((score_value, weight))
@@ -510,21 +513,21 @@ def _accumulate_batch_scores(
                     )
 
 
-def _finding_identity_key(finding: dict[str, Any]) -> str:
+def _issue_identity_key(issue: dict[str, Any]) -> str:
     """Build a stable concept key; prefer dimension+identifier when available."""
-    dim = str(finding.get("dimension", "")).strip()
-    ident = str(finding.get("identifier", "")).strip()
+    dim = str(issue.get("dimension", "")).strip()
+    ident = str(issue.get("identifier", "")).strip()
     if ident:
         return f"{dim}::{ident}"
-    summary = str(finding.get("summary", "")).strip()
+    summary = str(issue.get("summary", "")).strip()
     summary_terms = sorted(normalize_word_set(summary))
     if summary_terms:
         return f"{dim}::summary::{','.join(summary_terms[:8])}"
     return f"{dim}::{summary}"
 
 
-def _merge_finding_payload(existing: dict[str, Any], incoming: dict[str, Any]) -> None:
-    """Merge two concept-equivalent findings into the existing payload."""
+def _merge_issue_payload(existing: dict[str, Any], incoming: dict[str, Any]) -> None:
+    """Merge two concept-equivalent issues into the existing payload."""
     merge_list_fields(existing, incoming, ("related_files", "evidence"))
     # Prefer richer summary/suggestion text when they differ.
     pick_longer_text(existing, incoming, "summary")
@@ -532,8 +535,8 @@ def _merge_finding_payload(existing: dict[str, Any], incoming: dict[str, Any]) -
     track_merged_from(existing, str(incoming.get("identifier", "")).strip())
 
 
-def _should_merge_findings(existing: dict[str, Any], incoming: dict[str, Any]) -> bool:
-    """Check whether two key-matched findings are similar enough to merge."""
+def _should_merge_issues(existing: dict[str, Any], incoming: dict[str, Any]) -> bool:
+    """Check whether two key-matched issues are similar enough to merge."""
     existing_summary = normalize_word_set(str(existing.get("summary", "")))
     incoming_summary = normalize_word_set(str(incoming.get("summary", "")))
     if existing_summary and incoming_summary:
@@ -630,7 +633,7 @@ def merge_batch_results(
     abstraction_sub_axes: tuple[str, ...],
     abstraction_component_names: dict[str, str],
 ) -> dict[str, object]:
-    """Deterministically merge assessments/findings across batch outputs."""
+    """Deterministically merge assessments/issues across batch outputs."""
     from .batch_merge import merge_batch_results as _merge_batch_results
 
     return _merge_batch_results(

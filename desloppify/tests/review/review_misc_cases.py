@@ -20,7 +20,7 @@ from desloppify.intelligence.review import (
     REVIEW_SYSTEM_PROMPT,
     build_review_context,
     hash_file,
-    import_review_findings,
+    import_review_issues,
 )
 from desloppify.intelligence.review import (
     DIMENSIONS as REVIEW_DIMENSIONS,
@@ -47,7 +47,7 @@ class TestStaleness:
                     "foo.ts": {
                         "content_hash": "abc",
                         "reviewed_at": old,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     },
                 }
             }
@@ -63,7 +63,7 @@ class TestStaleness:
                     "foo.ts": {
                         "content_hash": "abc",
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     },
                 }
             }
@@ -82,12 +82,12 @@ class TestStaleness:
                     "fresh.ts": {
                         "content_hash": "abc",
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     },
                     "stale.ts": {
                         "content_hash": "def",
                         "reviewed_at": old,
-                        "finding_count": 1,
+                        "issue_count": 1,
                     },
                 }
             }
@@ -110,11 +110,11 @@ class TestNarrativeIntegration:
                     "foo.ts": {
                         "content_hash": "abc",
                         "reviewed_at": old,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     },
                 }
             },
-            "findings": {},
+            "issues": {},
             "reminder_history": {},
             "strict_score": 80.0,
         }
@@ -139,11 +139,11 @@ class TestNarrativeIntegration:
                     "foo.ts": {
                         "content_hash": "abc",
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     },
                 }
             },
-            "findings": {},
+            "issues": {},
             "reminder_history": {},
         }
         reminders, _ = _compute_reminders(
@@ -160,7 +160,7 @@ class TestNarrativeIntegration:
         assert "review_stale" not in types
 
     def test_no_reminder_when_no_cache(self):
-        state = {"findings": {}, "reminder_history": {}}
+        state = {"issues": {}, "reminder_history": {}}
         reminders, _ = _compute_reminders(
             state,
             "typescript",
@@ -177,7 +177,7 @@ class TestNarrativeIntegration:
     def test_review_not_run_reminder_when_score_high(self):
         """When score >= 80 and no review cache, suggest running review (#55)."""
         state = {
-            "findings": {},
+            "issues": {},
             "reminder_history": {},
             "strict_score": 85.0,
         }
@@ -199,7 +199,7 @@ class TestNarrativeIntegration:
     def test_review_not_run_no_reminder_when_score_low(self):
         """No review nudge when score is below 80 (#55)."""
         state = {
-            "findings": {},
+            "issues": {},
             "reminder_history": {},
             "strict_score": 60.0,
         }
@@ -225,11 +225,11 @@ class TestNarrativeIntegration:
                     "foo.ts": {
                         "content_hash": "abc",
                         "reviewed_at": now,
-                        "finding_count": 0,
+                        "issue_count": 0,
                     },
                 }
             },
-            "findings": {},
+            "issues": {},
             "reminder_history": {},
             "strict_score": 95.0,
         }
@@ -260,7 +260,7 @@ class TestNarrativeIntegration:
             open_by_detector={"review": 3},
         )
         assert headline is not None
-        assert "review finding" in headline.lower()
+        assert "review issue" in headline.lower()
 
     def test_headline_no_review_in_early_momentum(self):
         headline = _compute_headline(
@@ -347,13 +347,13 @@ class TestCLI:
 
     def test_review_import_flag(self):
         parser = create_parser()
-        args = parser.parse_args(["review", "--import", "findings.json"])
+        args = parser.parse_args(["review", "--import", "issues.json"])
         assert args.command == "review"
-        assert args.import_file == "findings.json"
+        assert args.import_file == "issues.json"
 
     def test_review_allow_partial_flag(self):
         parser = create_parser()
-        args = parser.parse_args(["review", "--import", "findings.json", "--allow-partial"])
+        args = parser.parse_args(["review", "--import", "issues.json", "--allow-partial"])
         assert args.allow_partial is True
 
     def test_review_max_age_flag(self):
@@ -481,7 +481,7 @@ class TestNewDimensions:
                 "confidence": "low",
             },
         ]
-        diff = import_review_findings(_as_review_payload(data), empty_state, "python")
+        diff = import_review_issues(_as_review_payload(data), empty_state, "python")
         assert diff["new"] == 3
 
     def test_ai_generated_debt_dimension(self):
@@ -517,7 +517,7 @@ class TestNewDimensions:
                 "confidence": "high",
             },
         ]
-        diff = import_review_findings(_as_review_payload(data), empty_state, "python")
+        diff = import_review_issues(_as_review_payload(data), empty_state, "python")
         assert diff["new"] == 2
 
     def test_import_accepts_issue57_dimensions(self, empty_state):
@@ -545,7 +545,7 @@ class TestNewDimensions:
                 "confidence": "high",
             },
         ]
-        diff = import_review_findings(_as_review_payload(data), empty_state, "python")
+        diff = import_review_issues(_as_review_payload(data), empty_state, "python")
         assert diff["new"] == 3
 
 
@@ -683,7 +683,7 @@ class TestHeadlineBugFix:
     def test_headline_no_typeerror_when_headline_none_with_review_suffix(self):
         """Regression: None + review_suffix shouldn't TypeError."""
         # Force: no security prefix, headline_inner returns None, review_suffix non-empty
-        # stagnation + review findings + conditions that make headline_inner return None
+        # stagnation + review issues + conditions that make headline_inner return None
         result = _compute_headline(
             "stagnation",
             {},
@@ -715,5 +715,5 @@ class TestHeadlineBugFix:
             open_by_detector={"review": 3},
         )
         if result is not None:
-            assert "review finding" in result.lower()
+            assert "review issue" in result.lower()
             assert "3" in result

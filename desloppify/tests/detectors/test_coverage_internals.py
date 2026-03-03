@@ -154,10 +154,10 @@ def test_normalize_graph_paths_preserves_non_path_fields():
     assert result[norm_key]["extra_data"] == "preserved"
 
 
-# ── _no_tests_findings ────────────────────────────────────
+# ── _no_tests_issues ────────────────────────────────────
 
 
-def test_no_tests_findings_basic_untested_module(tmp_path):
+def test_no_tests_issues_basic_untested_module(tmp_path):
     f = tmp_path / "big_module.py"
     f.write_text("\n".join(f"line {i}" for i in range(100)) + "\n")
     filepath = str(f)
@@ -169,18 +169,18 @@ def test_no_tests_findings_basic_untested_module(tmp_path):
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=False
     ):
-        findings = discovery_mod._no_tests_findings({filepath}, graph, "python")
+        issues = discovery_mod._no_tests_issues({filepath}, graph, "python")
 
-    assert len(findings) == 1
-    finding = findings[0]
-    assert finding["file"] == filepath
-    assert finding["tier"] == 3
-    assert finding["confidence"] == "high"
-    assert finding["detail"]["kind"] == "untested_module"
-    assert finding["detail"]["importer_count"] == 2
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue["file"] == filepath
+    assert issue["tier"] == 3
+    assert issue["confidence"] == "high"
+    assert issue["detail"]["kind"] == "untested_module"
+    assert issue["detail"]["importer_count"] == 2
 
 
-def test_no_tests_findings_critical_by_importers(tmp_path):
+def test_no_tests_issues_critical_by_importers(tmp_path):
     f = tmp_path / "hub.py"
     f.write_text("\n".join(f"line {i}" for i in range(50)) + "\n")
     filepath = str(f)
@@ -192,14 +192,14 @@ def test_no_tests_findings_critical_by_importers(tmp_path):
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=False
     ):
-        findings = discovery_mod._no_tests_findings({filepath}, graph, "python")
+        issues = discovery_mod._no_tests_issues({filepath}, graph, "python")
 
-    assert len(findings) == 1
-    assert findings[0]["tier"] == 2
-    assert findings[0]["detail"]["kind"] == "untested_critical"
+    assert len(issues) == 1
+    assert issues[0]["tier"] == 2
+    assert issues[0]["detail"]["kind"] == "untested_critical"
 
 
-def test_no_tests_findings_critical_by_complexity(tmp_path):
+def test_no_tests_issues_critical_by_complexity(tmp_path):
     f = tmp_path / "complex.py"
     f.write_text("\n".join(f"line {i}" for i in range(50)) + "\n")
     filepath = str(f)
@@ -212,17 +212,17 @@ def test_no_tests_findings_critical_by_complexity(tmp_path):
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=False
     ):
-        findings = discovery_mod._no_tests_findings(
+        issues = discovery_mod._no_tests_issues(
             {filepath}, graph, "python", complexity_map=complexity_map
         )
 
-    assert len(findings) == 1
-    assert findings[0]["tier"] == 2
-    assert findings[0]["detail"]["kind"] == "untested_critical"
-    assert findings[0]["detail"]["complexity_score"] == 25.0
+    assert len(issues) == 1
+    assert issues[0]["tier"] == 2
+    assert issues[0]["detail"]["kind"] == "untested_critical"
+    assert issues[0]["detail"]["complexity_score"] == 25.0
 
 
-def test_no_tests_findings_runtime_entrypoint(tmp_path):
+def test_no_tests_issues_runtime_entrypoint(tmp_path):
     f = tmp_path / "index.ts"
     f.write_text("\n".join(f"line {i}" for i in range(50)) + "\n")
     filepath = str(f)
@@ -234,16 +234,16 @@ def test_no_tests_findings_runtime_entrypoint(tmp_path):
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=True
     ):
-        findings = discovery_mod._no_tests_findings({filepath}, graph, "typescript")
+        issues = discovery_mod._no_tests_issues({filepath}, graph, "typescript")
 
-    assert len(findings) == 1
-    assert findings[0]["name"] == "runtime_entrypoint_no_direct_tests"
-    assert findings[0]["tier"] == 3
-    assert findings[0]["confidence"] == "medium"
-    assert "entrypoint" in findings[0]["summary"].lower()
+    assert len(issues) == 1
+    assert issues[0]["name"] == "runtime_entrypoint_no_direct_tests"
+    assert issues[0]["tier"] == 3
+    assert issues[0]["confidence"] == "medium"
+    assert "entrypoint" in issues[0]["summary"].lower()
 
 
-def test_no_tests_findings_sorted_by_loc_descending(tmp_path):
+def test_no_tests_issues_sorted_by_loc_descending(tmp_path):
     files = []
     for i, loc in enumerate([10, 200, 50]):
         f = tmp_path / f"mod_{i}.py"
@@ -257,24 +257,24 @@ def test_no_tests_findings_sorted_by_loc_descending(tmp_path):
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=False
     ):
-        findings = discovery_mod._no_tests_findings(set(files), graph, "python")
+        issues = discovery_mod._no_tests_issues(set(files), graph, "python")
 
-    locs = [finding["detail"]["loc"] for finding in findings]
+    locs = [issue["detail"]["loc"] for issue in issues]
     assert locs == sorted(locs, reverse=True)
 
 
-def test_no_tests_findings_empty_scorable():
+def test_no_tests_issues_empty_scorable():
     with patch.object(
         discovery_mod, "_has_testable_logic", return_value=True
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=False
     ):
-        findings = discovery_mod._no_tests_findings(set(), {}, "python")
+        issues = discovery_mod._no_tests_issues(set(), {}, "python")
 
-    assert findings == []
+    assert issues == []
 
 
-def test_no_tests_findings_capped_at_max_entries(tmp_path):
+def test_no_tests_issues_capped_at_max_entries(tmp_path):
     files = set()
     graph = {}
     for i in range(60):
@@ -289,6 +289,6 @@ def test_no_tests_findings_capped_at_max_entries(tmp_path):
     ), patch.object(
         discovery_mod, "_is_runtime_entrypoint", return_value=False
     ):
-        findings = discovery_mod._no_tests_findings(files, graph, "python")
+        issues = discovery_mod._no_tests_issues(files, graph, "python")
 
-    assert len(findings) <= discovery_mod._MAX_NO_TESTS_ENTRIES
+    assert len(issues) <= discovery_mod._MAX_NO_TESTS_ENTRIES

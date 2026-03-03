@@ -25,11 +25,11 @@ from desloppify.engine._work_queue.core import (
 # --- helpers: status/scope matching, item utilities ------------------------
 from desloppify.engine._work_queue.helpers import (
     ALL_STATUSES,
-    is_review_finding,
-    is_subjective_finding,
+    is_review_issue,
+    is_subjective_issue,
     is_subjective_queue_item,
-    primary_command_for_finding,
-    review_finding_weight,
+    primary_command_for_issue,
+    review_issue_weight,
     scope_matches,
     slugify,
     status_matches,
@@ -42,17 +42,17 @@ from desloppify.engine._work_queue.synthetic import (
     subjective_strict_scores,
 )
 
-# --- issues: review-finding work queue -------------------------------------
+# --- issues: review-issue work queue -------------------------------------
 from desloppify.engine._work_queue.issues import (
     expire_stale_holistic,
     impact_label,
-    list_open_review_findings,
+    list_open_review_issues,
     update_investigation,
 )
 
 # --- ranking: sort keys, grouping ------------------------------------------
 from desloppify.engine._work_queue.ranking import (
-    build_finding_items,
+    build_issue_items,
     item_explain,
     item_sort_key,
     subjective_score_value,
@@ -75,11 +75,11 @@ __all__ = [
     "group_queue_items",
     # helpers
     "ALL_STATUSES",
-    "is_review_finding",
-    "is_subjective_finding",
+    "is_review_issue",
+    "is_subjective_issue",
     "is_subjective_queue_item",
-    "primary_command_for_finding",
-    "review_finding_weight",
+    "primary_command_for_issue",
+    "review_issue_weight",
     "scope_matches",
     "slugify",
     "status_matches",
@@ -88,7 +88,7 @@ __all__ = [
     "build_subjective_items",
     "subjective_strict_scores",
     # ranking
-    "build_finding_items",
+    "build_issue_items",
     "item_explain",
     "item_sort_key",
     "subjective_score_value",
@@ -97,6 +97,6 @@ __all__ = [
     # issues
     "expire_stale_holistic",
     "impact_label",
-    "list_open_review_findings",
+    "list_open_review_issues",
     "update_investigation",
 ]

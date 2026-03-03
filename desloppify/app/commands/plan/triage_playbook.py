@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 TRIAGE_STAGE_LABELS: tuple[tuple[str, str], ...] = (
-    ("observe", "Analyse findings & spot contradictions"),
+    ("observe", "Analyse issues & spot contradictions"),
     ("reflect", "Form strategy & present to user"),
     ("organize", "Defer contradictions, cluster, & prioritize"),
     ("commit", "Write strategy & confirm"),
@@ -41,7 +41,7 @@ TRIAGE_CMD_CONFIRM_EXISTING = (
 TRIAGE_CMD_CLUSTER_CREATE = (
     'desloppify plan cluster create <name> --description "..."'
 )
-TRIAGE_CMD_CLUSTER_ADD = "desloppify plan cluster add <name> <finding-patterns>"
+TRIAGE_CMD_CLUSTER_ADD = "desloppify plan cluster add <name> <issue-patterns>"
 TRIAGE_CMD_CLUSTER_ENRICH = (
     'desloppify plan cluster update <name> --description "..." --steps '
     '"step 1" "step 2"'

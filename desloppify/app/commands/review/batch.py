@@ -17,7 +17,7 @@ from desloppify.core.discovery_api import safe_write_text
 from desloppify.intelligence import narrative as narrative_mod
 from desloppify.intelligence import review as review_mod
 from desloppify.intelligence.review.feedback_contract import (
-    max_batch_findings_for_dimension_count,
+    max_batch_issues_for_dimension_count,
 )
 from desloppify.core.output_api import colorize, log
 
@@ -53,7 +53,7 @@ ABSTRACTION_COMPONENT_NAMES = {
 
 
 def _merge_batch_results(batch_results: list[object]) -> dict[str, object]:
-    """Deterministically merge assessments/findings across batch outputs."""
+    """Deterministically merge assessments/issues across batch outputs."""
     normalized_results: list[dict] = []
     for result in batch_results:
         if hasattr(result, "to_dict") and callable(result.to_dict):
@@ -196,7 +196,7 @@ def _do_run_batches(args, state, lang, state_file, config: dict | None = None) -
             normalize_result_fn=lambda payload, dims: batch_core_mod.normalize_batch_result(
                 payload,
                 dims,
-                max_batch_findings=max_batch_findings_for_dimension_count(
+                max_batch_issues=max_batch_issues_for_dimension_count(
                     len(dims)
                 ),
                 abstraction_sub_axes=ABSTRACTION_SUB_AXES,
@@ -343,7 +343,7 @@ def do_import_run(
         normalize_result_fn=lambda payload, dims: batch_core_mod.normalize_batch_result(
             payload,
             dims,
-            max_batch_findings=max_batch_findings_for_dimension_count(len(dims)),
+            max_batch_issues=max_batch_issues_for_dimension_count(len(dims)),
             abstraction_sub_axes=ABSTRACTION_SUB_AXES,
         ),
     )

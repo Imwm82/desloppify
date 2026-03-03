@@ -36,7 +36,7 @@ def create_cluster(
     cluster: Cluster = {
         "name": name,
         "description": description,
-        "finding_ids": [],
+        "issue_ids": [],
         "created_at": now,
         "updated_at": now,
         "auto": False,
@@ -49,25 +49,25 @@ def create_cluster(
 
 
 def add_to_cluster(
-    plan: PlanModel, cluster_name: str, finding_ids: list[str]
+    plan: PlanModel, cluster_name: str, issue_ids: list[str]
 ) -> int:
-    """Add finding IDs to a cluster. Returns count added."""
+    """Add issue IDs to a cluster. Returns count added."""
     ensure_plan_defaults(plan)
     cluster = plan["clusters"].get(cluster_name)
     if cluster is None:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
 
-    member_ids: list[str] = cluster["finding_ids"]
+    member_ids: list[str] = cluster["issue_ids"]
     count = 0
     now = utc_now()
-    for fid in finding_ids:
+    for fid in issue_ids:
         if fid not in member_ids:
             member_ids.append(fid)
             count += 1
         # Update override to track cluster membership
         overrides = plan["overrides"]
         if fid not in overrides:
-            overrides[fid] = {"finding_id": fid, "created_at": now}
+            overrides[fid] = {"issue_id": fid, "created_at": now}
         overrides[fid]["cluster"] = cluster_name
         overrides[fid]["updated_at"] = now
 
@@ -76,18 +76,18 @@ def add_to_cluster(
 
 
 def remove_from_cluster(
-    plan: PlanModel, cluster_name: str, finding_ids: list[str]
+    plan: PlanModel, cluster_name: str, issue_ids: list[str]
 ) -> int:
-    """Remove finding IDs from a cluster. Returns count removed."""
+    """Remove issue IDs from a cluster. Returns count removed."""
     ensure_plan_defaults(plan)
     cluster = plan["clusters"].get(cluster_name)
     if cluster is None:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
 
-    member_ids: list[str] = cluster["finding_ids"]
+    member_ids: list[str] = cluster["issue_ids"]
     now = utc_now()
     count = 0
-    for fid in finding_ids:
+    for fid in issue_ids:
         if fid in member_ids:
             member_ids.remove(fid)
             count += 1
@@ -112,7 +112,7 @@ def delete_cluster(plan: PlanModel, name: str) -> list[str]:
     if cluster is None:
         raise ValueError(f"Cluster {name!r} does not exist")
 
-    orphaned = list(cluster.get("finding_ids", []))
+    orphaned = list(cluster.get("issue_ids", []))
     now = utc_now()
     for fid in orphaned:
         override = plan["overrides"].get(fid)
@@ -129,7 +129,7 @@ def delete_cluster(plan: PlanModel, name: str) -> list[str]:
 def merge_clusters(
     plan: PlanModel, source_name: str, target_name: str
 ) -> tuple[int, list[str]]:
-    """Move all source findings to target, copy missing metadata, delete source.
+    """Move all source issues to target, copy missing metadata, delete source.
 
     Returns ``(added_count, source_finding_ids)``.
     """
@@ -143,11 +143,11 @@ def merge_clusters(
     if target is None:
         raise ValueError(f"Target cluster {target_name!r} does not exist")
 
-    source_ids = list(source.get("finding_ids", []))
-    target_ids: list[str] = target["finding_ids"]
+    source_ids = list(source.get("issue_ids", []))
+    target_ids: list[str] = target["issue_ids"]
     now = utc_now()
 
-    # Add source findings to target (deduplicate)
+    # Add source issues to target (deduplicate)
     existing = set(target_ids)
     added = 0
     for fid in source_ids:
@@ -158,7 +158,7 @@ def merge_clusters(
         # Update override to point to target cluster
         overrides = plan["overrides"]
         if fid not in overrides:
-            overrides[fid] = {"finding_id": fid, "created_at": now}
+            overrides[fid] = {"issue_id": fid, "created_at": now}
         overrides[fid]["cluster"] = target_name
         overrides[fid]["updated_at"] = now
 
@@ -193,7 +193,7 @@ def move_cluster(
     if cluster is None:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
 
-    member_ids = list(cluster.get("finding_ids", []))
+    member_ids = list(cluster.get("issue_ids", []))
     if not member_ids:
         return 0
 

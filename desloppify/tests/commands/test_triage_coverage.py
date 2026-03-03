@@ -1,4 +1,4 @@
-"""Tests for _triage_coverage filtering to review findings only."""
+"""Tests for _triage_coverage filtering to review issues only."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 
 
-def _plan_with_queue(*finding_ids: str, clustered: list[str] | None = None) -> dict:
+def _plan_with_queue(*issue_ids: str, clustered: list[str] | None = None) -> dict:
     """Build a plan with given queue items and optional clustered IDs."""
     plan = empty_plan()
-    plan["queue_order"] = list(TRIAGE_STAGE_IDS) + list(finding_ids)
+    plan["queue_order"] = list(TRIAGE_STAGE_IDS) + list(issue_ids)
     if clustered:
         plan["clusters"]["test-cluster"] = {
             "name": "test-cluster",
-            "finding_ids": list(clustered),
+            "issue_ids": list(clustered),
             "description": "Test",
             "action_steps": ["step 1"],
             "auto": False,
@@ -29,7 +29,7 @@ def _review_ids(*ids: str) -> set[str]:
 
 class TestTriageCoverage:
     def test_coverage_excludes_non_review_items(self):
-        """Non-review queue items (mechanical findings) don't inflate total."""
+        """Non-review queue items (mechanical issues) don't inflate total."""
         plan = _plan_with_queue(
             "review::test.py::naming_issue",
             "review::test.py::coupling_issue",
@@ -44,11 +44,11 @@ class TestTriageCoverage:
                 "review::test.py::coupling_issue",
             ),
         )
-        assert total == 2  # only review findings
+        assert total == 2  # only review issues
         assert organized == 1
 
     def test_coverage_counts_review_findings_only(self):
-        """Review and concerns findings are correctly counted."""
+        """Review and concerns issues are correctly counted."""
         plan = _plan_with_queue(
             "review::a.py::issue1",
             "concerns::b.py::issue2",
@@ -90,7 +90,7 @@ class TestTriageCoverage:
         """open_review_ids overrides queue_order for total count.
 
         Simulates a real scenario: queue_order has 1 review item but state
-        has 3 open review findings. Coverage should be 2/3 (not 1/1).
+        has 3 open review issues. Coverage should be 2/3 (not 1/1).
         """
         plan = empty_plan()
         # queue_order only has 1 review item
@@ -98,7 +98,7 @@ class TestTriageCoverage:
         # But two of the three are clustered
         plan["clusters"]["my-cluster"] = {
             "name": "my-cluster",
-            "finding_ids": [
+            "issue_ids": [
                 "review::a.py::issue1",
                 "review::b.py::issue2",
             ],
@@ -106,7 +106,7 @@ class TestTriageCoverage:
             "action_steps": ["step 1"],
             "auto": False,
         }
-        # State has 3 open review findings
+        # State has 3 open review issues
         open_ids = _review_ids(
             "review::a.py::issue1",
             "review::b.py::issue2",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.app.commands.helpers.display import short_finding_id
+from desloppify.app.commands.helpers.display import short_issue_id
 from desloppify.app.commands.plan.triage_playbook import (
     TRIAGE_STAGE_DEPENDENCIES,
     TRIAGE_STAGE_LABELS,
@@ -11,7 +11,7 @@ from desloppify.app.commands.plan.triage_playbook import (
 from desloppify.core.output import colorize
 
 from desloppify.app.commands.plan.triage.stage_helpers import (
-    _manual_clusters_with_findings,
+    _manual_clusters_with_issues,
     _triage_coverage,
     _unenriched_clusters,
 )
@@ -30,7 +30,7 @@ def _print_stage_progress(stages: dict, plan: dict | None = None) -> None:
 
     if plan and "reflect" in stages and "organize" not in stages:
         gaps = _unenriched_clusters(plan)
-        manual = _manual_clusters_with_findings(plan)
+        manual = _manual_clusters_with_issues(plan)
         if not manual:
             print(
                 colorize(
@@ -52,22 +52,22 @@ def _print_stage_progress(stages: dict, plan: dict | None = None) -> None:
             print(colorize(f"\n    All {len(manual)} manual cluster(s) enriched.", "green"))
 
 
-def _print_progress(plan: dict, open_findings: dict) -> None:
-    """Show cluster state and unclustered findings."""
+def _print_progress(plan: dict, open_issues: dict) -> None:
+    """Show cluster state and unclustered issues."""
     clusters = plan.get("clusters", {})
     _print_active_clusters(clusters)
-    unclustered = _collect_unclustered_findings(clusters, open_findings)
-    _print_unclustered_findings(plan, open_findings, unclustered)
+    unclustered = _collect_unclustered_issues(clusters, open_issues)
+    _print_unclustered_issues(plan, open_issues, unclustered)
 
 
 def _print_active_clusters(clusters: dict[str, dict]) -> None:
-    """Print current clusters that contain findings."""
-    active_clusters = {name: cluster for name, cluster in clusters.items() if cluster.get("finding_ids")}
+    """Print current clusters that contain issues."""
+    active_clusters = {name: cluster for name, cluster in clusters.items() if cluster.get("issue_ids")}
     if not active_clusters:
         return
     print(colorize("\n  Current clusters:", "cyan"))
     for name, cluster in active_clusters.items():
-        count = len(cluster.get("finding_ids", []))
+        count = len(cluster.get("issue_ids", []))
         desc = cluster.get("description") or ""
         tag_str = _cluster_tag_summary(cluster)
         desc_str = f" \u2014 {desc}" if desc else ""
@@ -88,34 +88,34 @@ def _cluster_tag_summary(cluster: dict) -> str:
     return f" [{', '.join(tags)}]"
 
 
-def _collect_unclustered_findings(clusters: dict[str, dict], open_findings: dict) -> list[str]:
-    """Return finding IDs that are not attached to any cluster."""
+def _collect_unclustered_issues(clusters: dict[str, dict], open_issues: dict) -> list[str]:
+    """Return issue IDs that are not attached to any cluster."""
     all_clustered: set[str] = set()
     for cluster in clusters.values():
-        all_clustered.update(cluster.get("finding_ids", []))
-    return [finding_id for finding_id in open_findings if finding_id not in all_clustered]
+        all_clustered.update(cluster.get("issue_ids", []))
+    return [issue_id for issue_id in open_issues if issue_id not in all_clustered]
 
 
-def _print_unclustered_findings(
+def _print_unclustered_issues(
     plan: dict,
-    open_findings: dict,
+    open_issues: dict,
     unclustered: list[str],
 ) -> None:
-    """Print unclustered findings summary or all-clustered confirmation."""
+    """Print unclustered issues summary or all-clustered confirmation."""
     if unclustered:
-        print(colorize(f"\n  {len(unclustered)} findings not yet in a cluster:", "yellow"))
-        for finding_id in unclustered[:10]:
-            finding = open_findings[finding_id]
+        print(colorize(f"\n  {len(unclustered)} issues not yet in a cluster:", "yellow"))
+        for issue_id in unclustered[:10]:
+            issue = open_issues[issue_id]
             dim = (
-                (finding.get("detail", {}) or {}).get("dimension", "")
-                if isinstance(finding.get("detail"), dict)
+                (issue.get("detail", {}) or {}).get("dimension", "")
+                if isinstance(issue.get("detail"), dict)
                 else ""
             )
-            short = short_finding_id(finding_id)
-            print(f"    [{short}] [{dim}] {finding.get('summary', '')}")
+            short = short_issue_id(issue_id)
+            print(f"    [{short}] [{dim}] {issue.get('summary', '')}")
         if len(unclustered) > 10:
             print(colorize(f"    ... and {len(unclustered) - 10} more", "dim"))
         return
-    if open_findings:
+    if open_issues:
         organized, total, _ = _triage_coverage(plan)
-        print(colorize(f"\n  All {organized}/{total} findings are in clusters.", "green"))
+        print(colorize(f"\n  All {organized}/{total} issues are in clusters.", "green"))

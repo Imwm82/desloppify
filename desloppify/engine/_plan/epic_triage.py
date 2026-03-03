@@ -1,6 +1,6 @@
-"""Epic triage engine — LLM-driven meta-plan for review findings.
+"""Epic triage engine — LLM-driven meta-plan for review issues.
 
-Clusters review findings by root cause, dismisses false positives,
+Clusters review issues by root cause, dismisses false positives,
 resolves contradictions, and orders by dependency. The triage is incremental:
 it updates existing triage-clusters rather than recreating from scratch.
 """
@@ -28,20 +28,20 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Finding-ID citation extraction
+# Issue-ID citation extraction
 # ---------------------------------------------------------------------------
 
 FINDING_ID_RE = re.compile(r"[a-z_]+::[a-f0-9]{8,}")
 
 
-def extract_finding_citations(text: str, valid_ids: set[str]) -> set[str]:
-    """Extract finding IDs cited in free text.
+def extract_issue_citations(text: str, valid_ids: set[str]) -> set[str]:
+    """Extract issue IDs cited in free text.
 
-    Matches full finding IDs (e.g. ``review::abcdef12``) or bare 8+ char
-    hex suffixes that correspond to a known finding.
+    Matches full issue IDs (e.g. ``review::abcdef12``) or bare 8+ char
+    hex suffixes that correspond to a known issue.
     """
     cited: set[str] = set()
-    # Match full finding IDs
+    # Match full issue IDs
     for match in FINDING_ID_RE.finditer(text):
         candidate = match.group()
         if candidate in valid_ids:
@@ -76,13 +76,13 @@ def last_real_review_timestamp(state: dict) -> str | None:
 
 
 def detect_recurring_patterns(
-    open_findings: dict[str, dict],
-    resolved_findings: dict[str, dict],
+    open_issues: dict[str, dict],
+    resolved_issues: dict[str, dict],
 ) -> dict[str, dict]:
-    """Detect dimensions with both resolved AND current open findings.
+    """Detect dimensions with both resolved AND current open issues.
 
     Returns ``{dimension: {"open": [ids], "resolved": [ids]}}``.
-    A dimension with both resolved and open findings signals a potential
+    A dimension with both resolved and open issues signals a potential
     loop — similar issues recur after previous fixes.
     """
     def _dimension(f: dict) -> str:
@@ -92,13 +92,13 @@ def detect_recurring_patterns(
         return ""
 
     open_by_dim: dict[str, list[str]] = {}
-    for fid, f in open_findings.items():
+    for fid, f in open_issues.items():
         dim = _dimension(f)
         if dim:
             open_by_dim.setdefault(dim, []).append(fid)
 
     resolved_by_dim: dict[str, list[str]] = {}
-    for fid, f in resolved_findings.items():
+    for fid, f in resolved_issues.items():
         dim = _dimension(f)
         if dim:
             resolved_by_dim.setdefault(dim, []).append(fid)
@@ -120,23 +120,23 @@ def detect_recurring_patterns(
 class TriageInput:
     """All data the LLM needs to produce/update epics."""
 
-    open_findings: dict[str, dict]       # id -> finding (review + concerns)
-    mechanical_findings: dict[str, dict]  # id -> finding (non-review, for context)
+    open_issues: dict[str, dict]       # id -> issue (review + concerns)
+    mechanical_issues: dict[str, dict]  # id -> issue (non-review, for context)
     existing_epics: dict[str, Cluster]    # current triage-clusters to update
     dimension_scores: dict[str, Any]      # for context
-    new_since_last: set[str]             # finding IDs new since last triage
-    resolved_since_last: set[str]        # finding IDs resolved since last
+    new_since_last: set[str]             # issue IDs new since last triage
+    resolved_since_last: set[str]        # issue IDs resolved since last
     previously_dismissed: list[str]      # IDs dismissed in prior triage
     triage_version: int                  # next version number
-    resolved_findings: dict[str, dict]   # full finding objects for resolved IDs
+    resolved_issues: dict[str, dict]   # full issue objects for resolved IDs
     completed_clusters: list[dict]       # clusters completed since last triage
 
 
 @dataclass
-class DismissedFinding:
-    """A finding the LLM says doesn't make sense."""
+class DismissedIssue:
+    """A issue the LLM says doesn't make sense."""
 
-    finding_id: str
+    issue_id: str
     reason: str
 
 
@@ -155,7 +155,7 @@ class TriageResult:
 
     strategy_summary: str
     epics: list[dict]
-    dismissed_findings: list[DismissedFinding] = field(default_factory=list)
+    dismissed_issues: list[DismissedIssue] = field(default_factory=list)
     contradiction_notes: list[ContradictionNote] = field(default_factory=list)
     priority_rationale: str = ""
 
@@ -181,13 +181,13 @@ class TriageMutationResult:
 def collect_triage_input(plan: PlanModel, state: StateModel) -> TriageInput:
     """Gather all data needed for the triage LLM prompt."""
     ensure_plan_defaults(plan)
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     meta = plan.get("epic_triage_meta", {})
     epics = triage_clusters(plan)
 
     open_review: dict[str, dict] = {}
     open_mechanical: dict[str, dict] = {}
-    for fid, f in findings.items():
+    for fid, f in issues.items():
         if f.get("status") != "open":
             continue
         if f.get("detector") in ("review", "concerns"):
@@ -202,9 +202,9 @@ def collect_triage_input(plan: PlanModel, state: StateModel) -> TriageInput:
     previously_dismissed = list(meta.get("dismissed_ids", []))
     version = int(meta.get("version", 0)) + 1
 
-    # Resolved finding objects (for REFLECT stage)
+    # Resolved issue objects (for REFLECT stage)
     resolved_finding_objs = {
-        fid: findings[fid] for fid in resolved_since if fid in findings
+        fid: issues[fid] for fid in resolved_since if fid in issues
     }
 
     # Completed clusters since last triage completion
@@ -219,15 +219,15 @@ def collect_triage_input(plan: PlanModel, state: StateModel) -> TriageInput:
         recent_completed = list(all_completed)
 
     return TriageInput(
-        open_findings=open_review,
-        mechanical_findings=open_mechanical,
+        open_issues=open_review,
+        mechanical_issues=open_mechanical,
         existing_epics=dict(epics),
         dimension_scores=state.get("dimension_scores", {}),
         new_since_last=new_since,
         resolved_since_last=resolved_since,
         previously_dismissed=previously_dismissed,
         triage_version=version,
-        resolved_findings=resolved_finding_objs,
+        resolved_issues=resolved_finding_objs,
         completed_clusters=recent_completed,
     )
 
@@ -238,16 +238,16 @@ def collect_triage_input(plan: PlanModel, state: StateModel) -> TriageInput:
 
 _TRIAGE_SYSTEM_PROMPT = """\
 You are maintaining the meta-plan for this codebase. Your goal is to produce
-a coherent, prioritized strategy to address ALL open review findings.
+a coherent, prioritized strategy to address ALL open review issues.
 
 Your plan should:
-- Cluster findings by ROOT CAUSE, not by dimension or detector
+- Cluster issues by ROOT CAUSE, not by dimension or detector
 - Give each cluster (epic) a clear thesis: one imperative sentence
 - Order epics by dependency: what must be done first for later work to make sense
-- Dismiss findings that don't make sense, are contradictory, or are false positives
+- Dismiss issues that don't make sense, are contradictory, or are false positives
 - Mark which epics are agent-safe (can be executed mechanically) vs need human judgment
 - Avoid creating work that contradicts other work in the plan
-- Be ambitious but realistic — aim to resolve all findings coherently
+- Be ambitious but realistic — aim to resolve all issues coherently
 
 Available directions for epics: delete, merge, flatten, enforce, simplify, decompose, extract, inline.
 
@@ -260,10 +260,10 @@ Available plan tools (the agent executing your plan has access to these):
 - `desloppify plan reorder <id> top|bottom|before|after <target>` — reorder
 - `desloppify plan cluster show <name>` — inspect a cluster
 - `desloppify scan` — re-scan after making changes to verify progress
-- `desloppify show review --status open` — see all open review findings
+- `desloppify show review --status open` — see all open review issues
 
-Your output defines the ENTIRE work plan. Findings not assigned to any epic
-will remain in the queue as individual items. Dismissed findings will be
+Your output defines the ENTIRE work plan. Issues not assigned to any epic
+will remain in the queue as individual items. Dismissed issues will be
 removed from the queue with your stated reason.
 
 Respond with a single JSON object matching this schema:
@@ -275,7 +275,7 @@ Respond with a single JSON object matching this schema:
       "thesis": "imperative one-liner",
       "direction": "delete|merge|flatten|enforce|simplify|decompose|extract|inline",
       "root_cause": "why this cluster exists",
-      "finding_ids": ["id1", "id2"],
+      "issue_ids": ["id1", "id2"],
       "dismissed": ["id3"],
       "agent_safe": true,
       "dependency_order": 1,
@@ -283,11 +283,11 @@ Respond with a single JSON object matching this schema:
       "status": "pending"
     }
   ],
-  "dismissed_findings": [
-    {"finding_id": "id", "reason": "why this finding doesn't make sense"}
+  "dismissed_issues": [
+    {"issue_id": "id", "reason": "why this issue doesn't make sense"}
   ],
   "contradiction_notes": [
-    {"kept": "finding_id", "dismissed": "finding_id", "reason": "why"}
+    {"kept": "issue_id", "dismissed": "issue_id", "reason": "why"}
   ],
   "priority_rationale": "why the dependency_order is what it is"
 }
@@ -295,7 +295,7 @@ Respond with a single JSON object matching this schema:
 
 
 def build_triage_prompt(si: TriageInput) -> str:
-    """Build the user-facing prompt content with all finding data."""
+    """Build the user-facing prompt content with all issue data."""
     parts: list[str] = []
 
     # Section: existing epics
@@ -305,19 +305,19 @@ def build_triage_prompt(si: TriageInput) -> str:
             status = epic.get("status", "pending")
             thesis = epic.get("thesis", "")
             direction = epic.get("direction", "")
-            fids = epic.get("finding_ids", [])
+            fids = epic.get("issue_ids", [])
             parts.append(
                 f"- {name} [{status}] ({direction}): {thesis}"
-                f"\n  Findings: {', '.join(fids[:10])}"
+                f"\n  Issues: {', '.join(fids[:10])}"
                 f"{'...' if len(fids) > 10 else ''}"
             )
         parts.append("")
 
     # Section: what changed
     if si.new_since_last:
-        parts.append(f"## New findings since last triage ({len(si.new_since_last)})")
+        parts.append(f"## New issues since last triage ({len(si.new_since_last)})")
         for fid in sorted(si.new_since_last):
-            f = si.open_findings.get(fid, {})
+            f = si.open_issues.get(fid, {})
             parts.append(f"- {fid}: {f.get('summary', '(no summary)')}")
         parts.append("")
 
@@ -327,9 +327,9 @@ def build_triage_prompt(si: TriageInput) -> str:
             parts.append(f"- {fid}")
         parts.append("")
 
-    # Section: all open review findings
-    parts.append(f"## All open review findings ({len(si.open_findings)})")
-    for fid, f in sorted(si.open_findings.items()):
+    # Section: all open review issues
+    parts.append(f"## All open review issues ({len(si.open_issues)})")
+    for fid, f in sorted(si.open_issues.items()):
         detail = f.get("detail", {}) if isinstance(f.get("detail"), dict) else {}
         suggestion = detail.get("suggestion", "")
         dimension = detail.get("dimension", "")
@@ -374,7 +374,7 @@ def build_triage_prompt(si: TriageInput) -> str:
 def parse_triage_result(raw: dict, valid_ids: set[str]) -> TriageResult:
     """Parse and validate raw LLM output into a TriageResult.
 
-    Invalid finding IDs are silently dropped from epics and dismissals.
+    Invalid issue IDs are silently dropped from epics and dismissals.
     """
     strategy_summary = str(raw.get("strategy_summary", ""))
 
@@ -389,9 +389,9 @@ def parse_triage_result(raw: dict, valid_ids: set[str]) -> TriageResult:
         direction = str(raw_epic.get("direction", "simplify")).strip()
         if direction not in VALID_EPIC_DIRECTIONS:
             direction = "simplify"
-        # Filter to valid finding IDs
-        finding_ids = [
-            fid for fid in raw_epic.get("finding_ids", [])
+        # Filter to valid issue IDs
+        issue_ids = [
+            fid for fid in raw_epic.get("issue_ids", [])
             if isinstance(fid, str) and fid in valid_ids
         ]
         dismissed = [
@@ -408,7 +408,7 @@ def parse_triage_result(raw: dict, valid_ids: set[str]) -> TriageResult:
             "thesis": str(raw_epic.get("thesis", "")),
             "direction": direction,
             "root_cause": str(raw_epic.get("root_cause", "")),
-            "finding_ids": finding_ids,
+            "issue_ids": issue_ids,
             "dismissed": dismissed,
             "agent_safe": bool(raw_epic.get("agent_safe", False)),
             "dependency_order": int(raw_epic.get("dependency_order", 999)),
@@ -416,14 +416,14 @@ def parse_triage_result(raw: dict, valid_ids: set[str]) -> TriageResult:
             "status": str(raw_epic.get("status", "pending")),
         })
 
-    dismissed_findings: list[DismissedFinding] = []
-    for d in raw.get("dismissed_findings", []):
+    dismissed_issues: list[DismissedIssue] = []
+    for d in raw.get("dismissed_issues", []):
         if not isinstance(d, dict):
             continue
-        fid = str(d.get("finding_id", ""))
+        fid = str(d.get("issue_id", ""))
         if fid in valid_ids:
-            dismissed_findings.append(
-                DismissedFinding(finding_id=fid, reason=str(d.get("reason", "")))
+            dismissed_issues.append(
+                DismissedIssue(issue_id=fid, reason=str(d.get("reason", "")))
             )
 
     contradiction_notes: list[ContradictionNote] = []
@@ -441,7 +441,7 @@ def parse_triage_result(raw: dict, valid_ids: set[str]) -> TriageResult:
     return TriageResult(
         strategy_summary=strategy_summary,
         epics=epics,
-        dismissed_findings=dismissed_findings,
+        dismissed_issues=dismissed_issues,
         contradiction_notes=contradiction_notes,
         priority_rationale=priority_rationale,
     )
@@ -461,7 +461,7 @@ def apply_triage_to_plan(
     """Apply parsed triage result to the living plan.
 
     1. Creates/updates triage-clusters in plan["clusters"]
-    2. Marks dismissed findings as triaged_out skips
+    2. Marks dismissed issues as triaged_out skips
     3. Reorders queue_order to group epic members by dependency_order
     4. Updates epic_triage_meta with snapshot hash
     """
@@ -488,7 +488,7 @@ def apply_triage_to_plan(
             existing["thesis"] = epic_data["thesis"]
             existing["direction"] = epic_data["direction"]
             existing["root_cause"] = epic_data.get("root_cause", "")
-            existing["finding_ids"] = epic_data["finding_ids"]
+            existing["issue_ids"] = epic_data["issue_ids"]
             existing["dismissed"] = epic_data.get("dismissed", [])
             existing["agent_safe"] = epic_data.get("agent_safe", False)
             existing["dependency_order"] = epic_data["dependency_order"]
@@ -505,7 +505,7 @@ def apply_triage_to_plan(
             cluster: Cluster = {
                 "name": epic_name,
                 "description": epic_data["thesis"],
-                "finding_ids": epic_data["finding_ids"],
+                "issue_ids": epic_data["issue_ids"],
                 "auto": True,
                 "cluster_key": f"epic::{epic_name}",
                 "action": f"desloppify plan focus {epic_name}",
@@ -528,16 +528,16 @@ def apply_triage_to_plan(
             clusters[epic_name] = cluster
             result.epics_created += 1
 
-    # --- Dismiss findings ---------------------------------------------------
+    # --- Dismiss issues ---------------------------------------------------
     dismissed_ids: list[str] = []
-    for df in triage.dismissed_findings:
-        fid = df.finding_id
+    for df in triage.dismissed_issues:
+        fid = df.issue_id
         dismissed_ids.append(fid)
         # Remove from queue, add to skipped as triaged_out
         if fid in order:
             order.remove(fid)
         skipped[fid] = {
-            "finding_id": fid,
+            "issue_id": fid,
             "kind": "triaged_out",
             "reason": df.reason,
             "note": f"Dismissed by epic triage v{version}",
@@ -555,7 +555,7 @@ def apply_triage_to_plan(
                 order.remove(fid)
                 dismissed_ids.append(fid)
                 skipped[fid] = {
-                    "finding_id": fid,
+                    "issue_id": fid,
                     "kind": "triaged_out",
                     "reason": f"Dismissed by epic triage v{version}",
                     "note": None,
@@ -566,11 +566,11 @@ def apply_triage_to_plan(
                 }
                 result.findings_dismissed += 1
 
-    # --- Reorder queue: epic findings grouped by dependency_order -----------
+    # --- Reorder queue: epic issues grouped by dependency_order -----------
     epic_finding_ids: set[str] = set()
     epic_ordered_ids: list[str] = []
     for epic_data in sorted(triage.epics, key=lambda e: e.get("dependency_order", 999)):
-        for fid in epic_data["finding_ids"]:
+        for fid in epic_data["issue_ids"]:
             if fid not in epic_finding_ids and fid not in dismissed_ids:
                 epic_finding_ids.add(fid)
                 epic_ordered_ids.append(fid)
@@ -587,7 +587,7 @@ def apply_triage_to_plan(
     # --- Update triage meta -----------------------------------------------
     current_hash = review_finding_snapshot_hash(state)
     open_review_ids = sorted(
-        fid for fid, f in state.get("findings", {}).items()
+        fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open"
         and f.get("detector") in ("review", "concerns")
     )
@@ -636,11 +636,11 @@ def triage_epics(
     si = collect_triage_input(plan, state)
 
     prompt = build_triage_prompt(si)
-    valid_ids = set(si.open_findings.keys())
+    valid_ids = set(si.open_issues.keys())
 
     if dry_run or deps is None or deps.llm_call is None:
         result = TriageMutationResult(dry_run=True)
-        result.strategy_summary = f"[dry-run] Prompt built with {len(si.open_findings)} findings"
+        result.strategy_summary = f"[dry-run] Prompt built with {len(si.open_issues)} issues"
         return result
 
     # Call LLM
@@ -658,7 +658,7 @@ def triage_epics(
 
 
 __all__ = [
-    "DismissedFinding",
+    "DismissedIssue",
     "FINDING_ID_RE",
     "TriageDeps",
     "TriageInput",
@@ -668,7 +668,7 @@ __all__ = [
     "build_triage_prompt",
     "collect_triage_input",
     "detect_recurring_patterns",
-    "extract_finding_citations",
+    "extract_issue_citations",
     "last_real_review_timestamp",
     "parse_triage_result",
     "triage_epics",

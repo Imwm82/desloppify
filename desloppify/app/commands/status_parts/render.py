@@ -111,7 +111,7 @@ def show_focus_suggestion(
     if plan and plan.get("active_cluster"):
         cluster_name = plan["active_cluster"]
         cluster = plan.get("clusters", {}).get(cluster_name, {})
-        remaining = len(cluster.get("finding_ids", []))
+        remaining = len(cluster.get("issue_ids", []))
         desc = cluster.get("description") or ""
         desc_str = f" — {desc}" if desc else ""
         print(
@@ -272,11 +272,11 @@ def show_structural_areas(state: dict):
 
 
 def show_review_summary(state: dict):
-    """Show review findings summary if any exist."""
-    findings = state.get("findings", {})
+    """Show review issues summary if any exist."""
+    issues = state.get("issues", {})
     review_open = [
         f
-        for f in findings.values()
+        for f in issues.values()
         if f.get("status") == "open" and f.get("detector") == "review"
     ]
     if not review_open:
@@ -284,7 +284,7 @@ def show_review_summary(state: dict):
     uninvestigated = sum(
         1 for f in review_open if not f.get("detail", {}).get("investigation")
     )
-    parts = [f"{len(review_open)} finding{'s' if len(review_open) != 1 else ''} open"]
+    parts = [f"{len(review_open)} issue{'s' if len(review_open) != 1 else ''} open"]
     if uninvestigated:
         parts.append(f"{uninvestigated} uninvestigated")
     print(colorize(f"  Review: {', '.join(parts)} — `desloppify show review --status open`", "cyan"))
@@ -292,7 +292,7 @@ def show_review_summary(state: dict):
     if "Test health" in dim_scores:
         print(
             colorize(
-                "  Test health tracks coverage + review; review findings track issues found.",
+                "  Test health tracks coverage + review; review issues track issues found.",
                 "dim",
             )
         )

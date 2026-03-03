@@ -7,7 +7,7 @@ from pathlib import Path
 from desloppify import state as state_mod
 from desloppify.engine.detectors.base import ComplexitySignal, GodRule
 from desloppify.engine.policy.zones import adjust_potential, filter_entries
-from desloppify.languages._framework.finding_factories import (
+from desloppify.languages._framework.issue_factories import (
     make_unused_findings,
 )
 from desloppify.languages._framework.runtime import LangRun
@@ -31,7 +31,7 @@ from desloppify.languages.python.phases_quality import (
     phase_mutable_state,
     phase_smells,
 )
-from desloppify.state import Finding
+from desloppify.state import Issue
 from desloppify.core.output_api import log
 
 # ── Config data (single source of truth) ──────────────────
@@ -105,7 +105,7 @@ PY_ENTRY_PATTERNS = [
 ]
 
 
-def phase_unused(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_unused(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     entries, total_files = unused_detector_mod.detect_unused(path)
     return make_unused_findings(entries, log), {
         "unused": adjust_potential(lang.zone_map, total_files),
@@ -114,7 +114,7 @@ def phase_unused(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, in
 
 def phase_structural(
     path: Path, lang: LangRun
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     return run_phase_structural(
         path,
         lang,
@@ -124,13 +124,13 @@ def phase_structural(
     )
 
 
-def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     return run_phase_coupling(path, lang, log_fn=log)
 
 
 def phase_responsibility_cohesion(
     path: Path, lang: LangRun
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     entries, candidates = cohesion_detector_mod.detect_responsibility_cohesion(path)
     entries = filter_entries(lang.zone_map, entries, "responsibility_cohesion")
 
@@ -140,7 +140,7 @@ def phase_responsibility_cohesion(
         if len(entry["component_sizes"]) > 5:
             comp_sizes += f", +{len(entry['component_sizes']) - 5} more"
         results.append(
-            state_mod.make_finding(
+            state_mod.make_issue(
                 "responsibility_cohesion",
                 entry["file"],
                 "",
@@ -171,7 +171,7 @@ def phase_responsibility_cohesion(
 
 def phase_uncalled_functions(
     path: Path, lang: LangRun
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     """Detect underscore-prefixed top-level functions with zero references."""
     entries, total = uncalled_detector_mod.detect_uncalled_functions(
         path, lang.dep_graph
@@ -179,10 +179,10 @@ def phase_uncalled_functions(
     zm = lang.zone_map
     entries = filter_entries(zm, entries, "uncalled_functions")
 
-    results: list[Finding] = []
+    results: list[Issue] = []
     for entry in entries:
         results.append(
-            state_mod.make_finding(
+            state_mod.make_issue(
                 "uncalled_functions",
                 entry["file"],
                 entry["name"],

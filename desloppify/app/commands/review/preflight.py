@@ -1,6 +1,6 @@
 """Preflight guards for subjective review reruns.
 
-Blocks reruns while backlog remains (objective findings and/or subjective queue
+Blocks reruns while backlog remains (objective issues and/or subjective queue
 work), unless ``--force-review-rerun`` is set. Also clears stale subjective
 markers before a new cycle.
 """
@@ -91,7 +91,7 @@ def _objective_and_subjective_backlog(
     objective_total = ctx.policy.objective_count
     # Subjective dimensions are resolved BY running reviews, so they never
     # block review --prepare (that would be circular).  Only objective
-    # findings constitute genuine blocking backlog.
+    # issues constitute genuine blocking backlog.
     return objective_total, 0
 
 
@@ -120,7 +120,7 @@ def _print_backlog_blocked_message(
     if objective_total > 0:
         print(
             colorize(
-                f"  Open objective finding(s): {objective_total}",
+                f"  Open objective issue(s): {objective_total}",
                 "yellow",
             ),
             file=sys.stderr,

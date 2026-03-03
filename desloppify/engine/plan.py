@@ -66,7 +66,7 @@ from desloppify.engine._plan.reconcile import (
 # --- auto-clustering --------------------------------------------------------
 from desloppify.engine._plan.auto_cluster import (
     AUTO_PREFIX,
-    auto_cluster_findings,
+    auto_cluster_issues,
 )
 
 # --- commit tracking --------------------------------------------------------
@@ -110,7 +110,7 @@ from desloppify.engine._plan.epic_triage import (
     build_triage_prompt,
     collect_triage_input,
     detect_recurring_patterns,
-    extract_finding_citations,
+    extract_issue_citations,
 )
 
 # --- subjective policy ------------------------------------------------------
@@ -134,7 +134,7 @@ def triage_phase_banner(plan: PlanModel) -> str:
             "complete all stages to exit. Run: desloppify plan triage"
         )
     return (
-        "TRIAGE MODE — review findings need analysis before fixing. "
+        "TRIAGE MODE — review issues need analysis before fixing. "
         "Run: desloppify plan triage"
     )
 
@@ -197,7 +197,7 @@ __all__ = [
     "suggest_commit_message",
     # auto-clustering
     "AUTO_PREFIX",
-    "auto_cluster_findings",
+    "auto_cluster_issues",
     # stale dimensions
     "TRIAGE_ID",
     "TRIAGE_IDS",
@@ -222,7 +222,7 @@ __all__ = [
     "build_triage_prompt",
     "collect_triage_input",
     "detect_recurring_patterns",
-    "extract_finding_citations",
+    "extract_issue_citations",
     # subjective policy
     "compute_subjective_visibility",
     # triage

@@ -9,7 +9,7 @@ from desloppify.intelligence.review.feedback_contract import (
     DIMENSION_NOTE_ISSUES_KEY,
     HIGH_SCORE_ISSUES_NOTE_THRESHOLD,
     LOW_SCORE_FINDING_THRESHOLD,
-    max_batch_findings_for_dimension_count,
+    max_batch_issues_for_dimension_count,
 )
 
 
@@ -47,7 +47,7 @@ def _build_context(batch: dict[str, object], batch_index: int) -> _PromptBatchCo
         dimensions=dimensions,
         rationale=str(batch.get("why", "")).strip(),
         seed_files=_coerce_string_list(batch.get("files_to_read", [])),
-        findings_cap=max_batch_findings_for_dimension_count(len(dimensions)),
+        findings_cap=max_batch_issues_for_dimension_count(len(dimensions)),
     )
 
 
@@ -69,7 +69,7 @@ _SCAN_EVIDENCE_FOCUS_BY_DIMENSION = {
     "error_consistency": (
         "9g. For error_consistency, use evidence from "
         "`holistic_context.errors.exception_hotspots` — files with "
-        "concentrated exception handling findings. Investigate whether error handling is "
+        "concentrated exception handling issues. Investigate whether error handling is "
         "designed or accidental. Check for broad catches masking specific failure modes.\n"
     ),
     "cross_module_architecture": (
@@ -293,26 +293,26 @@ def _render_task_requirements(context: _PromptBatchContext) -> str:
         "    If refuting, include clear counter-evidence in `dimension_notes`.\n"
         "1c. Think structurally: when you spot multiple individual issues that share a common\n"
         "    root cause (missing abstraction, duplicated pattern, inconsistent convention),\n"
-        "    explain the deeper structural issue in the finding, not just the surface symptom.\n"
-        "    If the pattern is significant enough, report the structural issue as its own finding\n"
+        "    explain the deeper structural issue in the issue, not just the surface symptom.\n"
+        "    If the pattern is significant enough, report the structural issue as its own issue\n"
         "    with appropriate fix_scope ('multi_file_refactor' or 'architectural_change') and\n"
-        "    use `root_cause_cluster` to connect related symptom findings together.\n"
+        "    use `root_cause_cluster` to connect related symptom issues together.\n"
         "2. Start with the seed files, then freely explore additional repository files likely to surface material issues.\n"
         "2a. Prioritize high-signal leads: unexplored/lightly reviewed files, historical issue areas, and hotspot neighbors "
         "(high coupling, god modules, large files, churn seams).\n"
         "2b. Keep exploration targeted — follow strongest evidence paths first instead of attempting exhaustive coverage.\n"
-        "2c. Keep findings and scoring scoped to this batch's listed dimensions.\n"
+        "2c. Keep issues and scoring scoped to this batch's listed dimensions.\n"
         "2d. Respect scope controls in the blind packet config: do not include files/directories marked by "
         "`exclude`, `suppress`, or zone overrides that classify files as non-production (test/config/generated/vendor).\n"
-        f"3. Return 0-{context.findings_cap} high-quality findings for this batch (empty array allowed).\n"
+        f"3. Return 0-{context.findings_cap} high-quality issues for this batch (empty array allowed).\n"
         "3a. Do not suppress real defects to keep scores high; report every material issue you can support with evidence.\n"
         "3b. Do not default to 100. Reserve 100 for genuinely exemplary evidence in this batch.\n"
-        "4. Score/finding consistency is required: broader or more severe findings MUST lower dimension scores.\n"
+        "4. Score/issue consistency is required: broader or more severe issues MUST lower dimension scores.\n"
         f"4a. Any dimension scored below {LOW_SCORE_FINDING_THRESHOLD:.1f} MUST include explicit feedback: add at least one "
-        "finding with the same `dimension` and a non-empty actionable `suggestion`.\n"
-        "5. Every finding must include `related_files` with at least 2 files when possible.\n"
-        "6. Every finding must include `dimension`, `identifier`, `summary`, `evidence`, `suggestion`, and `confidence`.\n"
-        "7. Every finding must include `impact_scope` and `fix_scope`.\n"
+        "issue with the same `dimension` and a non-empty actionable `suggestion`.\n"
+        "5. Every issue must include `related_files` with at least 2 files when possible.\n"
+        "6. Every issue must include `dimension`, `identifier`, `summary`, `evidence`, `suggestion`, and `confidence`.\n"
+        "7. Every issue must include `impact_scope` and `fix_scope`.\n"
         "8. Every scored dimension MUST include dimension_notes with concrete evidence.\n"
         f"9. If a dimension score is >{HIGH_SCORE_ISSUES_NOTE_THRESHOLD:.1f}, include `{DIMENSION_NOTE_ISSUES_KEY}` in dimension_notes.\n"
         "10. Use exactly one decimal place for every assessment and abstraction sub-axis score.\n"
@@ -348,7 +348,7 @@ def _render_output_schema(context: _PromptBatchContext, batch_index: int) -> str
         '      "sub_axes": {"abstraction_leverage": 0-100, "indirection_cost": 0-100, "interface_honesty": 0-100, "delegation_density": 0-100, "definition_directness": 0-100, "type_discipline": 0-100}  // required for abstraction_fitness when evidence supports it; all one decimal place\n'
         "    }\n"
         "  },\n"
-        '  "findings": [{\n'
+        '  "issues": [{\n'
         '    "dimension": "<dimension>",\n'
         '    "identifier": "short_id",\n'
         '    "summary": "one-line defect summary",\n'

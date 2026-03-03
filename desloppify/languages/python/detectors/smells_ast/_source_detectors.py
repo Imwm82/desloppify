@@ -241,4 +241,4 @@ def _detect_vestigial_parameter(
                         "content": f"{node.name}(): {comment.strip()[:80]}",
                     }
                 )
-                break  # One finding per function
+                break  # One issue per function

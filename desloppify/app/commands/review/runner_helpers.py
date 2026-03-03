@@ -95,14 +95,14 @@ class BatchResult:
     batch_index: int
     assessments: dict[str, float]
     dimension_notes: dict[str, dict]
-    findings: list[dict]
+    issues: list[dict]
     quality: dict[str, float]
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
             "assessments": self.assessments,
             "dimension_notes": self.dimension_notes,
-            "findings": self.findings,
+            "issues": self.issues,
             "quality": self.quality,
         }
         payload["batch_index"] = self.batch_index
@@ -857,7 +857,7 @@ def collect_batch_results(
             except OSError as exc:
                 _ = exc
         try:
-            assessments, findings, dimension_notes, quality = normalize_result_fn(
+            assessments, issues, dimension_notes, quality = normalize_result_fn(
                 payload,
                 allowed_dims,
             )
@@ -871,7 +871,7 @@ def collect_batch_results(
                 batch_index=idx + 1,
                 assessments=assessments,
                 dimension_notes=dimension_notes,
-                findings=findings,
+                issues=issues,
                 quality=quality,
             )
         )

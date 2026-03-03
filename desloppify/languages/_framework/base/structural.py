@@ -6,13 +6,13 @@ from pathlib import Path
 
 from desloppify.core.text_api import PROJECT_ROOT
 from desloppify.core.discovery_api import resolve_path
-from desloppify.state import Finding, make_finding
+from desloppify.state import Issue, make_issue
 
 
 def add_structural_signal(structural: dict, file: str, signal: str, detail: dict):
     """Add a complexity signal to the per-file structural dict.
 
-    Accumulates signals per file so they can be merged into tiered findings.
+    Accumulates signals per file so they can be merged into tiered issues.
     """
     f = resolve_path(file)
     structural.setdefault(f, {"signals": [], "detail": {}})
@@ -25,8 +25,8 @@ def merge_structural_signals(
     stderr_fn,
     *,
     complexity_only_min: int = 35,
-) -> list[Finding]:
-    """Convert per-file structural signals into tiered findings.
+) -> list[Issue]:
+    """Convert per-file structural signals into tiered issues.
 
     3+ signals -> T4/high (needs decomposition).
     1-2 signals -> T3/medium.
@@ -45,7 +45,7 @@ def merge_structural_signals(
             except (OSError, UnicodeDecodeError):
                 data["detail"]["loc"] = 0
 
-        # Suppress complexity-only findings below the elevated threshold.
+        # Suppress complexity-only issues below the elevated threshold.
         signals = data["signals"]
         is_complexity_only = all(s.startswith("complexity") for s in signals)
         if is_complexity_only:
@@ -59,7 +59,7 @@ def merge_structural_signals(
         confidence = "high" if signal_count >= 3 else "medium"
         summary = "Needs decomposition: " + " / ".join(signals)
         results.append(
-            make_finding(
+            make_issue(
                 "structural",
                 filepath,
                 "",
@@ -74,7 +74,7 @@ def merge_structural_signals(
             "         "
             f"{suppressed} complexity-only files below threshold (< {complexity_only_min})"
         )
-    stderr_fn(f"         -> {len(results)} structural findings")
+    stderr_fn(f"         -> {len(results)} structural issues")
     return results
 
 

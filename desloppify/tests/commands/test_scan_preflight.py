@@ -68,7 +68,7 @@ def test_queue_clear_allows_scan():
             return_value=QueueBreakdown(queue_total=0, workflow=0),
         ),
     ):
-        mock_state_mod.load_state.return_value = {"findings": {}}
+        mock_state_mod.load_state.return_value = {"issues": {}}
         scan_queue_preflight(args)
 
 
@@ -97,7 +97,7 @@ def test_queue_remaining_blocks_scan():
         ),
         pytest.raises(CommandError) as exc_info,
     ):
-        mock_state_mod.load_state.return_value = {"findings": {}}
+        mock_state_mod.load_state.return_value = {"issues": {}}
         scan_queue_preflight(args)
     assert exc_info.value.exit_code == 1
 
@@ -126,7 +126,7 @@ def test_queue_with_only_workflow_items_allows_scan():
             return_value=breakdown,
         ),
     ):
-        mock_state_mod.load_state.return_value = {"findings": {}}
+        mock_state_mod.load_state.return_value = {"issues": {}}
         # Should NOT raise — workflow items don't block scanning
         scan_queue_preflight(args)
 

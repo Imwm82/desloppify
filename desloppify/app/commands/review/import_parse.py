@@ -21,7 +21,7 @@ from desloppify.intelligence.review.feedback_contract import (
 from desloppify.intelligence.review.dimensions.data import load_dimensions_for_lang
 from desloppify.intelligence.review.importing.contracts import (
     AssessmentImportPolicyModel,
-    ReviewFindingPayload,
+    ReviewIssuePayload,
     ReviewImportPayload,
     validate_review_finding_payload,
 )
@@ -139,10 +139,10 @@ def _normalize_import_payload_shape(
 ) -> tuple[ReviewImportPayload | None, list[str]]:
     """Normalize payload into required-key contract with strict type checks."""
     errors: list[str] = []
-    findings = payload.get("findings")
-    if not isinstance(findings, list):
-        errors.append("findings must be a JSON array")
-        findings = []
+    issues = payload.get("issues")
+    if not isinstance(issues, list):
+        errors.append("issues must be a JSON array")
+        issues = []
 
     assessments = _coerce_optional_object(payload, key="assessments", errors=errors)
     normalized_reviewed_files = _coerce_reviewed_files(payload, errors=errors)
@@ -158,7 +158,7 @@ def _normalize_import_payload_shape(
         return None, errors
     return (
         {
-            "findings": findings,
+            "issues": issues,
             "assessments": assessments,
             "reviewed_files": normalized_reviewed_files,
             "review_scope": review_scope,
@@ -228,12 +228,12 @@ def _has_non_empty_strings(items: object) -> bool:
 
 
 def _validate_holistic_findings_schema(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     lang_name: str | None = None,
 ) -> list[str]:
-    """Validate strict holistic finding schema expected by issue import."""
-    findings = findings_data["findings"]
+    """Validate strict holistic issue schema expected by issue import."""
+    issues = issues_data["issues"]
 
     allowed_dimensions: set[str] = set()
     if isinstance(lang_name, str) and lang_name.strip():
@@ -241,11 +241,11 @@ def _validate_holistic_findings_schema(
         allowed_dimensions = set(dimension_prompts)
 
     errors: list[str] = []
-    for idx, entry in enumerate(findings):
-        _normalized: ReviewFindingPayload | None
+    for idx, entry in enumerate(issues):
+        _normalized: ReviewIssuePayload | None
         _normalized, entry_errors = validate_review_finding_payload(
             entry,
-            label=f"findings[{idx}]",
+            label=f"issues[{idx}]",
             allowed_dimensions=allowed_dimensions or None,
             allow_dismissed=True,
         )
@@ -263,12 +263,12 @@ def _validate_holistic_findings_schema(
     return errors
 
 
-def _feedback_dimensions_from_findings(findings: object) -> set[str]:
-    """Return dimensions with explicit improvement guidance in findings payload."""
-    if not isinstance(findings, list):
+def _feedback_dimensions_from_findings(issues: object) -> set[str]:
+    """Return dimensions with explicit improvement guidance in issues payload."""
+    if not isinstance(issues, list):
         return set()
     dims: set[str] = set()
-    for entry in findings:
+    for entry in issues:
         if not isinstance(entry, dict):
             continue
         dim = entry.get("dimension")
@@ -297,17 +297,17 @@ def _feedback_dimensions_from_dimension_notes(dimension_notes: object) -> set[st
 
 
 def _validate_assessment_feedback(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
 ) -> tuple[list[str], list[str]]:
-    """Return dimensions missing required feedback and required low-score findings."""
-    assessments = findings_data["assessments"]
+    """Return dimensions missing required feedback and required low-score issues."""
+    assessments = issues_data["assessments"]
     if not assessments:
         return [], []
 
-    finding_dims = _feedback_dimensions_from_findings(findings_data["findings"])
+    finding_dims = _feedback_dimensions_from_findings(issues_data["issues"])
     feedback_dims = set(finding_dims)
     feedback_dims.update(
-        _feedback_dimensions_from_dimension_notes(findings_data["dimension_notes"])
+        _feedback_dimensions_from_dimension_notes(issues_data["dimension_notes"])
     )
     missing_feedback: list[str] = []
     missing_low_score_findings: list[str] = []
@@ -332,16 +332,19 @@ def _load_import_json(import_file: str) -> tuple[object | None, list[str]]:
     try:
         return json.loads(findings_path.read_text()), []
     except (json.JSONDecodeError, OSError) as exc:
-        return None, [f"error reading findings: {exc}"]
+        return None, [f"error reading issues: {exc}"]
 
 
 def _normalize_import_root_payload(raw_payload: object) -> tuple[dict[str, Any] | None, list[str]]:
     """Normalize top-level payload shape before strict field validation."""
-    payload = {"findings": raw_payload} if isinstance(raw_payload, list) else raw_payload
+    payload = {"issues": raw_payload} if isinstance(raw_payload, list) else raw_payload
     if not isinstance(payload, dict):
-        return None, ["findings file must contain a JSON array or object"]
-    if "findings" not in payload:
-        return None, ["findings object must contain a 'findings' key"]
+        return None, ["issues file must contain a JSON array or object"]
+    # Accept both "issues" (canonical) and "findings" (legacy)
+    if "findings" in payload and "issues" not in payload:
+        payload["issues"] = payload.pop("findings")
+    if "issues" not in payload:
+        return None, ["issues object must contain an 'issues' key"]
     return payload, []
 
 
@@ -356,24 +359,24 @@ def _validate_override_option_conflicts(
     if options.attested_external and options.allow_partial:
         return [
             "--attested-external cannot be combined with --allow-partial; "
-            "attested score imports require fully valid findings payloads"
+            "attested score imports require fully valid issues payloads"
         ]
     if override_enabled and options.allow_partial:
         return [
             "--manual-override cannot be combined with --allow-partial; "
-            "manual score imports require fully valid findings payloads"
+            "manual score imports require fully valid issues payloads"
         ]
     return []
 
 
 def _validate_feedback_requirements(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     override_enabled: bool,
     override_attest: str | None,
 ) -> list[str]:
-    """Validate feedback and low-score finding requirements."""
-    missing_feedback, missing_low_score_findings = _validate_assessment_feedback(findings_data)
+    """Validate feedback and low-score issue requirements."""
+    missing_feedback, missing_low_score_findings = _validate_assessment_feedback(issues_data)
     if missing_low_score_findings:
         if override_enabled:
             if not isinstance(override_attest, str) or not override_attest.strip():
@@ -381,7 +384,7 @@ def _validate_feedback_requirements(
             return []
         return [
             f"assessments below {LOW_SCORE_FINDING_THRESHOLD:.1f} must include at "
-            "least one finding for that same dimension with a concrete suggestion. "
+            "least one issue for that same dimension with a concrete suggestion. "
             f"Missing: {', '.join(missing_low_score_findings)}"
         ]
     if not missing_feedback:
@@ -392,26 +395,26 @@ def _validate_feedback_requirements(
         return []
     return [
         f"assessments below {ASSESSMENT_FEEDBACK_THRESHOLD:.1f} must include explicit feedback "
-        "(finding with same dimension and non-empty suggestion, or "
+        "(issue with same dimension and non-empty suggestion, or "
         "dimension_notes evidence for that dimension). "
         f"Missing: {', '.join(missing_feedback)}"
     ]
 
 
 def _validate_schema_requirements(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     lang_name: str | None,
     allow_partial: bool,
 ) -> list[str]:
-    """Validate holistic finding schema unless partial imports are enabled."""
-    schema_errors = _validate_holistic_findings_schema(findings_data, lang_name=lang_name)
+    """Validate holistic issue schema unless partial imports are enabled."""
+    schema_errors = _validate_holistic_findings_schema(issues_data, lang_name=lang_name)
     if not schema_errors or allow_partial:
         return []
     visible_errors = schema_errors[:10]
     remaining = len(schema_errors) - len(visible_errors)
     errors = [
-        "findings schema validation failed for holistic import. "
+        "issues schema validation failed for holistic import. "
         "Fix payload or rerun with --allow-partial to continue."
     ]
     errors.extend(visible_errors)
@@ -436,13 +439,13 @@ def _parse_and_validate_import(
     if root_errors:
         return None, root_errors
     if normalized_root is None:
-        return None, ["findings payload root normalization returned no data"]
+        return None, ["issues payload root normalization returned no data"]
 
     normalized_findings_data, shape_errors = _normalize_import_payload_shape(normalized_root)
     if shape_errors:
         return None, shape_errors
     if normalized_findings_data is None:
-        return None, ["findings payload normalization returned no data"]
+        return None, ["issues payload normalization returned no data"]
 
     override_enabled, override_attest = resolve_override_context(
         manual_override=resolved_options.manual_override,
@@ -457,7 +460,7 @@ def _parse_and_validate_import(
     if conflict_errors:
         return None, conflict_errors
 
-    findings_data, policy_errors = apply_assessment_import_policy(
+    issues_data, policy_errors = apply_assessment_import_policy(
         normalized_findings_data,
         import_file=import_file,
         attested_external=resolved_options.attested_external,
@@ -469,11 +472,11 @@ def _parse_and_validate_import(
     )
     if policy_errors:
         return None, policy_errors
-    if findings_data is None:
+    if issues_data is None:
         return None, ["assessment import policy returned no payload"]
 
     feedback_errors = _validate_feedback_requirements(
-        findings_data,
+        issues_data,
         override_enabled=override_enabled,
         override_attest=override_attest,
     )
@@ -481,14 +484,14 @@ def _parse_and_validate_import(
         return None, feedback_errors
 
     schema_errors = _validate_schema_requirements(
-        findings_data,
+        issues_data,
         lang_name=resolved_options.lang_name,
         allow_partial=resolved_options.allow_partial,
     )
     if schema_errors:
         return None, schema_errors
 
-    return findings_data, []
+    return issues_data, []
 
 
 def load_import_findings_data(

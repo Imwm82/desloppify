@@ -19,22 +19,22 @@ def _seed_state() -> tuple[dict, str]:
     state = state_mod.empty_state()
     state["last_scan"] = "2026-03-01T00:00:00+00:00"
     state["scan_count"] = 3
-    finding = state_mod.make_finding(
+    issue = state_mod.make_issue(
         "review",
         "src/example.py",
-        "sample-finding",
+        "sample-issue",
         tier=1,
         confidence="high",
         summary="sample",
     )
-    finding_id = finding["id"]
-    state["findings"][finding_id] = finding
-    return state, finding_id
+    issue_id = issue["id"]
+    state["issues"][issue_id] = issue
+    return state, issue_id
 
 
-def _seed_plan(finding_id: str) -> dict:
+def _seed_plan(issue_id: str) -> dict:
     plan = empty_plan()
-    plan["queue_order"] = [finding_id]
+    plan["queue_order"] = [issue_id]
     return plan
 
 
@@ -45,17 +45,17 @@ def test_save_plan_state_transactional_rolls_back_on_plan_write_failure(
     state_file = tmp_path / "state.json"
     plan_file = tmp_path / "plan.json"
 
-    initial_state, finding_id = _seed_state()
-    initial_plan = _seed_plan(finding_id)
+    initial_state, issue_id = _seed_state()
+    initial_plan = _seed_plan(issue_id)
     state_mod.save_state(initial_state, state_file)
     save_plan(initial_plan, plan_file)
     before_state = state_file.read_text()
     before_plan = plan_file.read_text()
 
     changed_state = copy.deepcopy(initial_state)
-    state_mod.resolve_findings(
+    state_mod.resolve_issues(
         changed_state,
-        finding_id,
+        issue_id,
         "wontfix",
         note="intentional debt",
         attestation=_ATTEST,
@@ -63,7 +63,7 @@ def test_save_plan_state_transactional_rolls_back_on_plan_write_failure(
     changed_plan = copy.deepcopy(initial_plan)
     skip_items(
         changed_plan,
-        [finding_id],
+        [issue_id],
         kind="permanent",
         note="intentional debt",
         attestation=_ATTEST,
@@ -92,8 +92,8 @@ def test_cmd_plan_skip_permanent_rollback_when_plan_write_fails(
     state_file = tmp_path / "state.json"
     plan_file = tmp_path / "plan.json"
 
-    initial_state, finding_id = _seed_state()
-    initial_plan = _seed_plan(finding_id)
+    initial_state, issue_id = _seed_state()
+    initial_plan = _seed_plan(issue_id)
     state_mod.save_state(initial_state, state_file)
     save_plan(initial_plan, plan_file)
 
@@ -104,7 +104,7 @@ def test_cmd_plan_skip_permanent_rollback_when_plan_write_fails(
     )
     args = argparse.Namespace(
         runtime=runtime,
-        patterns=[finding_id],
+        patterns=[issue_id],
         reason=None,
         review_after=None,
         permanent=True,
@@ -113,7 +113,7 @@ def test_cmd_plan_skip_permanent_rollback_when_plan_write_fails(
         attest=_ATTEST,
     )
 
-    monkeypatch.setattr(override_handlers, "resolve_ids_from_patterns", lambda *_a, **_k: [finding_id])
+    monkeypatch.setattr(override_handlers, "resolve_ids_from_patterns", lambda *_a, **_k: [issue_id])
 
     def _boom(*_args, **_kwargs):
         raise OSError("simulated plan write failure")
@@ -125,6 +125,6 @@ def test_cmd_plan_skip_permanent_rollback_when_plan_write_fails(
 
     state_after = state_mod.load_state(state_file)
     plan_after = load_plan(plan_file)
-    assert state_after["findings"][finding_id]["status"] == "open"
-    assert plan_after.get("queue_order", []) == [finding_id]
+    assert state_after["issues"][issue_id]["status"] == "open"
+    assert plan_after.get("queue_order", []) == [issue_id]
     assert plan_after.get("skipped", {}) == {}

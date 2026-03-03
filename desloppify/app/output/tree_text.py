@@ -9,15 +9,15 @@ def _aggregate(node: dict) -> dict:
         return {
             "files": 1,
             "loc": node.get("loc", 0),
-            "findings": node.get("findings_open", 0),
+            "issues": node.get("findings_open", 0),
             "max_coupling": node.get("fan_in", 0) + node.get("fan_out", 0),
         }
-    agg = {"files": 0, "loc": 0, "findings": 0, "max_coupling": 0}
+    agg = {"files": 0, "loc": 0, "issues": 0, "max_coupling": 0}
     for child in node["children"]:
         child_agg = _aggregate(child)
         agg["files"] += child_agg["files"]
         agg["loc"] += child_agg["loc"]
-        agg["findings"] += child_agg["findings"]
+        agg["issues"] += child_agg["issues"]
         agg["max_coupling"] = max(agg["max_coupling"], child_agg["max_coupling"])
     return agg
 
@@ -33,11 +33,11 @@ def _render_leaf_node(
     loc = node.get("loc", 0)
     if loc < min_loc:
         return False
-    findings = node.get("findings_open", 0)
+    issues = node.get("findings_open", 0)
     coupling = node.get("fan_in", 0) + node.get("fan_out", 0)
     parts = [f"{loc:,} LOC"]
-    if findings > 0:
-        parts.append(f"⚠{findings}")
+    if issues > 0:
+        parts.append(f"⚠{issues}")
     if coupling > 10:
         parts.append(f"c:{coupling}")
     lines.append(f"{prefix}{node['name']}  ({', '.join(parts)})")
@@ -48,8 +48,8 @@ def _render_leaf_node(
 
 
 def _sorted_children(children: list[dict], *, sort_by: str) -> list[dict]:
-    if sort_by == "findings":
-        return sorted(children, key=lambda child: -_aggregate(child)["findings"])
+    if sort_by == "issues":
+        return sorted(children, key=lambda child: -_aggregate(child)["issues"])
     if sort_by == "coupling":
         return sorted(children, key=lambda child: -_aggregate(child)["max_coupling"])
     return sorted(children, key=lambda child: -_aggregate(child)["loc"])
@@ -72,7 +72,7 @@ def _render_branch_node(
 
     lines.append(
         f"{prefix}{node['name']}/  "
-        f"({agg['files']} files, {agg['loc']:,} LOC, {agg['findings']} findings)"
+        f"({agg['files']} files, {agg['loc']:,} LOC, {agg['issues']} issues)"
     )
     if indent >= max_depth:
         return True

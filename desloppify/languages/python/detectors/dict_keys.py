@@ -118,7 +118,7 @@ def detect_dict_key_flow(path: Path) -> tuple[list[dict], int]:
     """Walk all .py files, run DictKeyVisitor. Returns (entries, files_checked)."""
     dict_key_visitor = _load_dict_key_visitor()
     files = find_py_files(path)
-    all_findings: list[dict] = []
+    all_issues: list[dict] = []
     all_literals: list[dict] = []
 
     for filepath in files:
@@ -147,10 +147,10 @@ def detect_dict_key_flow(path: Path) -> tuple[list[dict], int]:
 
         visitor = dict_key_visitor(filepath)
         visitor.visit(tree)
-        all_findings.extend(visitor._findings)
+        all_issues.extend(visitor._findings)
         all_literals.extend(visitor._dict_literals)
 
-    return all_findings, len(files)
+    return all_issues, len(files)
 
 
 # ── Pass 2: Schema drift clustering ──────────────────────
@@ -266,7 +266,7 @@ def _closest_consensus_key(outlier_key: str, consensus: set[str]) -> str | None:
 
 
 def _build_schema_drift_findings(clusters: list[list[dict]]) -> list[dict]:
-    findings: list[dict] = []
+    issues: list[dict] = []
     for cluster in clusters:
         if len(cluster) < 3:
             continue
@@ -283,7 +283,7 @@ def _build_schema_drift_findings(clusters: list[list[dict]]) -> list[dict]:
                 tier = 2 if len(cluster) >= 5 else 3
                 confidence = "high" if len(cluster) >= 5 else "medium"
                 suggestion = f' Did you mean "{close_match}"?' if close_match else ""
-                findings.append(
+                issues.append(
                     {
                         "file": member["file"],
                         "kind": "schema_drift",
@@ -301,7 +301,7 @@ def _build_schema_drift_findings(clusters: list[list[dict]]) -> list[dict]:
                         ),
                     }
                 )
-    return findings
+    return issues
 
 
 def detect_schema_drift(path: Path) -> tuple[list[dict], int]:
@@ -316,6 +316,6 @@ def detect_schema_drift(path: Path) -> tuple[list[dict], int]:
         return [], len(all_literals)
 
     clusters = _cluster_by_jaccard(all_literals, threshold=0.8)
-    findings = _build_schema_drift_findings(clusters)
+    issues = _build_schema_drift_findings(clusters)
 
-    return findings, len(all_literals)
+    return issues, len(all_literals)

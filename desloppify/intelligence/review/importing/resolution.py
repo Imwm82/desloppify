@@ -8,7 +8,7 @@ from typing import Any
 from desloppify.state import utc_now
 
 
-def auto_resolve_review_findings(
+def auto_resolve_review_issues(
     state: dict[str, Any],
     *,
     new_ids: set[str],
@@ -17,14 +17,14 @@ def auto_resolve_review_findings(
     should_resolve: Callable[[dict[str, Any]], bool],
     utc_now_fn=utc_now,
 ) -> None:
-    """Auto-resolve stale open review findings that match a scope predicate."""
+    """Auto-resolve stale open review issues that match a scope predicate."""
     diff.setdefault("auto_resolved", 0)
-    for finding_id, finding in state.get("findings", {}).items():
-        if finding_id in new_ids or finding.get("status") != "open":
+    for issue_id, issue in state.get("issues", {}).items():
+        if issue_id in new_ids or issue.get("status") != "open":
             continue
-        if not should_resolve(finding):
+        if not should_resolve(issue):
             continue
-        finding["status"] = "auto_resolved"
-        finding["resolved_at"] = utc_now_fn()
-        finding["note"] = note
+        issue["status"] = "auto_resolved"
+        issue["resolved_at"] = utc_now_fn()
+        issue["note"] = note
         diff["auto_resolved"] += 1

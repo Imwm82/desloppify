@@ -17,19 +17,19 @@ TRUSTED_IMPORT_COVERAGE_OVERRIDE_FLAG = "--allow-partial"
 HIGH_SCORE_UNREPORTED_RISK_THRESHOLD = HIGH_SCORE_ISSUES_NOTE_THRESHOLD
 
 
-def max_batch_findings_for_dimension_count(dimension_count: int) -> int:
-    """Return the normalized max findings budget for one batch payload."""
+def max_batch_issues_for_dimension_count(dimension_count: int) -> int:
+    """Return the normalized max issues budget for one batch payload."""
     safe_count = max(0, int(dimension_count))
     return max(DEFAULT_MAX_BATCH_FINDINGS, safe_count)
 
 
 def score_requires_dimension_finding(score: float) -> bool:
-    """Return True when score requires at least one explicit finding."""
+    """Return True when score requires at least one explicit issue."""
     return float(score) < LOW_SCORE_FINDING_THRESHOLD
 
 
 def score_requires_explicit_feedback(score: float) -> bool:
-    """Return True when score requires a finding or dimension-note evidence."""
+    """Return True when score requires a issue or dimension-note evidence."""
     return float(score) < ASSESSMENT_FEEDBACK_THRESHOLD
 
 
@@ -45,18 +45,18 @@ def global_prompt_contract() -> str:
         "- Do not default to 100. Reserve 100 for genuinely exemplary code "
         "with clear positive evidence; if there is uncertainty or residual "
         "issues, score below 100.\n"
-        "- Do not suppress valid findings to keep scores high.\n"
+        "- Do not suppress valid issues to keep scores high.\n"
         f"- Scores below {LOW_SCORE_FINDING_THRESHOLD:.1f} MUST include at least one "
-        "finding for that same dimension.\n"
+        "issue for that same dimension.\n"
         f"- Scores below {ASSESSMENT_FEEDBACK_THRESHOLD:.1f} MUST include explicit "
-        "feedback for that same dimension (finding with suggestion or "
+        "feedback for that same dimension (issue with suggestion or "
         "dimension_notes evidence).\n"
         f"- Scores above {HIGH_SCORE_ISSUES_NOTE_THRESHOLD:.1f} MUST include a "
         "non-empty `issues_preventing_higher_score` note for that dimension.\n"
-        "- Findings must always describe defects that need change, never positive observations.\n"
-        "- Think structurally: when individual findings form a pattern, consider what is\n"
+        "- Issues must always describe defects that need change, never positive observations.\n"
+        "- Think structurally: when individual issues form a pattern, consider what is\n"
         "  causing them. If several issues stem from a shared root cause (missing abstraction,\n"
-        "  repeated pattern, inconsistent convention), say so in the findings — explain the\n"
+        "  repeated pattern, inconsistent convention), say so in the issues — explain the\n"
         "  deeper issue and use root_cause_cluster to connect related symptoms."
     )
 
@@ -85,7 +85,7 @@ __all__ = [
     "LOW_SCORE_FINDING_THRESHOLD",
     "ensure_prompt_contract",
     "global_prompt_contract",
-    "max_batch_findings_for_dimension_count",
+    "max_batch_issues_for_dimension_count",
     "score_requires_dimension_finding",
     "score_requires_explicit_feedback",
 ]

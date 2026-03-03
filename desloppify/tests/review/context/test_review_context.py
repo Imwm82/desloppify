@@ -1060,7 +1060,7 @@ class TestSerializeContext:
         assert "module_patterns" in d
         assert "import_graph_summary" in d
         assert "zone_distribution" in d
-        assert "existing_findings" in d
+        assert "existing_issues" in d
         assert "codebase_stats" in d
         assert "sibling_conventions" in d
 

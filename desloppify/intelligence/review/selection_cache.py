@@ -1,4 +1,4 @@
-"""Cache and finding-summary helpers for review file selection."""
+"""Cache and issue-summary helpers for review file selection."""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from desloppify.core.discovery_api import rel
 logger = logging.getLogger(__name__)
 
 
-def get_file_findings(state: dict, filepath: str) -> list[dict]:
-    """Get existing open findings for a file (summaries for context)."""
+def get_file_issues(state: dict, filepath: str) -> list[dict]:
+    """Get existing open issues for a file (summaries for context)."""
     rpath = rel(filepath)
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     return [
-        {"detector": finding["detector"], "summary": finding["summary"], "id": finding["id"]}
-        for finding in findings.values()
-        if finding.get("file") == rpath and finding["status"] == "open"
+        {"detector": issue["detector"], "summary": issue["summary"], "id": issue["id"]}
+        for issue in issues.values()
+        if issue.get("file") == rpath and issue["status"] == "open"
     ]
 
 
@@ -49,5 +49,5 @@ def count_stale(state: dict, max_age_days: int) -> int:
     return total - count_fresh(state, max_age_days)
 
 
-__all__ = ["count_fresh", "count_stale", "get_file_findings"]
+__all__ = ["count_fresh", "count_stale", "get_file_issues"]
 

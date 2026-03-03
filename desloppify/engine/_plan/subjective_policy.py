@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from desloppify.engine._state.schema import StateModel
 
-# Detectors whose findings are NOT objective mechanical work.
+# Detectors whose issues are NOT objective mechanical work.
 # Canonical definition — re-exported by stale_dimensions for back-compat.
 NON_OBJECTIVE_DETECTORS: frozenset[str] = frozenset({
     "review", "concerns", "subjective_review", "subjective_assessment",
@@ -22,7 +22,7 @@ NON_OBJECTIVE_DETECTORS: frozenset[str] = frozenset({
 class SubjectiveVisibility:
     """Immutable snapshot of the subjective-vs-objective balance."""
 
-    has_objective_backlog: bool  # any open non-subjective findings?
+    has_objective_backlog: bool  # any open non-subjective issues?
     objective_count: int  # how many
     unscored_ids: frozenset[str]  # subjective::* IDs needing initial review
     stale_ids: frozenset[str]  # subjective::* IDs needing re-review
@@ -61,16 +61,16 @@ class SubjectiveVisibility:
         return self.has_objective_backlog
 
 
-def _is_evidence_only(finding: dict) -> bool:
-    """Return True if the finding is below its detector's standalone threshold."""
+def _is_evidence_only(issue: dict) -> bool:
+    """Return True if the issue is below its detector's standalone threshold."""
     from desloppify.core.registry import DETECTORS
     from desloppify.engine.planning.common import CONFIDENCE_ORDER
 
-    detector = finding.get("detector", "")
+    detector = issue.get("detector", "")
     meta = DETECTORS.get(detector)
     if meta and meta.standalone_threshold:
         threshold_rank = CONFIDENCE_ORDER.get(meta.standalone_threshold, 9)
-        finding_rank = CONFIDENCE_ORDER.get(finding.get("confidence", "low"), 9)
+        finding_rank = CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9)
         if finding_rank > threshold_rank:
             return True
     return False
@@ -90,7 +90,7 @@ def compute_subjective_visibility(
 
     *scan_path* defaults to ``state["scan_path"]`` so callers don't need to
     thread it manually.  Pass an explicit ``str`` to override, or ``None``
-    to disable scope filtering.  When *plan* is set, findings whose IDs
+    to disable scope filtering.  When *plan* is set, issues whose IDs
     appear in ``plan["skipped"]`` are excluded.
 
     Imports building-block helpers from ``stale_dimensions`` so the
@@ -101,7 +101,7 @@ def compute_subjective_visibility(
         current_under_target_ids,
         current_unscored_ids,
     )
-    from desloppify.engine._state.filtering import finding_in_scan_scope
+    from desloppify.engine._state.filtering import issue_in_scan_scope
 
     resolved_scan_path: str | None = (
         state.get("scan_path")
@@ -109,22 +109,22 @@ def compute_subjective_visibility(
         else scan_path  # type: ignore[assignment]
     )
 
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     skipped_ids = set((plan or {}).get("skipped", {}).keys())
 
-    # Count open, non-suppressed, objective findings.
-    # Evidence-only findings (below standalone confidence threshold) are
+    # Count open, non-suppressed, objective issues.
+    # Evidence-only issues (below standalone confidence threshold) are
     # excluded — they still affect scores but are not actionable queue items.
-    # Findings outside scan_path and plan-skipped findings are also excluded
+    # Issues outside scan_path and plan-skipped issues are also excluded
     # so the policy matches what the user actually sees in the queue.
     objective_count = sum(
         1
-        for fid, f in findings.items()
+        for fid, f in issues.items()
         if f.get("status") == "open"
         and f.get("detector") not in NON_OBJECTIVE_DETECTORS
         and not f.get("suppressed")
         and not _is_evidence_only(f)
-        and finding_in_scan_scope(str(f.get("file", "")), resolved_scan_path)
+        and issue_in_scan_scope(str(f.get("file", "")), resolved_scan_path)
         and fid not in skipped_ids
     )
 

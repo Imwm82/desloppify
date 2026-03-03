@@ -53,7 +53,7 @@ def serialize_item(item: Mapping[str, Any]) -> dict[str, Any]:
 
     serialized: dict[str, Any] = {
         "id": item.get("id"),
-        "kind": item.get("kind", "finding"),
+        "kind": item.get("kind", "issue"),
         "confidence": item.get("confidence"),
         "detector": item.get("detector"),
         "file": item.get("file"),
@@ -119,7 +119,7 @@ def build_query_payload(
     ):
         clusters_summary = []
         for name, cluster in plan.get("clusters", {}).items():
-            member_ids = set(cluster.get("finding_ids", []))
+            member_ids = set(cluster.get("issue_ids", []))
             clusters_summary.append({
                 "name": name,
                 "description": cluster.get("description"),
@@ -146,7 +146,7 @@ def render_markdown(items: Sequence[Mapping[str, Any]]) -> str:
         "|------|------------|---------|---------|",
     ]
     for item in items:
-        kind = item.get("kind", "finding")
+        kind = item.get("kind", "issue")
         conf = item.get("confidence", "medium")
         summary = item.get("summary", "").replace("|", "\\|")
         command = (item.get("primary_command", "") or "").replace("|", "\\|")

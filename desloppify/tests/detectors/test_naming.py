@@ -58,7 +58,7 @@ class TestDetectNamingInconsistencies:
         return paths
 
     def test_consistent_dir_no_findings(self, tmp_path):
-        """A directory with a single convention should produce no findings."""
+        """A directory with a single convention should produce no issues."""
         files = self._build_files(
             tmp_path, "components", [f"my-component-{i}.tsx" for i in range(10)]
         )

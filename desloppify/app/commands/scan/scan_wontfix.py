@@ -37,7 +37,7 @@ def _structural_growth_details(
     snapshot: dict[str, Any],
     current: dict[str, Any],
 ) -> dict[str, dict[str, float]]:
-    """Return structural drift details for wontfix findings."""
+    """Return structural drift details for wontfix issues."""
     snapshot_detail = (
         snapshot.get("detail", {}) if isinstance(snapshot.get("detail"), dict) else {}
     )
@@ -74,7 +74,7 @@ def _wontfix_staleness_reasons(
     since_scan: int,
     decay_scans: int,
 ) -> tuple[list[str], dict[str, dict[str, float]]]:
-    """Determine why a wontfix finding is stale and compute structural drift."""
+    """Determine why a wontfix issue is stale and compute structural drift."""
     reasons: list[str] = []
     if decay_scans > 0 and since_scan >= decay_scans:
         reasons.append("scan_decay")
@@ -103,33 +103,33 @@ def _format_drift_summary(drift: dict[str, dict[str, float]]) -> str:
 
 
 def _build_stale_wontfix_finding(
-    finding_id: str,
+    issue_id: str,
     previous: dict[str, Any],
     *,
     reasons: list[str],
     drift: dict[str, dict[str, float]],
     since_scan: int,
 ) -> dict[str, Any]:
-    """Construct a stale_wontfix finding from staleness metadata."""
+    """Construct a stale_wontfix issue from staleness metadata."""
     tier = 4 if "severity_drift" in reasons else 3
     confidence = "high" if "severity_drift" in reasons else "medium"
     reason_text = " + ".join(reasons)
     summary = (
-        f"Stale wontfix ({reason_text}): re-triage `{finding_id}` "
+        f"Stale wontfix ({reason_text}): re-triage `{issue_id}` "
         f"(last reviewed {since_scan} scans ago)"
     )
     summary += _format_drift_summary(drift)
 
-    return state_mod.make_finding(
+    return state_mod.make_issue(
         "stale_wontfix",
         previous.get("file", ""),
-        finding_id,
+        issue_id,
         tier=tier,
         confidence=confidence,
         summary=summary,
         detail={
             "subtype": "stale_wontfix",
-            "original_finding_id": finding_id,
+            "original_finding_id": issue_id,
             "original_detector": previous.get("detector"),
             "reasons": reasons,
             "scans_since_wontfix": since_scan,
@@ -138,33 +138,33 @@ def _build_stale_wontfix_finding(
     )
 
 
-def augment_with_stale_wontfix_findings(
-    findings: list[dict[str, Any]],
+def augment_with_stale_wontfix_issues(
+    issues: list[dict[str, Any]],
     *,
     state: state_mod.StateModel,
     scan_path: Path,
     project_root: Path,
     decay_scans: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Append re-triage findings for stale or worsening wontfix debt."""
-    existing = state.get("findings", {})
+    """Append re-triage issues for stale or worsening wontfix debt."""
+    existing = state.get("issues", {})
     if not isinstance(existing, dict):
-        return findings, 0
+        return issues, 0
 
     current_by_id = {
-        finding.get("id"): finding
-        for finding in findings
-        if finding.get("id")
+        issue.get("id"): issue
+        for issue in issues
+        if issue.get("id")
     }
-    augmented = list(findings)
+    augmented = list(issues)
     monitored = 0
 
-    for finding_id, previous in existing.items():
+    for issue_id, previous in existing.items():
         if not isinstance(previous, dict):
             continue
         if previous.get("status") != "wontfix":
             continue
-        if finding_id not in current_by_id:
+        if issue_id not in current_by_id:
             continue
         if not _in_scan_scope(
             str(previous.get("file", "")),
@@ -180,7 +180,7 @@ def augment_with_stale_wontfix_findings(
 
         reasons, drift = _wontfix_staleness_reasons(
             previous,
-            current_by_id[finding_id],
+            current_by_id[issue_id],
             since_scan=since_scan,
             decay_scans=decay_scans,
         )
@@ -189,7 +189,7 @@ def augment_with_stale_wontfix_findings(
 
         augmented.append(
             _build_stale_wontfix_finding(
-                finding_id,
+                issue_id,
                 previous,
                 reasons=reasons,
                 drift=drift,
@@ -200,4 +200,4 @@ def augment_with_stale_wontfix_findings(
     return augmented, monitored
 
 
-__all__ = ["augment_with_stale_wontfix_findings"]
+__all__ = ["augment_with_stale_wontfix_issues"]

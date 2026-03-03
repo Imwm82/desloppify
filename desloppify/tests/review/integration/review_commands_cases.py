@@ -28,8 +28,8 @@ from desloppify.app.commands.review.prepare import do_prepare as _do_prepare
 from desloppify.app.commands.review.runtime import setup_lang_concrete as _setup_lang
 from desloppify.engine.policy.zones import Zone, ZoneRule
 from desloppify.intelligence.review import (
-    import_holistic_findings,
-    import_review_findings,
+    import_holistic_issues,
+    import_review_issues,
 )
 from desloppify.intelligence.review.importing.per_file import update_review_cache
 from desloppify.state import empty_state as build_empty_state
@@ -122,7 +122,7 @@ class TestCmdReviewPrepare:
         assert "system_prompt" in query_output
 
     def test_do_import_saves_state(self, empty_state, tmp_path):
-        findings = [
+        issues = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "process_data_coupling",
@@ -133,8 +133,8 @@ class TestCmdReviewPrepare:
                 "suggestion": "consolidate coupling points",
             }
         ]
-        findings_file = tmp_path / "findings.json"
-        findings_file.write_text(json.dumps(findings))
+        findings_file = tmp_path / "issues.json"
+        findings_file.write_text(json.dumps(issues))
 
         saved = {}
 
@@ -150,7 +150,7 @@ class TestCmdReviewPrepare:
             _do_import(str(findings_file), empty_state, lang, "fake_sp")
 
         assert saved["sp"] == "fake_sp"
-        assert len(empty_state["findings"]) == 1
+        assert len(empty_state["issues"]) == 1
 
     def test_do_prepare_prints_narrative_reminders(self, mock_lang_with_zones, empty_state, tmp_path, capsys):
         from unittest.mock import MagicMock, patch
@@ -256,7 +256,7 @@ class TestCmdReviewPrepare:
         }
         payload = {
             "assessments": {"naming_quality": 40, "logic_clarity": 40},
-            "findings": [],
+            "issues": [],
         }
         findings_file = tmp_path / "findings_integrity_block.json"
         findings_file.write_text(json.dumps(payload))
@@ -280,7 +280,7 @@ class TestCmdReviewPrepare:
         }
         payload = {
             "assessments": {"naming_quality": 40, "logic_clarity": 40},
-            "findings": [],
+            "issues": [],
         }
         findings_file = tmp_path / "findings_integrity_override.json"
         findings_file.write_text(json.dumps(payload))
@@ -329,7 +329,7 @@ class TestCmdReviewPrepare:
 
         payload = {
             "assessments": {"naming_quality": 40},
-            "findings": [],
+            "issues": [],
         }
         findings_file = tmp_path / "findings_invalid_combo.json"
         findings_file.write_text(json.dumps(payload))
@@ -364,7 +364,7 @@ class TestCmdReviewPrepare:
         }
         payload = {
             "assessments": {"naming_quality": 100},
-            "findings": [],
+            "issues": [],
         }
         findings_file = tmp_path / "findings_trusted_internal.json"
         findings_file.write_text(json.dumps(payload))
@@ -428,7 +428,7 @@ class TestCmdReviewPrepare:
 
         payload = {
             "assessments": {"logic_clarity": 100},
-            "findings": [],
+            "issues": [],
         }
         findings_file = tmp_path / "findings_rebase.json"
         findings_file.write_text(json.dumps(payload))
@@ -467,7 +467,7 @@ class TestCmdReviewPrepare:
         packet_hash = hashlib.sha256(blind_packet.read_bytes()).hexdigest()
         payload = {
             "assessments": {"naming_quality": 100},
-            "findings": [],
+            "issues": [],
             "provenance": {
                 "kind": "blind_review_batch_import",
                 "blind": True,
@@ -512,7 +512,7 @@ class TestCmdReviewPrepare:
         packet_hash = hashlib.sha256(blind_packet.read_bytes()).hexdigest()
         payload = {
             "assessments": {"naming_quality": 100},
-            "findings": [],
+            "issues": [],
             "provenance": {
                 "kind": "blind_review_batch_import",
                 "blind": True,
@@ -547,7 +547,7 @@ class TestCmdReviewPrepare:
     ):
         payload = {
             "assessments": {"naming_quality": 88},
-            "findings": [],
+            "issues": [],
         }
         findings_file = tmp_path / "validate_invalid_combo.json"
         findings_file.write_text(json.dumps(payload))
@@ -568,7 +568,7 @@ class TestCmdReviewPrepare:
         lang.name = "typescript"
 
         with pytest.raises(CommandError):
-            _do_import("/nonexistent/findings.json", empty_state, lang, "sp")
+            _do_import("/nonexistent/issues.json", empty_state, lang, "sp")
 
     def test_do_import_rejects_non_array(self, empty_state, tmp_path):
         bad_file = tmp_path / "bad.json"
@@ -593,7 +593,7 @@ class TestCmdReviewPrepare:
     def test_do_import_fails_closed_on_skipped_findings(self, empty_state, tmp_path):
         payload = {
             "assessments": {"cross_module_architecture": 95},
-            "findings": [
+            "issues": [
                 {
                     "dimension": "cross_module_architecture",
                     "identifier": "positive_observation",
@@ -616,14 +616,14 @@ class TestCmdReviewPrepare:
                 _do_import(str(findings_file), empty_state, lang, "sp")
         assert mock_save.called is False
         assert empty_state.get("subjective_assessments", {}) == {}
-        assert empty_state.get("findings", {}) == {}
+        assert empty_state.get("issues", {}) == {}
 
     def test_do_import_allow_partial_persists_when_overridden(
         self, empty_state, tmp_path
     ):
         payload = {
             "assessments": {"cross_module_architecture": 95},
-            "findings": [
+            "issues": [
                 {
                     "dimension": "cross_module_architecture",
                     "identifier": "positive_observation",
@@ -874,7 +874,7 @@ class TestCmdReviewPrepare:
                             "issues_preventing_higher_score": "",
                         },
                     },
-                    "findings": [
+                    "issues": [
                         {
                             "dimension": "high_level_elegance",
                             "identifier": "dup",
@@ -921,7 +921,7 @@ class TestCmdReviewPrepare:
                             "issues_preventing_higher_score": "",
                         },
                     },
-                    "findings": [
+                    "issues": [
                         {
                             "dimension": "high_level_elegance",
                             "identifier": "dup",
@@ -993,7 +993,7 @@ class TestCmdReviewPrepare:
         assert "dimension_notes" in payload
         assert "review_quality" in payload
         assert payload["review_quality"]["dimension_coverage"] == 0.667
-        assert len(payload["findings"]) == 3
+        assert len(payload["issues"]) == 3
         provenance = payload.get("provenance", {})
         assert provenance.get("kind") == "blind_review_batch_import"
         assert provenance.get("blind") is True
@@ -1066,7 +1066,7 @@ class TestCmdReviewPrepare:
                         "issues_preventing_higher_score": "",
                     }
                 },
-                "findings": [
+                "issues": [
                     {
                         "dimension": "mid_level_elegance",
                         "identifier": "seam_style_drift",
@@ -1175,7 +1175,7 @@ class TestCmdReviewPrepare:
                         "confidence": "high",
                     }
                 },
-                "findings": [],
+                "issues": [],
             }
             out_path.write_text(json.dumps(payload))
             return MagicMock(returncode=0, stdout="ok", stderr="")
@@ -1211,7 +1211,7 @@ class TestCmdReviewPrepare:
                             batch_index=1,
                             assessments={"mid_level_elegance": 78.0},
                             dimension_notes={},
-                            findings=[],
+                            issues=[],
                             quality={},
                         )
                     ],
@@ -1281,7 +1281,7 @@ class TestCmdReviewPrepare:
                     "confidence": "high",
                 }
             },
-            "findings": [
+            "issues": [
                 {
                     "dimension": "mid_level_elegance",
                     "identifier": "seam_split_between_siblings",
@@ -1347,18 +1347,18 @@ class TestCmdReviewPrepare:
         assert "payload" in captured
         merged_payload = captured["payload"]
         assert isinstance(merged_payload, dict)
-        assert "findings" in merged_payload
+        assert "issues" in merged_payload
         assert any(
-            finding.get("identifier") == "seam_split_between_siblings"
-            for finding in merged_payload.get("findings", [])
-            if isinstance(finding, dict)
+            issue.get("identifier") == "seam_split_between_siblings"
+            for issue in merged_payload.get("issues", [])
+            if isinstance(issue, dict)
         )
 
         recovered_results = sorted(runs_dir.glob("*/results/batch-1.raw.txt"))
         assert len(recovered_results) == 1
         recovered_payload = json.loads(recovered_results[0].read_text())
         assert recovered_payload["assessments"]["mid_level_elegance"] == pytest.approx(72.0)
-        assert recovered_payload["findings"][0]["identifier"] == "seam_split_between_siblings"
+        assert recovered_payload["issues"][0]["identifier"] == "seam_split_between_siblings"
 
         summary_files = sorted(runs_dir.glob("*/run_summary.json"))
         assert len(summary_files) == 1
@@ -1430,7 +1430,7 @@ class TestCmdReviewPrepare:
                                     "issues_preventing_higher_score": "",
                                 }
                             },
-                            "findings": [
+                            "issues": [
                                 {
                                     "dimension": "mid_level_elegance",
                                     "identifier": "seam_style",
@@ -1622,7 +1622,7 @@ class TestCmdReviewPrepare:
                         },
                     },
                 },
-                "findings": [
+                "issues": [
                     {
                         "dimension": "abstraction_fitness",
                         "identifier": "wrapper_chain",
@@ -1726,7 +1726,7 @@ class TestCmdReviewPrepare:
                         "error sending request for url (https://chatgpt.com/backend-api/codex/responses)"
                     ),
                 )
-            output_file.write_text('{"assessments": {}, "findings": []}')
+            output_file.write_text('{"assessments": {}, "issues": []}')
             return MagicMock(returncode=0, stdout="ok", stderr="")
 
         code = runner_helpers_mod.run_codex_batch(
@@ -1761,7 +1761,7 @@ class TestCmdReviewPrepare:
         def fake_run(_cmd, *, capture_output, text, timeout):  # noqa: ARG001
             if log_file.exists():
                 live_snapshot["text"] = log_file.read_text()
-            output_file.write_text('{"assessments": {}, "findings": []}')
+            output_file.write_text('{"assessments": {}, "issues": []}')
             return MagicMock(returncode=0, stdout="ok", stderr="")
 
         code = runner_helpers_mod.run_codex_batch(
@@ -1793,7 +1793,7 @@ class TestCmdReviewPrepare:
             (
                 "import pathlib,sys,time;"
                 "path=pathlib.Path(sys.argv[1]);"
-                "path.write_text('{\"assessments\":{\"logic_clarity\":91.0},\"findings\":[]}');"
+                "path.write_text('{\"assessments\":{\"logic_clarity\":91.0},\"issues\":[]}');"
                 "print('written', flush=True);"
                 "time.sleep(5)"
             ),
@@ -1882,14 +1882,14 @@ class TestCmdReviewPrepare:
                             "confidence": "medium",
                         }
                     },
-                    "findings": [],
+                    "issues": [],
                 }
             )
         )
 
         def normalize_result(payload, _allowed_dims):
             notes = payload.get("dimension_notes", {})
-            return payload.get("assessments", {}), payload.get("findings", []), notes, {}
+            return payload.get("assessments", {}), payload.get("issues", []), notes, {}
 
         batch_results, failures = runner_helpers_mod.collect_batch_results(
             selected_indexes=[0],
@@ -1923,7 +1923,7 @@ class TestCmdReviewPrepare:
                     "Output schema:",
                     "{",
                     '  "assessments": {"logic_clarity": 91.0},',
-                    '  "findings": []',
+                    '  "issues": []',
                     "}",
                     "",
                     "STDOUT:",
@@ -1948,7 +1948,7 @@ class TestCmdReviewPrepare:
             extract_payload_fn=extract_payload,
             normalize_result_fn=lambda payload, _allowed: (  # noqa: ARG005
                 payload.get("assessments", {}),
-                payload.get("findings", []),
+                payload.get("issues", []),
                 payload.get("dimension_notes", {}),
                 {},
             ),
@@ -2246,11 +2246,11 @@ class TestCmdReviewPrepare:
             ),
             patch(
                 "desloppify.app.commands.review.batch.runner_helpers_mod.collect_batch_results",
-                return_value=([{"assessments": {}, "dimension_notes": {}, "findings": []}], []),
+                return_value=([{"assessments": {}, "dimension_notes": {}, "issues": []}], []),
             ),
             patch(
                 "desloppify.app.commands.review.batch._merge_batch_results",
-                return_value={"assessments": {}, "dimension_notes": {}, "findings": []},
+                return_value={"assessments": {}, "dimension_notes": {}, "issues": []},
             ),
             patch(
                 "desloppify.app.commands.review.runner_helpers.run_followup_scan",
@@ -2446,17 +2446,17 @@ class TestUpdateReviewCache:
         assert mock_lang.file_finder.call_count == 1
 
 
-# ── Skipped findings tests ────────────────────────────────────────
+# ── Skipped issues tests ────────────────────────────────────────
 
 
-class TestSkippedFindings:
-    """Findings missing required fields are tracked and reported."""
+class TestSkippedIssues:
+    """Issues missing required fields are tracked and reported."""
 
     def test_per_file_skipped_missing_fields(self):
         state = build_empty_state()
         data = {
-            "findings": [
-                # Valid finding
+            "issues": [
+                # Valid issue
                 {
                     "file": "src/a.ts",
                     "dimension": "naming_quality",
@@ -2480,7 +2480,7 @@ class TestSkippedFindings:
                 },
             ],
         }
-        diff = import_review_findings(_as_review_payload(data), state, "typescript")
+        diff = import_review_issues(_as_review_payload(data), state, "typescript")
         assert diff["new"] == 1
         assert diff["skipped"] == 2
         assert len(diff["skipped_details"]) == 2
@@ -2490,7 +2490,7 @@ class TestSkippedFindings:
     def test_per_file_invalid_dimension_skipped(self):
         state = build_empty_state()
         data = {
-            "findings": [
+            "issues": [
                 {
                     "file": "src/a.ts",
                     "dimension": "bogus_dimension",
@@ -2500,7 +2500,7 @@ class TestSkippedFindings:
                 },
             ],
         }
-        diff = import_review_findings(_as_review_payload(data), state, "typescript")
+        diff = import_review_issues(_as_review_payload(data), state, "typescript")
         assert diff["new"] == 0
         assert diff["skipped"] == 1
         assert "invalid dimension" in diff["skipped_details"][0]["missing"][0]
@@ -2508,7 +2508,7 @@ class TestSkippedFindings:
     def test_holistic_skipped_missing_fields(self):
         state = build_empty_state()
         data = {
-            "findings": [
+            "issues": [
                 # Valid
                 {
                     "dimension": "cross_module_architecture",
@@ -2527,7 +2527,7 @@ class TestSkippedFindings:
                 },
             ],
         }
-        diff = import_holistic_findings(_as_review_payload(data), state, "typescript")
+        diff = import_holistic_issues(_as_review_payload(data), state, "typescript")
         assert diff["new"] == 1
         assert diff["skipped"] == 1
         missing_text = " ".join(diff["skipped_details"][0]["missing"])
@@ -2539,7 +2539,7 @@ class TestSkippedFindings:
     def test_no_skipped_when_all_valid(self):
         state = build_empty_state()
         data = {
-            "findings": [
+            "issues": [
                 {
                     "file": "src/a.ts",
                     "dimension": "naming_quality",
@@ -2549,7 +2549,7 @@ class TestSkippedFindings:
                 },
             ],
         }
-        diff = import_review_findings(_as_review_payload(data), state, "typescript")
+        diff = import_review_issues(_as_review_payload(data), state, "typescript")
         assert diff["new"] == 1
         assert "skipped" not in diff
 
@@ -2558,13 +2558,13 @@ class TestSkippedFindings:
 
 
 class TestAutoResolveOnReImport:
-    """Old findings should auto-resolve when re-imported without them."""
+    """Old issues should auto-resolve when re-imported without them."""
 
     def test_holistic_import_preserves_existing_mechanical_potentials(self):
         state = build_empty_state()
         state["potentials"] = {"typescript": {"unused": 12, "smells": 40}}
         data = {
-            "findings": [
+            "issues": [
                 {
                     "dimension": "cross_module_architecture",
                     "identifier": "god_mod",
@@ -2576,7 +2576,7 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        import_holistic_findings(_as_review_payload(data), state, "typescript")
+        import_holistic_issues(_as_review_payload(data), state, "typescript")
 
         pots = state["potentials"]["typescript"]
         assert pots["unused"] == 12
@@ -2586,9 +2586,9 @@ class TestAutoResolveOnReImport:
     def test_holistic_auto_resolve_on_reimport(self):
         state = build_empty_state()
 
-        # First import: 2 holistic findings
+        # First import: 2 holistic issues
         data1 = {
-            "findings": [
+            "issues": [
                 {
                     "dimension": "cross_module_architecture",
                     "identifier": "god_mod",
@@ -2609,16 +2609,16 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        diff1 = import_holistic_findings(_as_review_payload(data1), state, "typescript")
+        diff1 = import_holistic_issues(_as_review_payload(data1), state, "typescript")
         assert diff1["new"] == 2
         open_ids = [
-            fid for fid, f in state["findings"].items() if f["status"] == "open"
+            fid for fid, f in state["issues"].items() if f["status"] == "open"
         ]
         assert len(open_ids) == 2
 
-        # Second import: only 1 finding (different from first)
+        # Second import: only 1 issue (different from first)
         data2 = {
-            "findings": [
+            "issues": [
                 {
                     "dimension": "error_consistency",
                     "identifier": "mixed_errors",
@@ -2630,12 +2630,12 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        diff2 = import_holistic_findings(_as_review_payload(data2), state, "typescript")
+        diff2 = import_holistic_issues(_as_review_payload(data2), state, "typescript")
         assert diff2["new"] == 1
-        # The 2 old findings should be auto-resolved
+        # The 2 old issues should be auto-resolved
         assert diff2["auto_resolved"] >= 2
         still_open = [
-            fid for fid, f in state["findings"].items() if f["status"] == "open"
+            fid for fid, f in state["issues"].items() if f["status"] == "open"
         ]
         assert len(still_open) == 1
 
@@ -2643,7 +2643,7 @@ class TestAutoResolveOnReImport:
         state = build_empty_state()
 
         data1 = {
-            "findings": [
+            "issues": [
                 {
                     "dimension": "cross_module_architecture",
                     "identifier": "god_mod",
@@ -2664,15 +2664,15 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        diff1 = import_holistic_findings(_as_review_payload(data1), state, "typescript")
+        diff1 = import_holistic_issues(_as_review_payload(data1), state, "typescript")
         assert diff1["new"] == 2
 
-        by_summary = {f["summary"]: fid for fid, f in state["findings"].items()}
+        by_summary = {f["summary"]: fid for fid, f in state["issues"].items()}
         cross_mod_id = by_summary["too central"]
         abstraction_id = by_summary["dumping ground"]
 
         data2 = {
-            "findings": [
+            "issues": [
                 {
                     "dimension": "abstraction_fitness",
                     "identifier": "layout_bag",
@@ -2688,18 +2688,18 @@ class TestAutoResolveOnReImport:
                 "imported_dimensions": ["abstraction_fitness"],
             },
         }
-        diff2 = import_holistic_findings(_as_review_payload(data2), state, "typescript")
+        diff2 = import_holistic_issues(_as_review_payload(data2), state, "typescript")
         assert diff2["new"] == 1
         assert diff2["auto_resolved"] >= 1
-        assert state["findings"][abstraction_id]["status"] == "auto_resolved"
-        assert state["findings"][cross_mod_id]["status"] == "open"
+        assert state["issues"][abstraction_id]["status"] == "auto_resolved"
+        assert state["issues"][cross_mod_id]["status"] == "open"
 
     def test_per_file_auto_resolve_on_reimport(self):
         state = build_empty_state()
 
-        # First import: findings for src/a.ts
+        # First import: issues for src/a.ts
         data1 = {
-            "findings": [
+            "issues": [
                 {
                     "file": "src/a.ts",
                     "dimension": "naming_quality",
@@ -2716,12 +2716,12 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        diff1 = import_review_findings(_as_review_payload(data1), state, "typescript")
+        diff1 = import_review_issues(_as_review_payload(data1), state, "typescript")
         assert diff1["new"] == 2
 
-        # Second import: re-review src/a.ts but only 1 finding remains
+        # Second import: re-review src/a.ts but only 1 issue remains
         data2 = {
-            "findings": [
+            "issues": [
                 {
                     "file": "src/a.ts",
                     "dimension": "naming_quality",
@@ -2731,23 +2731,23 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        import_review_findings(_as_review_payload(data2), state, "typescript")
-        # The comment_quality finding should be auto-resolved
+        import_review_issues(_as_review_payload(data2), state, "typescript")
+        # The comment_quality issue should be auto-resolved
         resolved = [
             f
-            for f in state["findings"].values()
+            for f in state["issues"].values()
             if f["status"] == "auto_resolved"
             and "not reported in latest per-file" in (f.get("note") or "")
         ]
         assert len(resolved) >= 1
 
     def test_holistic_does_not_resolve_per_file(self):
-        """Holistic re-import should not touch per-file review findings."""
+        """Holistic re-import should not touch per-file review issues."""
         state = build_empty_state()
 
-        # Import per-file findings
+        # Import per-file issues
         per_file = {
-            "findings": [
+            "issues": [
                 {
                     "file": "src/a.ts",
                     "dimension": "naming_quality",
@@ -2757,14 +2757,14 @@ class TestAutoResolveOnReImport:
                 },
             ],
         }
-        import_review_findings(_as_review_payload(per_file), state, "typescript")
+        import_review_issues(_as_review_payload(per_file), state, "typescript")
         per_file_ids = [
-            fid for fid, f in state["findings"].items() if f["status"] == "open"
+            fid for fid, f in state["issues"].items() if f["status"] == "open"
         ]
         assert len(per_file_ids) == 1
 
-        # Import holistic findings (empty) — should NOT resolve per-file
-        holistic = {"findings": []}
-        import_holistic_findings(_as_review_payload(holistic), state, "typescript")
-        # Per-file finding should still be open
-        assert state["findings"][per_file_ids[0]]["status"] == "open"
+        # Import holistic issues (empty) — should NOT resolve per-file
+        holistic = {"issues": []}
+        import_holistic_issues(_as_review_payload(holistic), state, "typescript")
+        # Per-file issue should still be open
+        assert state["issues"][per_file_ids[0]]["status"] == "open"

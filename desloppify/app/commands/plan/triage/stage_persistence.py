@@ -8,7 +8,7 @@ from desloppify.engine.plan import save_plan
 
 
 def refresh_stage_snapshot(plan: dict, state: dict) -> None:
-    """Mark stage progress as aligned with the current review-finding snapshot."""
+    """Mark stage progress as aligned with the current review-issue snapshot."""
     meta = plan.setdefault("epic_triage_meta", {})
     meta["stage_snapshot_hash"] = review_finding_snapshot_hash(state)
     meta["stage_refresh_required"] = False
@@ -21,7 +21,7 @@ def record_triage_stage(
     stage: str,
     report: str,
     cited_ids: list[str],
-    finding_count: int,
+    issue_count: int,
     extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Persist one stage payload, refresh snapshot metadata, and save the plan."""
@@ -32,7 +32,7 @@ def record_triage_stage(
         "report": report,
         "cited_ids": list(cited_ids),
         "timestamp": utc_now(),
-        "finding_count": finding_count,
+        "issue_count": issue_count,
     }
     if extra:
         payload.update(extra)

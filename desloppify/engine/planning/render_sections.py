@@ -18,27 +18,27 @@ def summary_lines(stats: dict) -> list[str]:
     ]
 
 
-def addressed_section(findings: dict) -> list[str]:
-    addressed = [finding for finding in findings.values() if finding["status"] != "open"]
+def addressed_section(issues: dict) -> list[str]:
+    addressed = [issue for issue in issues.values() if issue["status"] != "open"]
     if not addressed:
         return []
 
     lines: list[str] = ["---", "## Addressed", ""]
     by_status: dict[str, int] = defaultdict(int)
-    for finding in addressed:
-        by_status[finding["status"]] += 1
+    for issue in addressed:
+        by_status[issue["status"]] += 1
     for status, count in sorted(by_status.items()):
         lines.append(f"- **{status}**: {count}")
 
     wontfix = [
-        finding
-        for finding in addressed
-        if finding["status"] == "wontfix" and finding.get("note")
+        issue
+        for issue in addressed
+        if issue["status"] == "wontfix" and issue.get("note")
     ]
     if wontfix:
         lines.extend(["", "### Wontfix (with explanations)", ""])
-        for finding in wontfix[:30]:
-            lines.append(f"- `{finding['id']}` — {finding['note']}")
+        for issue in wontfix[:30]:
+            lines.append(f"- `{issue['id']}` — {issue['note']}")
     lines.append("")
     return lines
 
@@ -84,9 +84,9 @@ def plan_user_ordered_section(
     emitted: set[str] = set()
     for cluster_name, cluster in clusters.items():
         member_ids = [
-            finding_id
-            for finding_id in cluster.get("finding_ids", [])
-            if finding_id in ordered_ids and finding_id in by_id
+            issue_id
+            for issue_id in cluster.get("issue_ids", [])
+            if issue_id in ordered_ids and issue_id in by_id
         ]
         if not member_ids:
             continue
@@ -95,26 +95,26 @@ def plan_user_ordered_section(
         if desc:
             lines.append(f"> {desc}")
         lines.append("")
-        for finding_id in member_ids:
-            item = by_id.get(finding_id)
+        for issue_id in member_ids:
+            item = by_id.get(issue_id)
             if item:
-                lines.extend(render_plan_item(item, overrides.get(finding_id, {})))
-                emitted.add(finding_id)
+                lines.extend(render_plan_item(item, overrides.get(issue_id, {})))
+                emitted.add(issue_id)
         lines.append("")
 
     unclustered = [
-        finding_id
-        for finding_id in queue_order
-        if finding_id in ordered_ids and finding_id not in emitted and finding_id in by_id
+        issue_id
+        for issue_id in queue_order
+        if issue_id in ordered_ids and issue_id not in emitted and issue_id in by_id
     ]
     if unclustered:
-        if any(cluster.get("finding_ids") for cluster in clusters.values()):
+        if any(cluster.get("issue_ids") for cluster in clusters.values()):
             lines.append("### (unclustered ordered items)")
             lines.append("")
-        for finding_id in unclustered:
-            item = by_id.get(finding_id)
+        for issue_id in unclustered:
+            item = by_id.get(issue_id)
             if item:
-                lines.extend(render_plan_item(item, overrides.get(finding_id, {})))
+                lines.extend(render_plan_item(item, overrides.get(issue_id, {})))
         lines.append("")
     return lines
 
@@ -129,9 +129,9 @@ def plan_skipped_section(items: list[dict], plan: dict) -> list[str]:
     overrides = plan.get("overrides", {})
 
     by_kind: dict[str, list[str]] = {"temporary": [], "permanent": [], "false_positive": []}
-    for finding_id, entry in skipped.items():
+    for issue_id, entry in skipped.items():
         kind = entry.get("kind", "temporary")
-        by_kind.setdefault(kind, []).append(finding_id)
+        by_kind.setdefault(kind, []).append(issue_id)
 
     kind_labels = {
         "temporary": "Skipped Temporarily",
@@ -151,18 +151,18 @@ def plan_skipped_section(items: list[dict], plan: dict) -> list[str]:
             continue
         lines.append(f"### {kind_labels[kind]} ({len(ids)})")
         lines.append("")
-        for finding_id in ids:
-            entry = skipped.get(finding_id, {})
-            item = by_id.get(finding_id)
+        for issue_id in ids:
+            entry = skipped.get(issue_id, {})
+            item = by_id.get(issue_id)
             if item:
-                lines.extend(render_plan_item(item, overrides.get(finding_id, {})))
+                lines.extend(render_plan_item(item, overrides.get(issue_id, {})))
             else:
-                lines.append(f"- ~~{finding_id}~~ (not in current queue)")
+                lines.append(f"- ~~{issue_id}~~ (not in current queue)")
             reason = entry.get("reason")
             if reason:
                 lines.append(f"      Reason: {reason}")
             note = entry.get("note")
-            if note and not overrides.get(finding_id, {}).get("note"):
+            if note and not overrides.get(issue_id, {}).get("note"):
                 lines.append(f"      Note: {note}")
             review_after = entry.get("review_after")
             if review_after:
@@ -183,10 +183,10 @@ def plan_superseded_section(plan: dict) -> list[str]:
         f"## Superseded ({len(superseded)} items — may need remap)",
         "",
     ]
-    for finding_id, entry in superseded.items():
+    for issue_id, entry in superseded.items():
         summary = entry.get("original_summary", "")
         summary_str = f" — {summary}" if summary else ""
-        lines.append(f"- ~~{finding_id}~~{summary_str}")
+        lines.append(f"- ~~{issue_id}~~{summary_str}")
         candidates = entry.get("candidates", [])
         if candidates:
             lines.append(f"  Candidates: {', '.join(candidates[:3])}")

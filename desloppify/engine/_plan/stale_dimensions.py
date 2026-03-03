@@ -261,7 +261,7 @@ def sync_stale_dimensions(
     2. Inject stale and under-target dimension IDs when either:
        a. No objective items remain (mid-cycle: append to back), OR
        b. A cycle just completed (post-cycle: insert at front so subjective
-          review takes priority over new objective findings).
+          review takes priority over new objective issues).
     """
     ensure_plan_defaults(plan)
     result = StaleDimensionSyncResult()
@@ -291,7 +291,7 @@ def sync_stale_dimensions(
             f.get("status") == "open"
             and f.get("detector") not in NON_OBJECTIVE_DETECTORS
             and not f.get("suppressed")
-            for f in state.get("findings", {}).values()
+            for f in state.get("issues", {}).values()
         )
 
     should_inject = not has_real_items or cycle_just_completed
@@ -335,13 +335,13 @@ def sync_stale_dimensions(
 # ---------------------------------------------------------------------------
 
 def review_finding_snapshot_hash(state: StateModel) -> str:
-    """Hash open review finding IDs to detect changes.
+    """Hash open review issue IDs to detect changes.
 
-    Returns empty string when there are no open review findings.
+    Returns empty string when there are no open review issues.
     """
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     review_ids = sorted(
-        fid for fid, f in findings.items()
+        fid for fid, f in issues.items()
         if f.get("status") == "open"
         and f.get("detector") in ("review", "concerns")
     )
@@ -366,14 +366,14 @@ def sync_triage_needed(
     plan: PlanModel,
     state: StateModel,
 ) -> TriageSyncResult:
-    """Inject 4 triage stage IDs at front of queue when review findings change.
+    """Inject 4 triage stage IDs at front of queue when review issues change.
 
     Only injects stages not already confirmed in ``epic_triage_meta``.
 
-    When stages are already present but all new findings have been resolved
+    When stages are already present but all new issues have been resolved
     since injection, auto-prunes the stale stages and updates the hash.
 
-    When findings are *resolved* (current IDs are a subset of previously
+    When issues are *resolved* (current IDs are a subset of previously
     triaged IDs), the snapshot hash is updated silently — no re-triage
     is needed since the user is working through the plan.
     """
@@ -392,13 +392,13 @@ def sync_triage_needed(
     if already_present:
         # Stages present — check if the reason for injection still applies.
         # Only auto-prune when triage was completed before (hash exists),
-        # all new findings have been resolved, and no triage work is in
+        # all new issues have been resolved, and no triage work is in
         # progress.  This avoids pruning the initial triage or a
         # user-started triage session.
         if last_hash and not confirmed:
-            findings = state.get("findings", {})
+            issues = state.get("issues", {})
             current_review_ids = {
-                fid for fid, f in findings.items()
+                fid for fid, f in issues.items()
                 if f.get("status") == "open"
                 and f.get("detector") in ("review", "concerns")
             }
@@ -406,7 +406,7 @@ def sync_triage_needed(
             new_since_triage = current_review_ids - triaged_ids
 
             if not new_since_triage:
-                # No new findings remain — prune stale stages
+                # No new issues remain — prune stale stages
                 for sid in TRIAGE_STAGE_IDS:
                     while sid in order:
                         order.remove(sid)
@@ -417,11 +417,11 @@ def sync_triage_needed(
         return result
 
     if current_hash and current_hash != last_hash:
-        # Distinguish "new findings appeared" from "findings were resolved".
-        # Only re-triage when genuinely new findings exist.
-        findings = state.get("findings", {})
+        # Distinguish "new issues appeared" from "issues were resolved".
+        # Only re-triage when genuinely new issues exist.
+        issues = state.get("issues", {})
         current_review_ids = {
-            fid for fid, f in findings.items()
+            fid for fid, f in issues.items()
             if f.get("status") == "open"
             and f.get("detector") in ("review", "concerns")
         }
@@ -429,7 +429,7 @@ def sync_triage_needed(
         new_since_triage = current_review_ids - triaged_ids
 
         if new_since_triage:
-            # New review findings appeared — re-triage needed
+            # New review issues appeared — re-triage needed
             insert_at = _after_promoted(order, plan)
             stage_names = ("observe", "reflect", "organize", "commit")
             existing = set(order)
@@ -441,7 +441,7 @@ def sync_triage_needed(
             if injected_count:
                 result.injected = True
         else:
-            # Only resolved findings changed the hash — update silently
+            # Only resolved issues changed the hash — update silently
             meta["finding_snapshot_hash"] = current_hash
             plan["epic_triage_meta"] = meta
 
@@ -490,7 +490,7 @@ def sync_score_checkpoint_needed(
         if unscored:
             return result
 
-    # Insert after any subjective items, before triage/workflow/findings
+    # Insert after any subjective items, before triage/workflow/issues
     insert_at = 0
     for i, fid in enumerate(order):
         if fid.startswith(SUBJECTIVE_PREFIX):
@@ -521,7 +521,7 @@ def sync_create_plan_needed(
 
     Only injects when:
     - No unscored (placeholder) subjective dimensions remain
-    - At least one objective finding exists
+    - At least one objective issue exists
     - ``workflow::create-plan`` is not already in the queue
     - No triage stages are pending
     """
@@ -545,11 +545,11 @@ def sync_create_plan_needed(
         unscored = current_unscored_ids(state)
         if unscored:
             return result
-        findings = state.get("findings", {})
+        issues = state.get("issues", {})
         has_objective = any(
             f.get("status") == "open"
             and f.get("detector") not in NON_OBJECTIVE_DETECTORS
-            for f in findings.values()
+            for f in issues.values()
         )
     if not has_objective:
         return result
@@ -566,14 +566,14 @@ def sync_create_plan_needed(
 
 
 def compute_new_finding_ids(plan: PlanModel, state: StateModel) -> set[str]:
-    """Return the set of open review/concerns finding IDs added since last triage.
+    """Return the set of open review/concerns issue IDs added since last triage.
 
     Returns an empty set when no prior triage has recorded ``triaged_ids``.
     """
     meta = plan.get("epic_triage_meta", {})
     triaged = set(meta.get("triaged_ids", meta.get("synthesized_ids", [])))
     current = {
-        fid for fid, f in state.get("findings", {}).items()
+        fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open" and f.get("detector") in ("review", "concerns")
     }
     return current - triaged if triaged else set()
@@ -582,23 +582,23 @@ def compute_new_finding_ids(plan: PlanModel, state: StateModel) -> set[str]:
 def is_triage_stale(plan: PlanModel, state: StateModel) -> bool:
     """Side-effect-free check: is triage needed?
 
-    Returns True when genuinely *new* review findings appeared since the
+    Returns True when genuinely *new* review issues appeared since the
     last triage.  Triage stage IDs being in the queue alone is not
-    sufficient — the new findings that triggered injection may have been
+    sufficient — the new issues that triggered injection may have been
     resolved since then.
 
-    When findings are merely resolved (current IDs are a subset of
+    When issues are merely resolved (current IDs are a subset of
     previously triaged IDs), triage is NOT stale — the user is working
     through the plan.
     """
     ensure_plan_defaults(plan)
     meta = plan.get("epic_triage_meta", {})
 
-    # Always check for genuinely new findings (same logic regardless of
+    # Always check for genuinely new issues (same logic regardless of
     # whether triage stages are in the queue).
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     current_review_ids = {
-        fid for fid, f in findings.items()
+        fid for fid, f in issues.items()
         if f.get("status") == "open"
         and f.get("detector") in ("review", "concerns")
     }
@@ -635,7 +635,7 @@ def sync_import_scores_needed(
     *,
     assessment_mode: str | None = None,
 ) -> ImportScoresSyncResult:
-    """Inject ``workflow::import-scores`` after findings-only import.
+    """Inject ``workflow::import-scores`` after issues-only import.
 
     Only injects when:
     - Assessment mode was ``findings_only`` (scores were skipped)
@@ -651,7 +651,7 @@ def sync_import_scores_needed(
     if WORKFLOW_IMPORT_SCORES_ID in order:
         return result
 
-    # Only inject when scores were skipped (findings-only mode)
+    # Only inject when scores were skipped (issues-only mode)
     if assessment_mode != "findings_only":
         return result
 

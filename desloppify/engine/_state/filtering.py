@@ -1,4 +1,4 @@
-"""State filtering, ignore rules, and finding pattern matching."""
+"""State filtering, ignore rules, and issue pattern matching."""
 
 from __future__ import annotations
 
@@ -6,18 +6,18 @@ import fnmatch
 import re
 
 __all__ = [
-    "finding_in_scan_scope",
+    "issue_in_scan_scope",
     "open_scope_breakdown",
-    "path_scoped_findings",
+    "path_scoped_issues",
     "is_ignored",
     "matched_ignore_pattern",
-    "remove_ignored_findings",
+    "remove_ignored_issues",
     "add_ignore",
-    "make_finding",
+    "make_issue",
 ]
 
 from desloppify.engine._state.schema import (
-    Finding,
+    Issue,
     StateModel,
     ensure_state_defaults,
     utc_now,
@@ -26,19 +26,19 @@ from desloppify.engine._state.schema import (
 from desloppify.core.discovery_api import rel
 
 
-def path_scoped_findings(
-    findings: dict[str, Finding],
+def path_scoped_issues(
+    issues: dict[str, Issue],
     scan_path: str | None,
-) -> dict[str, Finding]:
-    """Filter findings to those within the given scan path."""
+) -> dict[str, Issue]:
+    """Filter issues to those within the given scan path."""
     return {
-        finding_id: finding
-        for finding_id, finding in findings.items()
-        if finding_in_scan_scope(str(finding.get("file", "")), scan_path)
+        issue_id: issue
+        for issue_id, issue in issues.items()
+        if issue_in_scan_scope(str(issue.get("file", "")), scan_path)
     }
 
 
-def finding_in_scan_scope(file_path: str, scan_path: str | None) -> bool:
+def issue_in_scan_scope(file_path: str, scan_path: str | None) -> bool:
     """Return True when a file path belongs to the active scan scope."""
     if not scan_path or scan_path == ".":
         return True
@@ -51,24 +51,24 @@ def finding_in_scan_scope(file_path: str, scan_path: str | None) -> bool:
 
 
 def open_scope_breakdown(
-    findings: dict[str, Finding],
+    issues: dict[str, Issue],
     scan_path: str | None,
     *,
     detector: str | None = None,
 ) -> dict[str, int]:
-    """Return open-finding counts split by in-scope vs out-of-scope carryover."""
+    """Return open-issue counts split by in-scope vs out-of-scope carryover."""
     in_scope = 0
     out_of_scope = 0
 
-    for finding in findings.values():
-        if finding.get("suppressed"):
+    for issue in issues.values():
+        if issue.get("suppressed"):
             continue
-        if finding.get("status") != "open":
+        if issue.get("status") != "open":
             continue
-        if detector is not None and finding.get("detector") != detector:
+        if detector is not None and issue.get("detector") != detector:
             continue
-        file_path = str(finding.get("file", ""))
-        if finding_in_scan_scope(file_path, scan_path):
+        file_path = str(issue.get("file", ""))
+        if issue_in_scan_scope(file_path, scan_path):
             in_scope += 1
         else:
             out_of_scope += 1
@@ -80,24 +80,24 @@ def open_scope_breakdown(
     }
 
 
-def is_ignored(finding_id: str, file: str, ignore_patterns: list[str]) -> bool:
-    """Check if a finding matches any ignore pattern (glob, ID prefix, or file path)."""
-    return matched_ignore_pattern(finding_id, file, ignore_patterns) is not None
+def is_ignored(issue_id: str, file: str, ignore_patterns: list[str]) -> bool:
+    """Check if a issue matches any ignore pattern (glob, ID prefix, or file path)."""
+    return matched_ignore_pattern(issue_id, file, ignore_patterns) is not None
 
 
 def matched_ignore_pattern(
-    finding_id: str, file: str, ignore_patterns: list[str]
+    issue_id: str, file: str, ignore_patterns: list[str]
 ) -> str | None:
     """Return the ignore pattern that matched, if any."""
     for pattern in ignore_patterns:
         if "*" in pattern:
-            target = finding_id if "::" in pattern else file
+            target = issue_id if "::" in pattern else file
             if fnmatch.fnmatch(target, pattern):
                 return pattern
             continue
 
         if "::" in pattern:
-            if finding_id.startswith(pattern):
+            if issue_id.startswith(pattern):
                 return pattern
             continue
 
@@ -112,20 +112,20 @@ def matched_ignore_pattern(
     return None
 
 
-def remove_ignored_findings(state: StateModel, pattern: str) -> int:
-    """Suppress findings matching an ignore pattern. Returns count affected."""
+def remove_ignored_issues(state: StateModel, pattern: str) -> int:
+    """Suppress issues matching an ignore pattern. Returns count affected."""
     ensure_state_defaults(state)
     matched_ids = [
-        finding_id
-        for finding_id, finding in state["findings"].items()
-        if is_ignored(finding_id, finding["file"], [pattern])
+        issue_id
+        for issue_id, issue in state["issues"].items()
+        if is_ignored(issue_id, issue["file"], [pattern])
     ]
     now = utc_now()
-    for finding_id in matched_ids:
-        finding = state["findings"][finding_id]
-        finding["suppressed"] = True
-        finding["suppressed_at"] = now
-        finding["suppression_pattern"] = pattern
+    for issue_id in matched_ids:
+        issue = state["issues"][issue_id]
+        issue["suppressed"] = True
+        issue["suppressed_at"] = now
+        issue["suppression_pattern"] = pattern
     # Deferred import to avoid circular dependency with engine._state.scoring
     from desloppify.engine._state.scoring import _recompute_stats
 
@@ -135,16 +135,16 @@ def remove_ignored_findings(state: StateModel, pattern: str) -> int:
 
 
 def add_ignore(state: StateModel, pattern: str) -> int:
-    """Add an ignore pattern and remove existing matching findings."""
+    """Add an ignore pattern and remove existing matching issues."""
     ensure_state_defaults(state)
     config = state.setdefault("config", {})
     ignores = config.setdefault("ignore", [])
     if pattern not in ignores:
         ignores.append(pattern)
-    return remove_ignored_findings(state, pattern)
+    return remove_ignored_issues(state, pattern)
 
 
-def make_finding(
+def make_issue(
     detector: str,
     file: str,
     name: str,
@@ -153,13 +153,13 @@ def make_finding(
     confidence: str,
     summary: str,
     detail: dict | None = None,
-) -> Finding:
-    """Create a normalized finding dict with a stable ID."""
+) -> Issue:
+    """Create a normalized issue dict with a stable ID."""
     rfile = rel(file)
-    finding_id = f"{detector}::{rfile}::{name}" if name else f"{detector}::{rfile}"
+    issue_id = f"{detector}::{rfile}::{name}" if name else f"{detector}::{rfile}"
     now = utc_now()
     return {
-        "id": finding_id,
+        "id": issue_id,
         "detector": detector,
         "file": rfile,
         "tier": tier,
@@ -178,26 +178,26 @@ def make_finding(
 _HEX8_RE = re.compile(r'^[0-9a-f]{8}$')
 
 
-def _matches_pattern(finding_id: str, finding: dict[str, str], pattern: str) -> bool:
-    """Check if a finding matches by ID, glob, prefix, detector, suffix, or path."""
-    if finding_id == pattern:
+def _matches_pattern(issue_id: str, issue: dict[str, str], pattern: str) -> bool:
+    """Check if a issue matches by ID, glob, prefix, detector, suffix, or path."""
+    if issue_id == pattern:
         return True
-    if "*" in pattern and fnmatch.fnmatch(finding_id, pattern):
+    if "*" in pattern and fnmatch.fnmatch(issue_id, pattern):
         return True
-    if "::" in pattern and finding_id.startswith(pattern):
+    if "::" in pattern and issue_id.startswith(pattern):
         return True
-    if _HEX8_RE.match(pattern) and finding_id.endswith("::" + pattern):
+    if _HEX8_RE.match(pattern) and issue_id.endswith("::" + pattern):
         return True
     if (
-        finding.get("detector") == pattern
-        or finding["file"] == pattern
-        or finding["file"].startswith(pattern.rstrip("/") + "/")
+        issue.get("detector") == pattern
+        or issue["file"] == pattern
+        or issue["file"].startswith(pattern.rstrip("/") + "/")
     ):
         return True
 
     # Name-segment fallback: bare name matches the last ::segment of the ID
-    if "::" not in pattern and "::" in finding_id:
-        segments = finding_id.split("::")
+    if "::" not in pattern and "::" in issue_id:
+        segments = issue_id.split("::")
         name_segment = segments[-1]
         if name_segment == pattern:
             return True

@@ -24,7 +24,7 @@ def apply_triage_to_plan(
     """Apply parsed triage result to the living plan.
 
     1. Creates/updates triage-clusters in plan["clusters"]
-    2. Marks dismissed findings as triaged_out skips
+    2. Marks dismissed issues as triaged_out skips
     3. Reorders queue_order to group epic members by dependency_order
     4. Updates epic_triage_meta with snapshot hash
     """
@@ -51,7 +51,7 @@ def apply_triage_to_plan(
             existing["thesis"] = epic_data["thesis"]
             existing["direction"] = epic_data["direction"]
             existing["root_cause"] = epic_data.get("root_cause", "")
-            existing["finding_ids"] = epic_data["finding_ids"]
+            existing["issue_ids"] = epic_data["issue_ids"]
             existing["dismissed"] = epic_data.get("dismissed", [])
             existing["agent_safe"] = epic_data.get("agent_safe", False)
             existing["dependency_order"] = epic_data["dependency_order"]
@@ -68,7 +68,7 @@ def apply_triage_to_plan(
             cluster: Cluster = {
                 "name": epic_name,
                 "description": epic_data["thesis"],
-                "finding_ids": epic_data["finding_ids"],
+                "issue_ids": epic_data["issue_ids"],
                 "auto": True,
                 "cluster_key": f"epic::{epic_name}",
                 "action": f"desloppify plan focus {epic_name}",
@@ -91,16 +91,16 @@ def apply_triage_to_plan(
             clusters[epic_name] = cluster
             result.epics_created += 1
 
-    # --- Dismiss findings ---------------------------------------------------
+    # --- Dismiss issues ---------------------------------------------------
     dismissed_ids: list[str] = []
-    for df in triage.dismissed_findings:
-        fid = df.finding_id
+    for df in triage.dismissed_issues:
+        fid = df.issue_id
         dismissed_ids.append(fid)
         # Remove from queue, add to skipped as triaged_out
         if fid in order:
             order.remove(fid)
         skipped[fid] = {
-            "finding_id": fid,
+            "issue_id": fid,
             "kind": "triaged_out",
             "reason": df.reason,
             "note": f"Dismissed by epic triage v{version}",
@@ -118,7 +118,7 @@ def apply_triage_to_plan(
                 order.remove(fid)
                 dismissed_ids.append(fid)
                 skipped[fid] = {
-                    "finding_id": fid,
+                    "issue_id": fid,
                     "kind": "triaged_out",
                     "reason": f"Dismissed by epic triage v{version}",
                     "note": None,
@@ -129,11 +129,11 @@ def apply_triage_to_plan(
                 }
                 result.findings_dismissed += 1
 
-    # --- Reorder queue: epic findings grouped by dependency_order -----------
+    # --- Reorder queue: epic issues grouped by dependency_order -----------
     epic_finding_ids: set[str] = set()
     epic_ordered_ids: list[str] = []
     for epic_data in sorted(triage.epics, key=lambda e: e.get("dependency_order", 999)):
-        for fid in epic_data["finding_ids"]:
+        for fid in epic_data["issue_ids"]:
             if fid not in epic_finding_ids and fid not in dismissed_ids:
                 epic_finding_ids.add(fid)
                 epic_ordered_ids.append(fid)
@@ -150,7 +150,7 @@ def apply_triage_to_plan(
     # --- Update triage meta -----------------------------------------------
     current_hash = review_finding_snapshot_hash(state)
     open_review_ids = sorted(
-        fid for fid, f in state.get("findings", {}).items()
+        fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open"
         and f.get("detector") in ("review", "concerns")
     )

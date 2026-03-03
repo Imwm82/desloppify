@@ -13,12 +13,12 @@ from desloppify.engine._plan.schema import empty_plan, ensure_plan_defaults
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _plan_with_cluster(name: str, finding_ids: list[str]) -> dict:
+def _plan_with_cluster(name: str, issue_ids: list[str]) -> dict:
     plan = empty_plan()
     ensure_plan_defaults(plan)
     plan["clusters"][name] = {
         "name": name,
-        "finding_ids": finding_ids,
+        "issue_ids": issue_ids,
         "auto": True,
         "cluster_key": f"auto::{name}",
         "action": "autofix",
@@ -28,18 +28,18 @@ def _plan_with_cluster(name: str, finding_ids: list[str]) -> dict:
 
 
 def _state_with_findings(*ids: str) -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "id": fid,
             "status": "open",
             "detector": "test",
             "file": "test.py",
             "tier": 1,
             "confidence": "high",
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
         }
-    return {"findings": findings}
+    return {"issues": issues}
 
 
 # ---------------------------------------------------------------------------

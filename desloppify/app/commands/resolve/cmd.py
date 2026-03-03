@@ -50,7 +50,7 @@ from .selection import (
 
 
 def cmd_resolve(args: argparse.Namespace) -> None:
-    """Resolve finding(s) matching one or more patterns."""
+    """Resolve issue(s) matching one or more patterns."""
     attestation = getattr(args, "attest", None)
     _validate_resolve_inputs(args, attestation)
 
@@ -89,7 +89,7 @@ def cmd_resolve(args: argparse.Namespace) -> None:
     all_resolved = _resolve_all_patterns(state, args, attestation=attestation)
     if not all_resolved:
         status_label = "resolved" if args.status == "open" else "open"
-        print(colorize(f"No {status_label} findings matching: {' '.join(args.patterns)}", "yellow"))
+        print(colorize(f"No {status_label} issues matching: {' '.join(args.patterns)}", "yellow"))
         return
 
     _save_state_or_exit(state, state_file)
@@ -102,7 +102,7 @@ def cmd_resolve(args: argparse.Namespace) -> None:
             append_log_entry(
                 plan,
                 "resolve",
-                finding_ids=all_resolved,
+                issue_ids=all_resolved,
                 actor="user",
                 note=getattr(args, "note", None),
                 detail={"status": args.status, "attestation": attestation},

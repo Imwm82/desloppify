@@ -154,7 +154,7 @@ def _line_security_findings(
     is_server_only: bool,
     has_dev_guard: bool,
 ) -> list[dict]:
-    """Detect per-line security patterns and return findings."""
+    """Detect per-line security patterns and return issues."""
     line_findings: list[dict] = []
 
     if _CREATE_CLIENT_RE.search(line):
@@ -271,7 +271,7 @@ def _file_level_security_findings(
     lines: list[str],
     content: str,
 ) -> list[dict]:
-    """Detect file-level security patterns and return findings."""
+    """Detect file-level security patterns and return issues."""
     file_findings: list[dict] = []
 
     if _looks_like_edge_handler(normalized_path, content):

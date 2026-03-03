@@ -13,10 +13,10 @@ def generate_plan_md(*args: Any, **kwargs: Any):
     return _generate_plan_md(*args, **kwargs)
 
 
-def generate_findings(*args: Any, **kwargs: Any):
-    from desloppify.engine.planning.core import generate_findings as _generate_findings
+def generate_issues(*args: Any, **kwargs: Any):
+    from desloppify.engine.planning.core import generate_issues as _generate_issues
 
-    return _generate_findings(*args, **kwargs)
+    return _generate_issues(*args, **kwargs)
 
 
 def get_next_item(*args: Any, **kwargs: Any):
@@ -33,7 +33,7 @@ def get_next_items(*args: Any, **kwargs: Any):
 
 __all__ = [
     "CONFIDENCE_ORDER",
-    "generate_findings",
+    "generate_issues",
     "generate_plan_md",
     "get_next_item",
     "get_next_items",

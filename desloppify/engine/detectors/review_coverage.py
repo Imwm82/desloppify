@@ -133,7 +133,7 @@ def detect_review_coverage(
     Args:
         files: list of file paths from file_finder
         zone_map: FileZoneMap (or None)
-        review_cache: dict of {rel_path: {content_hash, reviewed_at, finding_count}}
+        review_cache: dict of {rel_path: {content_hash, reviewed_at, issue_count}}
         lang_name: language plugin name (for low-value pattern matching)
         max_age_days: reviews older than this are flagged as stale
 

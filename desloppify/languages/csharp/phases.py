@@ -138,23 +138,23 @@ def _corroboration_signals_for_csharp(
 
 
 def _apply_csharp_actionability_gates(
-    findings: list[dict], entries: list[dict], lang: LangRuntimeContract
+    issues: list[dict], entries: list[dict], lang: LangRuntimeContract
 ) -> None:
     """Downgrade actionability unless multiple independent signals corroborate."""
     min_signals = max(1, _runtime_setting(lang, "corroboration_min_signals", 2))
     entries_by_file = {rel(e["file"]): e for e in entries}
-    for finding in findings:
-        entry = entries_by_file.get(finding.get("file", ""))
+    for issue in issues:
+        entry = entries_by_file.get(issue.get("file", ""))
         if not entry:
             continue
         signals, complexity_score, import_count = _corroboration_signals_for_csharp(
             entry, lang
         )
         corroboration_count = len(signals)
-        finding["confidence"] = (
+        issue["confidence"] = (
             "medium" if corroboration_count >= min_signals else "low"
         )
-        detail = finding.setdefault("detail", {})
+        detail = issue.setdefault("detail", {})
         detail["corroboration_signals"] = signals
         detail["corroboration_count"] = corroboration_count
         detail["corroboration_min_required"] = min_signals
@@ -165,7 +165,7 @@ def _apply_csharp_actionability_gates(
 def _phase_structural(
     path: Path, lang: LangRuntimeContract
 ) -> tuple[list[dict], dict[str, int]]:
-    """Merge large + complexity + god classes into structural findings."""
+    """Merge large + complexity + god classes into structural issues."""
     return run_structural_phase(
         path,
         lang,

@@ -108,15 +108,15 @@ def plan_aware_queue_breakdown(
         if active:
             focus_cluster = active
             cluster_data = effective_plan.get("clusters", {}).get(active, {})
-            focus_cluster_total = len(cluster_data.get("finding_ids", []))
+            focus_cluster_total = len(cluster_data.get("issue_ids", []))
             # Count how many cluster members are still in the queue
-            cluster_member_ids = set(cluster_data.get("finding_ids", []))
-            open_findings = {
+            cluster_member_ids = set(cluster_data.get("issue_ids", []))
+            open_issues = {
                 fid
-                for fid, f in state.get("findings", {}).items()
+                for fid, f in state.get("issues", {}).items()
                 if f.get("status") == "open"
             }
-            focus_cluster_count = len(cluster_member_ids & open_findings)
+            focus_cluster_count = len(cluster_member_ids & open_issues)
 
     return QueueBreakdown(
         queue_total=queue_total,

@@ -10,7 +10,7 @@ from desloppify.engine.planning.scorecard_projection import (
     all_subjective_entries,
 )
 from desloppify.intelligence.integrity import (
-    is_holistic_subjective_finding,
+    is_holistic_subjective_issue,
     unassessed_subjective_dimensions,
 )
 from desloppify.scoring import DISPLAY_NAMES
@@ -37,7 +37,7 @@ def _canonical_subjective_dimension_key(display_name: str) -> str:
 
 
 def _subjective_dimension_aliases(display_name: str) -> set[str]:
-    """Return normalized aliases used to match display labels with finding dimension keys."""
+    """Return normalized aliases used to match display labels with issue dimension keys."""
     cleaned = display_name.replace(" (subjective)", "").strip()
     canonical = _canonical_subjective_dimension_key(cleaned)
     return {
@@ -107,9 +107,9 @@ def build_triage_stage_items(plan: dict, state: dict) -> list[dict]:
     meta = plan.get("epic_triage_meta", {})
     confirmed = set(meta.get("triage_stages", {}).keys())
 
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     open_review_count = sum(
-        1 for f in findings.values()
+        1 for f in issues.values()
         if f.get("status") == "open"
         and f.get("detector") in ("review", "concerns")
     )
@@ -220,7 +220,7 @@ def build_create_plan_item(plan: dict) -> dict | None:
 
 
 def build_subjective_items(
-    state: dict, findings: dict, *, threshold: float = 100.0
+    state: dict, issues: dict, *, threshold: float = 100.0
 ) -> list[dict]:
     """Create synthetic subjective work items."""
     dim_scores = state.get("dimension_scores", {}) or {}
@@ -238,12 +238,12 @@ def build_subjective_items(
         )
     }
 
-    # Review findings are keyed by raw dimension name (snake_case).
+    # Review issues are keyed by raw dimension name (snake_case).
     review_open_by_dim: dict[str, int] = {}
-    for finding in findings.values():
-        if finding.get("status") != "open" or finding.get("detector") != "review":
+    for issue in issues.values():
+        if issue.get("status") != "open" or issue.get("detector") != "review":
             continue
-        dim_key = str(detail_dict(finding).get("dimension", "")).strip().lower()
+        dim_key = str(detail_dict(issue).get("dimension", "")).strip().lower()
         if not dim_key:
             continue
         review_open_by_dim[dim_key] = review_open_by_dim.get(dim_key, 0) + 1
@@ -284,7 +284,7 @@ def build_subjective_items(
             or (strict_val <= 0.0 and int(entry.get("failing", 0)) == 0)
         )
         is_stale = bool(entry.get("stale"))
-        # If review findings already exist for this dimension, triage/fix them
+        # If review issues already exist for this dimension, triage/fix them
         # before suggesting another review refresh pass.
         if open_review > 0:
             primary_command = "desloppify show review --status open"
@@ -337,12 +337,12 @@ def build_import_scores_item(plan: dict, state: dict) -> dict | None:
         "summary": "Import assessment scores with attestation",
         "detail": {
             "explanation": (
-                "Review findings were imported but assessment scores were skipped "
+                "Review issues were imported but assessment scores were skipped "
                 "(untrusted source). Re-import with attestation to update dimension scores."
             ),
         },
         "primary_command": (
-            'desloppify review --import findings.json --attested-external '
+            'desloppify review --import issues.json --attested-external '
             '--attest "I validated this review was completed without awareness '
             'of overall score and is unbiased."'
         ),

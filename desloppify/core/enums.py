@@ -1,4 +1,4 @@
-"""Canonical enums for finding attributes.
+"""Canonical enums for issue attributes.
 
 StrEnum values compare equal to their string values (Confidence.HIGH == "high"),
 so existing code using raw strings continues to work during gradual migration.
@@ -24,7 +24,7 @@ class Status(enum.StrEnum):
     RESOLVED = "resolved"  # Legacy on-disk value; migrated to FIXED on load.
 
 
-_CANONICAL_FINDING_STATUSES = frozenset(
+_CANONICAL_ISSUE_STATUSES = frozenset(
     {
         Status.OPEN.value,
         Status.FIXED.value,
@@ -53,22 +53,22 @@ class Tier(enum.IntEnum):
     MAJOR_REFACTOR = 4
 
 
-def canonical_finding_status(value: object, *, default: str = Status.OPEN.value) -> str:
-    """Normalize legacy/unknown finding status values to a canonical token."""
+def canonical_issue_status(value: object, *, default: str = Status.OPEN.value) -> str:
+    """Normalize legacy/unknown issue status values to a canonical token."""
     token = str(value).strip().lower()
     token = _LEGACY_STATUS_ALIASES.get(token, token)
-    return token if token in _CANONICAL_FINDING_STATUSES else default
+    return token if token in _CANONICAL_ISSUE_STATUSES else default
 
 
-def finding_status_tokens(*, include_all: bool = False) -> frozenset[str]:
-    """Return canonical finding-status tokens, optionally including `all`."""
+def issue_status_tokens(*, include_all: bool = False) -> frozenset[str]:
+    """Return canonical issue-status tokens, optionally including `all`."""
     if include_all:
-        return frozenset({*_CANONICAL_FINDING_STATUSES, "all"})
-    return _CANONICAL_FINDING_STATUSES
+        return frozenset({*_CANONICAL_ISSUE_STATUSES, "all"})
+    return _CANONICAL_ISSUE_STATUSES
 
 
 def resolved_statuses() -> frozenset[str]:
-    """Return the set of statuses that mean a finding is no longer open."""
+    """Return the set of statuses that mean an issue is no longer open."""
     return _RESOLVED_STATUSES
 
 
@@ -76,7 +76,15 @@ __all__ = [
     "Confidence",
     "Status",
     "Tier",
+    "canonical_issue_status",
+    "issue_status_tokens",
+    "resolved_statuses",
+    # Deprecated aliases
     "canonical_finding_status",
     "finding_status_tokens",
-    "resolved_statuses",
 ]
+
+
+# Deprecated aliases
+canonical_finding_status = canonical_issue_status
+finding_status_tokens = issue_status_tokens

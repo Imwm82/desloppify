@@ -10,7 +10,7 @@ from desloppify.core.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.core.output_api import colorize
 from desloppify.engine.plan import (
     append_log_entry,
-    auto_cluster_findings,
+    auto_cluster_issues,
     load_plan,
     reconcile_plan_after_scan,
     save_plan,
@@ -92,7 +92,7 @@ def _sync_auto_clusters(
     cycle_just_completed: bool = False,
 ) -> bool:
     """Regenerate automatic task clusters after scan merge."""
-    return bool(auto_cluster_findings(
+    return bool(auto_cluster_issues(
         plan, state,
         target_strict=target_strict,
         policy=policy,
@@ -172,7 +172,7 @@ def reconcile_plan_post_scan(runtime: "ScanRuntime") -> None:
         # Detect cycle completion: plan_start_scores is empty when the
         # previous cycle drained the queue and revealed scores.  In that
         # case stale subjective dimensions should be prioritized over new
-        # objective findings so the user reviews before a new cycle begins.
+        # objective issues so the user reviews before a new cycle begins.
         _cycle_just_completed = not plan.get("plan_start_scores")
 
         stale_changed = _sync_stale_dimensions(
@@ -201,7 +201,7 @@ def reconcile_plan_post_scan(runtime: "ScanRuntime") -> None:
             if triage_sync.injected:
                 print(
                     colorize(
-                        "  Plan: planning mode needed — review findings changed since last triage.",
+                        "  Plan: planning mode needed — review issues changed since last triage.",
                         "cyan",
                     )
                 )

@@ -14,7 +14,7 @@ from desloppify.app.commands.scan.scan_reporting_subjective import (
 )
 from desloppify.engine.work_queue import ATTEST_EXAMPLE
 from desloppify.intelligence.integrity import (
-    is_holistic_subjective_finding,
+    is_holistic_subjective_issue,
     unassessed_subjective_dimensions,
 )
 from desloppify.core.output_api import colorize, log
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def render_uncommitted_reminder(plan: dict | None) -> None:
-    """Show a subtle reminder if there are uncommitted resolved findings."""
+    """Show a subtle reminder if there are uncommitted resolved issues."""
     if plan is None:
         return
     try:
@@ -41,7 +41,7 @@ def render_uncommitted_reminder(plan: dict | None) -> None:
 
         count = len(uncommitted)
         print(colorize(
-            f"\n  {count} resolved finding{'s' if count != 1 else ''} uncommitted"
+            f"\n  {count} resolved issue{'s' if count != 1 else ''} uncommitted"
             " — `desloppify plan commit-log` to review",
             "dim",
         ))
@@ -52,10 +52,10 @@ def render_uncommitted_reminder(plan: dict | None) -> None:
 def render_single_item_resolution_hint(items: list[dict]) -> None:
     if len(items) != 1:
         return
-    kind = items[0].get("kind", "finding")
+    kind = items[0].get("kind", "issue")
     if kind in ("cluster", "workflow_stage", "workflow_action"):
         return  # These kinds have their own resolution hints
-    if kind != "finding":
+    if kind != "issue":
         return
     item = items[0]
     detector_name = item.get("detector", "")
@@ -65,7 +65,7 @@ def render_single_item_resolution_hint(items: list[dict]) -> None:
             "primary_command", "desloppify show subjective"
         )
         print(f"    {primary}")
-        if is_holistic_subjective_finding(item):
+        if is_holistic_subjective_issue(item):
             print("    desloppify review --prepare")
         return
 
@@ -225,7 +225,7 @@ def render_followup_nudges(
     if unassessed_count:
         parts.append(f"{unassessed_count} unassessed")
     if len(open_review):
-        parts.append(f"{len(open_review)} review finding{'s' if len(open_review) != 1 else ''} open")
+        parts.append(f"{len(open_review)} review issue{'s' if len(open_review) != 1 else ''} open")
     if coverage_open > 0:
         parts.append(f"{coverage_open} file{'s' if coverage_open != 1 else ''} need review")
 

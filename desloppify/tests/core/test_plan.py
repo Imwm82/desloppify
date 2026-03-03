@@ -33,7 +33,7 @@ def _finding(
     detail=None,
     note=None,
 ):
-    """Build a minimal finding dict."""
+    """Build a minimal issue dict."""
     return {
         "id": fid,
         "detector": detector,
@@ -59,15 +59,15 @@ def _state(
     subjective_assessments=None,
 ):
     """Build a minimal state dict."""
-    findings = {}
+    issues = {}
     for f in findings_list or []:
-        findings[f["id"]] = f
+        issues[f["id"]] = f
     return {
         "overall_score": overall_score,
         "objective_score": objective_score,
         "strict_score": strict_score,
         "stats": stats or {},
-        "findings": findings,
+        "issues": issues,
         "dimension_scores": dimension_scores or {},
         "codebase_metrics": codebase_metrics or {},
         "subjective_assessments": subjective_assessments or {},
@@ -223,31 +223,31 @@ class TestPlanItemSections:
         assert _plan_item_sections({}) == []
 
     def test_groups_by_file(self):
-        findings = {
+        issues = {
             "a": _finding("a", tier=1, file="x.py"),
             "b": _finding("b", tier=2, file="y.py"),
         }
-        lines = _plan_item_sections(findings)
+        lines = _plan_item_sections(issues)
         joined = "\n".join(lines)
         assert "x.py" in joined
         assert "y.py" in joined
 
-    def test_skips_non_open_findings(self):
-        findings = {
+    def test_skips_non_open_issues(self):
+        issues = {
             "a": _finding("a", tier=1, status="fixed"),
             "b": _finding("b", tier=1, status="wontfix"),
         }
-        lines = _plan_item_sections(findings)
+        lines = _plan_item_sections(issues)
         assert lines == []
 
     def test_files_sorted_by_finding_count_descending(self):
-        findings = {
+        issues = {
             "a1": _finding("a1", tier=1, file="few.py"),
             "b1": _finding("b1", tier=1, file="many.py"),
             "b2": _finding("b2", tier=1, file="many.py"),
             "b3": _finding("b3", tier=1, file="many.py"),
         }
-        lines = _plan_item_sections(findings)
+        lines = _plan_item_sections(issues)
         # Find the file header lines
         file_headers = [line for line in lines if line.startswith("### ")]
         # "many.py" should come before "few.py"
@@ -255,12 +255,12 @@ class TestPlanItemSections:
         assert "few.py" in file_headers[1]
 
     def test_findings_sorted_by_confidence_within_file(self):
-        findings = {
+        issues = {
             "lo": _finding("lo", tier=1, file="a.py", confidence="low"),
             "hi": _finding("hi", tier=1, file="a.py", confidence="high"),
             "md": _finding("md", tier=1, file="a.py", confidence="medium"),
         }
-        lines = _plan_item_sections(findings)
+        lines = _plan_item_sections(issues)
         bullet_lines = [
             line.strip() for line in lines if line.strip().startswith("- [ ]")
         ]
@@ -269,26 +269,26 @@ class TestPlanItemSections:
         assert "[low]" in bullet_lines[2]
 
     def test_finding_id_shown_below_summary(self):
-        findings = {
+        issues = {
             "det::f.py::x": _finding("det::f.py::x", tier=1, file="f.py"),
         }
-        lines = _plan_item_sections(findings)
+        lines = _plan_item_sections(issues)
         id_lines = [line for line in lines if "det::f.py::x" in line]
         assert len(id_lines) >= 1
 
     def test_open_count_in_header(self):
-        findings = {
+        issues = {
             "a": _finding("a", tier=2, file="x.py"),
             "b": _finding("b", tier=2, file="y.py"),
             "c": _finding("c", tier=2, file="y.py"),
         }
-        lines = _plan_item_sections(findings)
+        lines = _plan_item_sections(issues)
         section_header = [line for line in lines if line.startswith("## Open Items")]
         assert len(section_header) == 1
         assert "3" in section_header[0]
 
     def test_review_findings_render(self):
-        findings = {
+        issues = {
             "review::src/a.py::naming": _finding(
                 "review::src/a.py::naming",
                 detector="review",
@@ -298,20 +298,20 @@ class TestPlanItemSections:
             ),
         }
         lines = _plan_item_sections(
-            findings, state={"findings": findings, "dimension_scores": {}}
+            issues, state={"issues": issues, "dimension_scores": {}}
         )
         joined = "\n".join(lines)
         assert "review::src/a.py::naming" in joined
 
     def test_subjective_dimensions_show_up(self):
-        findings: dict[str, dict] = {}
+        issues: dict[str, dict] = {}
         state = {
-            "findings": findings,
+            "issues": issues,
             "dimension_scores": {
                 "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2}
             },
         }
-        lines = _plan_item_sections(findings, state=state)
+        lines = _plan_item_sections(issues, state=state)
         joined = "\n".join(lines)
         assert "subjective::naming_quality" in joined
 
@@ -363,7 +363,7 @@ class TestGeneratePlanMd:
 
 
 class TestGetNextItem:
-    def test_returns_none_when_no_open_findings(self):
+    def test_returns_none_when_no_open_issues(self):
         st = _state([_finding("a", status="fixed")])
         assert get_next_item(st) is None
 
@@ -404,8 +404,8 @@ class TestGetNextItem:
 
 class TestGetNextItems:
     def test_returns_multiple_items(self):
-        findings = [_finding(f"f{i}", tier=2) for i in range(5)]
-        st = _state(findings)
+        issues = [_finding(f"f{i}", tier=2) for i in range(5)]
+        st = _state(issues)
         items = get_next_items(st, count=3)
         assert len(items) == 3
 
@@ -430,9 +430,9 @@ class TestGetNextItems:
         assert items[2]["id"] == "lo"
 
     def test_count_limits_results(self):
-        findings = [_finding(f"f{i}", tier=2) for i in range(5)]
-        findings += [_finding(f"other{i}", tier=3) for i in range(5)]
-        st = _state(findings)
+        issues = [_finding(f"f{i}", tier=2) for i in range(5)]
+        issues += [_finding(f"other{i}", tier=3) for i in range(5)]
+        st = _state(issues)
         items = get_next_items(st, count=3)
         assert len(items) == 3
 
@@ -446,7 +446,7 @@ class TestGetNextItems:
         assert items[1]["id"] == "zzz"
 
     def test_scan_path_filters_findings(self):
-        """scan_path limits results to findings within that path."""
+        """scan_path limits results to issues within that path."""
         f1 = _finding("in_scope", file="src/foo.py", tier=1)
         f2 = _finding("out_scope", file="other/bar.py", tier=1)
         st = _state([f1, f2])
@@ -456,7 +456,7 @@ class TestGetNextItems:
         assert items[0]["id"] == "in_scope"
 
     def test_scan_path_none_returns_all(self):
-        """scan_path=None returns all findings."""
+        """scan_path=None returns all issues."""
         f1 = _finding("a", file="src/a.py", tier=1)
         f2 = _finding("b", file="other/b.py", tier=1)
         st = _state([f1, f2])
@@ -464,7 +464,7 @@ class TestGetNextItems:
         assert len(items) == 2
 
     def test_scan_path_dot_returns_all(self):
-        """scan_path='.' returns all findings."""
+        """scan_path='.' returns all issues."""
         f1 = _finding("a", file="src/a.py", tier=1)
         f2 = _finding("b", file="other/b.py", tier=1)
         st = _state([f1, f2])
@@ -480,7 +480,7 @@ class TestGetNextItems:
         assert result["id"] == "in"
 
     def test_scan_path_includes_holistic(self):
-        """Holistic findings (file='.') are always included regardless of scan_path."""
+        """Holistic issues (file='.') are always included regardless of scan_path."""
         f1 = _finding("holistic", file=".", tier=4)
         f2 = _finding("in_scope", file="src/a.py", tier=1)
         f3 = _finding("out_scope", file="other/b.py", tier=1)

@@ -20,7 +20,7 @@ examples:
   desloppify review --prepare
   desloppify review --run-batches --runner codex --parallel --scan-after-import
   desloppify review --external-start --external-runner claude
-  desloppify review --external-submit --session-id <id> --import findings.json
+  desloppify review --external-submit --session-id <id> --import issues.json
   desloppify review --merge --similarity 0.8""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -39,7 +39,7 @@ examples:
         dest="import_file",
         type=str,
         metavar="FILE",
-        help="Import review findings from JSON file",
+        help="Import review issues from JSON file",
     )
     g_core.add_argument(
         "--validate-import",
@@ -52,8 +52,8 @@ examples:
         "--allow-partial",
         action="store_true",
         help=(
-            "Allow partial review import when invalid findings are skipped "
-            "(default: fail on any skipped finding)"
+            "Allow partial review import when invalid issues are skipped "
+            "(default: fail on any skipped issue)"
         ),
     )
     g_core.add_argument(
@@ -250,7 +250,7 @@ examples:
         "--manual-override",
         action="store_true",
         help=(
-            "Allow untrusted assessment score imports. Findings always import; "
+            "Allow untrusted assessment score imports. Issues always import; "
             "scores require trusted blind provenance unless this override is set."
         ),
     )
@@ -279,7 +279,7 @@ examples:
     g_post.add_argument(
         "--merge",
         action="store_true",
-        help="Merge conceptually duplicate open review findings",
+        help="Merge conceptually duplicate open review issues",
     )
     g_post.add_argument(
         "--similarity",

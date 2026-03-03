@@ -13,19 +13,19 @@ from desloppify.engine._plan.schema import empty_plan
 # ---------------------------------------------------------------------------
 
 def _state_with_findings(*ids: str) -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "id": fid,
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {},
         }
-    return {"findings": findings, "scan_count": 5, "config": {}}
+    return {"issues": issues, "scan_count": 5, "config": {}}
 
 
 def _fake_runtime(state: dict):
@@ -56,11 +56,11 @@ def _fake_args(**overrides) -> argparse.Namespace:
 
 class TestPatternHints:
     def test_cluster_add_no_match_shows_hints(self, monkeypatch, capsys):
-        """When no findings match, pattern format hints are shown."""
+        """When no issues match, pattern format hints are shown."""
         state = _state_with_findings("review::test.py::foo::abc12345")
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
-            "finding_ids": [],
+            "issue_ids": [],
             "description": "test",
         }
 
@@ -71,7 +71,7 @@ class TestPatternHints:
         args = _fake_args(cluster_name="my-cluster", patterns=["nonexistent_pattern"])
         cluster_mod._cmd_cluster_add(args)
         out = capsys.readouterr().out
-        assert "No matching findings" in out
+        assert "No matching issues" in out
         assert "Valid patterns:" in out
         assert "8-char hash suffix" in out
         assert "ID prefix" in out
@@ -81,7 +81,7 @@ class TestPatternHints:
         state = _state_with_findings("review::test.py::foo::abc12345")
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
-            "finding_ids": ["review::test.py::foo::abc12345"],
+            "issue_ids": ["review::test.py::foo::abc12345"],
             "description": "test",
         }
 
@@ -92,7 +92,7 @@ class TestPatternHints:
         args = _fake_args(cluster_name="my-cluster", patterns=["nonexistent_pattern"])
         cluster_mod._cmd_cluster_remove(args)
         out = capsys.readouterr().out
-        assert "No matching findings" in out
+        assert "No matching issues" in out
         assert "Valid patterns:" in out
 
 
@@ -103,17 +103,17 @@ class TestPatternHints:
 
 class TestOverlapWarning:
     def test_cluster_add_overlap_warning(self, monkeypatch, capsys):
-        """Adding findings that overlap >50% with another cluster shows warning."""
+        """Adding issues that overlap >50% with another cluster shows warning."""
         fid1 = "review::test.py::f1"
         fid2 = "review::test.py::f2"
         state = _state_with_findings(fid1, fid2)
         plan = empty_plan()
         plan["clusters"]["cluster-a"] = {
-            "finding_ids": [fid1, fid2],
+            "issue_ids": [fid1, fid2],
             "description": "first cluster",
         }
         plan["clusters"]["cluster-b"] = {
-            "finding_ids": [],
+            "issue_ids": [],
             "description": "second cluster",
         }
 
@@ -122,7 +122,7 @@ class TestOverlapWarning:
         monkeypatch.setattr(cluster_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(cluster_mod, "save_plan", lambda p, *a, **kw: None)
 
-        # Add both findings to cluster-b (100% overlap with cluster-a)
+        # Add both issues to cluster-b (100% overlap with cluster-a)
         args = _fake_args(cluster_name="cluster-b", patterns=["review"])
         cluster_mod._cmd_cluster_add(args)
         out = capsys.readouterr().out
@@ -135,12 +135,12 @@ class TestOverlapWarning:
         state = _state_with_findings(fid1)
         plan = empty_plan()
         plan["clusters"]["auto-cluster"] = {
-            "finding_ids": [fid1],
+            "issue_ids": [fid1],
             "description": "auto",
             "auto": True,
         }
         plan["clusters"]["manual-cluster"] = {
-            "finding_ids": [],
+            "issue_ids": [],
             "description": "manual",
         }
 
@@ -165,7 +165,7 @@ class TestStepCountFeedback:
         """Update with steps shows count and listing."""
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
-            "finding_ids": ["f1"],
+            "issue_ids": ["f1"],
             "description": "test",
         }
 
@@ -186,7 +186,7 @@ class TestStepCountFeedback:
         """Update with empty steps list shows warning."""
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
-            "finding_ids": ["f1"],
+            "issue_ids": ["f1"],
             "description": "test",
         }
 
@@ -203,7 +203,7 @@ class TestStepCountFeedback:
         """Update with one very long step warns about shell quoting."""
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
-            "finding_ids": ["f1"],
+            "issue_ids": ["f1"],
             "description": "test",
         }
 
@@ -219,25 +219,25 @@ class TestStepCountFeedback:
 
 
 # ---------------------------------------------------------------------------
-# Overlap scoping — only new findings trigger warnings
+# Overlap scoping — only new issues trigger warnings
 # ---------------------------------------------------------------------------
 
 
 class TestOverlapScoping:
     def test_no_false_overlap_from_existing_members(self, monkeypatch, capsys):
-        """Adding a new finding to a cluster with pre-existing overlap doesn't re-warn."""
+        """Adding a new issue to a cluster with pre-existing overlap doesn't re-warn."""
         fid_shared = "review::test.py::shared"
         fid_new = "review::test.py::new_finding"
         state = _state_with_findings(fid_shared, fid_new)
         plan = empty_plan()
-        # cluster-a already has the shared finding
+        # cluster-a already has the shared issue
         plan["clusters"]["cluster-a"] = {
-            "finding_ids": [fid_shared],
+            "issue_ids": [fid_shared],
             "description": "first cluster",
         }
-        # cluster-b already has the shared finding (pre-existing overlap)
+        # cluster-b already has the shared issue (pre-existing overlap)
         plan["clusters"]["cluster-b"] = {
-            "finding_ids": [fid_shared],
+            "issue_ids": [fid_shared],
             "description": "second cluster",
         }
 
@@ -246,11 +246,11 @@ class TestOverlapScoping:
         monkeypatch.setattr(cluster_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(cluster_mod, "save_plan", lambda p, *a, **kw: None)
 
-        # Add only the NEW finding to cluster-b — the shared overlap is pre-existing
+        # Add only the NEW issue to cluster-b — the shared overlap is pre-existing
         args = _fake_args(cluster_name="cluster-b", patterns=[fid_new])
         cluster_mod._cmd_cluster_add(args)
         out = capsys.readouterr().out
-        # Should NOT warn about overlap because the newly-added finding (fid_new)
+        # Should NOT warn about overlap because the newly-added issue (fid_new)
         # is not in cluster-a
         assert "overlap" not in out.lower()
 
@@ -265,7 +265,7 @@ class TestStepDisplayNumbering:
         """Steps with leading '1. ' prefix don't get '1. 1. ' in output."""
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
-            "finding_ids": ["f1"],
+            "issue_ids": ["f1"],
             "description": "test",
         }
 

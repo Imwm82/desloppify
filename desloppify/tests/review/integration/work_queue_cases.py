@@ -36,9 +36,9 @@ def _finding(
     }
 
 
-def _state(findings: list[dict], *, dimension_scores: dict | None = None) -> dict:
+def _state(issues: list[dict], *, dimension_scores: dict | None = None) -> dict:
     return {
-        "findings": {f["id"]: f for f in findings},
+        "issues": {f["id"]: f for f in issues},
         "dimension_scores": dimension_scores or {},
     }
 
@@ -59,7 +59,7 @@ def test_review_finding_uses_natural_tier():
     )
 
     queue = build_work_queue(state, count=None, include_subjective=False)
-    by_id = {item["id"]: item for item in queue["items"] if item["kind"] == "finding"}
+    by_id = {item["id"]: item for item in queue["items"] if item["kind"] == "issue"}
     assert "review::src/a.py::naming" in by_id
     assert "smells::src/a.py::x" in by_id
 
@@ -122,7 +122,7 @@ def test_review_items_sort_by_issue_weight_within_tier():
 
 def test_queue_contains_mechanical_and_synthetic_subjective_items():
     """When no objective backlog exists, subjective items appear alongside
-    mechanical findings."""
+    mechanical issues."""
     state = _state(
         [],
         dimension_scores={
@@ -359,7 +359,7 @@ def test_invalid_status_raises_value_error():
 
 
 def test_legacy_string_detail_does_not_crash_queue_build():
-    """Queue building should tolerate findings whose detail is a plain string."""
+    """Queue building should tolerate issues whose detail is a plain string."""
     review = _finding(
         "review::src/a.py::legacy",
         detector="review",
@@ -500,12 +500,12 @@ def test_status_filter_all():
 
 
 def test_chronic_mode_filters_reopened_findings():
-    findings = [
+    issues = [
         {**_finding("chronic_one"), "reopen_count": 3},
         {**_finding("normal_one"), "reopen_count": 0},
         {**_finding("once_reopened"), "reopen_count": 1},
     ]
-    state = _state(findings)
+    state = _state(issues)
 
     queue = build_work_queue(state, chronic=True, count=None, include_subjective=False)
     ids = {item["id"] for item in queue["items"]}

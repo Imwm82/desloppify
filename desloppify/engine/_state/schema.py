@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal, NotRequired, Required, TypedDict
 
 from desloppify.core.text_api import PROJECT_ROOT
-from desloppify.core.enums import canonical_finding_status, finding_status_tokens
+from desloppify.core.enums import canonical_issue_status, issue_status_tokens
 from desloppify.engine._state.schema_scores import (
     get_objective_score,
     get_overall_score,
@@ -18,8 +18,8 @@ from desloppify.languages._framework.base.types import ScanCoverageRecord
 
 __all__ = [
     "ConcernDismissal",
-    "FindingStatus",
-    "Finding",
+    "IssueStatus",
+    "Issue",
     "TierStats",
     "StateStats",
     "DimensionScore",
@@ -40,16 +40,20 @@ __all__ = [
     "get_objective_score",
     "get_strict_score",
     "get_verified_strict_score",
+    "migrate_state_keys",
+    # Deprecated aliases
+    "Finding",
+    "FindingStatus",
 ]
 
-FindingStatus = Literal["open", "fixed", "auto_resolved", "wontfix", "false_positive"]
-_ALLOWED_FINDING_STATUSES: set[str] = {
-    *finding_status_tokens(),
+IssueStatus = Literal["open", "fixed", "auto_resolved", "wontfix", "false_positive"]
+_ALLOWED_ISSUE_STATUSES: set[str] = {
+    *issue_status_tokens(),
 }
 
 
-class Finding(TypedDict):
-    """The central data structure: a normalized finding from any detector."""
+class Issue(TypedDict):
+    """The central data structure: a normalized issue from any detector."""
 
     id: str
     detector: str
@@ -58,7 +62,7 @@ class Finding(TypedDict):
     confidence: str
     summary: str
     detail: dict[str, Any]
-    status: FindingStatus
+    status: IssueStatus
     note: str | None
     first_seen: str
     last_seen: str
@@ -158,7 +162,7 @@ class StateModel(TypedDict, total=False):
     strict_score: Required[float]
     verified_strict_score: Required[float]
     stats: Required[StateStats]
-    findings: Required[dict[str, Finding]]
+    issues: Required[dict[str, Issue]]
     scan_coverage: dict[str, ScanCoverageRecord]
     score_confidence: dict[str, Any]
     scan_history: list[ScanHistoryEntry]
@@ -206,7 +210,7 @@ def empty_state() -> StateModel:
         "strict_score": 0,
         "verified_strict_score": 0,
         "stats": {},
-        "findings": {},
+        "issues": {},
         "scan_coverage": {},
         "score_confidence": {},
         "subjective_integrity": {},
@@ -222,13 +226,44 @@ def _as_non_negative_int(value: Any, default: int = 0) -> int:
     return parsed if parsed >= 0 else 0
 
 
+def migrate_state_keys(state: dict) -> None:
+    """Migrate legacy key names in-place.
+
+    - ``"findings"`` → ``"issues"``
+    - ``dimension_scores[dim]["issues"]`` → ``"failing"``
+    """
+    # Legacy "findings" key → "issues"
+    if "findings" in state and "issues" not in state:
+        state["issues"] = state.pop("findings")
+    elif "findings" in state:
+        # Both present — prefer "issues", drop legacy key
+        state.pop("findings", None)
+
+    # Legacy dimension_scores "issues" → "failing"
+    for ds in state.get("dimension_scores", {}).values():
+        if isinstance(ds, dict) and "issues" in ds and "failing" not in ds:
+            ds["failing"] = ds.pop("issues")
+
+    # Also migrate inside scan_history entries
+    for entry in state.get("scan_history", []):
+        if not isinstance(entry, dict):
+            continue
+        dim_scores = entry.get("dimension_scores")
+        if isinstance(dim_scores, dict):
+            for ds in dim_scores.values():
+                if isinstance(ds, dict) and "issues" in ds and "failing" not in ds:
+                    ds["failing"] = ds.pop("issues")
+
+
 def ensure_state_defaults(state: StateModel | dict) -> None:
     """Normalize loose/legacy state payloads to a valid base shape in-place."""
+    migrate_state_keys(state)
+
     for key, value in empty_state().items():
         state.setdefault(key, value)
 
-    if not isinstance(state.get("findings"), dict):
-        state["findings"] = {}
+    if not isinstance(state.get("issues"), dict):
+        state["issues"] = {}
     if not isinstance(state.get("stats"), dict):
         state["stats"] = {}
     if not isinstance(state.get("scan_history"), list):
@@ -240,38 +275,38 @@ def ensure_state_defaults(state: StateModel | dict) -> None:
     if not isinstance(state.get("subjective_integrity"), dict):
         state["subjective_integrity"] = {}
 
-    findings = state["findings"]
+    all_issues = state["issues"]
     to_remove: list[str] = []
-    for finding_id, finding in findings.items():
-        if not isinstance(finding, dict):
-            to_remove.append(finding_id)
+    for issue_id, issue in all_issues.items():
+        if not isinstance(issue, dict):
+            to_remove.append(issue_id)
             continue
 
-        finding.setdefault("id", finding_id)
-        finding.setdefault("detector", "unknown")
-        finding.setdefault("file", "")
-        finding.setdefault("tier", 3)
-        finding.setdefault("confidence", "low")
-        finding.setdefault("summary", "")
-        finding.setdefault("detail", {})
-        finding.setdefault("status", "open")
-        finding["status"] = canonical_finding_status(
-            finding.get("status"),
+        issue.setdefault("id", issue_id)
+        issue.setdefault("detector", "unknown")
+        issue.setdefault("file", "")
+        issue.setdefault("tier", 3)
+        issue.setdefault("confidence", "low")
+        issue.setdefault("summary", "")
+        issue.setdefault("detail", {})
+        issue.setdefault("status", "open")
+        issue["status"] = canonical_issue_status(
+            issue.get("status"),
             default="open",
         )
-        finding.setdefault("note", None)
-        finding.setdefault("first_seen", state.get("created") or utc_now())
-        finding.setdefault("last_seen", finding["first_seen"])
-        finding.setdefault("resolved_at", None)
-        finding["reopen_count"] = _as_non_negative_int(
-            finding.get("reopen_count", 0), default=0
+        issue.setdefault("note", None)
+        issue.setdefault("first_seen", state.get("created") or utc_now())
+        issue.setdefault("last_seen", issue["first_seen"])
+        issue.setdefault("resolved_at", None)
+        issue["reopen_count"] = _as_non_negative_int(
+            issue.get("reopen_count", 0), default=0
         )
-        finding.setdefault("suppressed", False)
-        finding.setdefault("suppressed_at", None)
-        finding.setdefault("suppression_pattern", None)
+        issue.setdefault("suppressed", False)
+        issue.setdefault("suppressed_at", None)
+        issue.setdefault("suppression_pattern", None)
 
-    for finding_id in to_remove:
-        findings.pop(finding_id, None)
+    for issue_id in to_remove:
+        all_issues.pop(issue_id, None)
 
     for entry in state["scan_history"]:
         if not isinstance(entry, dict):
@@ -286,29 +321,34 @@ def ensure_state_defaults(state: StateModel | dict) -> None:
 
 def validate_state_invariants(state: StateModel) -> None:
     """Raise ValueError when core state invariants are violated."""
-    if not isinstance(state.get("findings"), dict):
-        raise ValueError("state.findings must be a dict")
+    if not isinstance(state.get("issues"), dict):
+        raise ValueError("state.issues must be a dict")
     if not isinstance(state.get("stats"), dict):
         raise ValueError("state.stats must be a dict")
 
-    findings = state["findings"]
-    for finding_id, finding in findings.items():
-        if not isinstance(finding, dict):
-            raise ValueError(f"finding {finding_id!r} must be a dict")
-        if finding.get("id") != finding_id:
-            raise ValueError(f"finding id mismatch for {finding_id!r}")
-        if finding.get("status") not in _ALLOWED_FINDING_STATUSES:
+    all_issues = state["issues"]
+    for issue_id, issue in all_issues.items():
+        if not isinstance(issue, dict):
+            raise ValueError(f"issue {issue_id!r} must be a dict")
+        if issue.get("id") != issue_id:
+            raise ValueError(f"issue id mismatch for {issue_id!r}")
+        if issue.get("status") not in _ALLOWED_ISSUE_STATUSES:
             raise ValueError(
-                f"finding {finding_id!r} has invalid status {finding.get('status')!r}"
+                f"issue {issue_id!r} has invalid status {issue.get('status')!r}"
             )
 
-        tier = finding.get("tier")
+        tier = issue.get("tier")
         if not isinstance(tier, int) or tier < 1 or tier > 4:
-            raise ValueError(f"finding {finding_id!r} has invalid tier {tier!r}")
+            raise ValueError(f"issue {issue_id!r} has invalid tier {tier!r}")
 
-        reopen_count = finding.get("reopen_count")
+        reopen_count = issue.get("reopen_count")
         if not isinstance(reopen_count, int) or reopen_count < 0:
             raise ValueError(
-                f"finding {finding_id!r} has invalid reopen_count {reopen_count!r}"
+                f"issue {issue_id!r} has invalid reopen_count {reopen_count!r}"
             )
+
+
+# Deprecated aliases — kept for backwards compatibility
+Finding = Issue
+FindingStatus = IssueStatus
 

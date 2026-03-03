@@ -29,7 +29,7 @@ on_detector_registered(_refresh_detector_tools)
 # Structural sub-detectors that merge under "structural"
 STRUCTURAL_MERGE = {"large", "complexity", "gods", "concerns"}
 
-# Detector-level cascade: fixing one detector may auto-resolve findings in another.
+# Detector-level cascade: fixing one detector may auto-resolve issues in another.
 _DETECTOR_CASCADE = {
     "logs": ["unused"],
     "smells": ["unused"],

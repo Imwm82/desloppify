@@ -9,13 +9,13 @@ __all__ = [
 ]
 
 from desloppify.core.coercions_api import coerce_confidence
-from desloppify.core.enums import finding_status_tokens
+from desloppify.core.enums import issue_status_tokens
 from desloppify.engine._scoring.policy.core import matches_target_score
-from desloppify.engine._state.filtering import path_scoped_findings
+from desloppify.engine._state.filtering import path_scoped_issues
 from desloppify.engine._state.schema import StateModel, ensure_state_defaults
 from desloppify.languages._framework.base.types import ScanCoverageRecord
 
-_EMPTY_COUNTERS = tuple(sorted(finding_status_tokens()))
+_EMPTY_COUNTERS = tuple(sorted(issue_status_tokens()))
 _SUBJECTIVE_TARGET_RESET_THRESHOLD = 2
 
 
@@ -36,16 +36,16 @@ def _resolve_lang_from_state(state: StateModel) -> str | None:
     return None
 
 
-def _count_findings(findings: dict) -> tuple[dict[str, int], dict[int, dict[str, int]]]:
+def _count_findings(issues: dict) -> tuple[dict[str, int], dict[int, dict[str, int]]]:
     """Tally per-status counters and per-tier breakdowns."""
     counters = dict.fromkeys(_EMPTY_COUNTERS, 0)
     tier_stats: dict[int, dict[str, int]] = {}
 
-    for finding in findings.values():
-        if finding.get("suppressed"):
+    for issue in issues.values():
+        if issue.get("suppressed"):
             continue
-        status = finding["status"]
-        tier = finding.get("tier", 3)
+        status = issue["status"]
+        tier = issue.get("tier", 3)
         counters[status] = counters.get(status, 0) + 1
         tier_counter = tier_stats.setdefault(tier, dict.fromkeys(_EMPTY_COUNTERS, 0))
         tier_counter[status] = tier_counter.get(status, 0) + 1
@@ -274,7 +274,7 @@ def _apply_scan_coverage_to_dimension_scores(
 
 def _update_objective_health(
     state: StateModel,
-    findings: dict,
+    issues: dict,
     *,
     subjective_integrity_target: float | None = None,
 ) -> None:
@@ -337,7 +337,7 @@ def _update_objective_health(
             _ = exc
 
     bundle = compute_score_bundle(
-        findings,
+        issues,
         merged,
         subjective_assessments=subjective_assessments,
         allowed_subjective_dimensions=allowed_subjective,
@@ -397,10 +397,10 @@ def _recompute_stats(
     *,
     subjective_integrity_target: float | None = None,
 ) -> None:
-    """Recompute stats and canonical health scores from findings."""
+    """Recompute stats and canonical health scores from issues."""
     ensure_state_defaults(state)
-    findings = path_scoped_findings(state["findings"], scan_path)
-    counters, tier_stats = _count_findings(findings)
+    issues = path_scoped_issues(state["issues"], scan_path)
+    counters, tier_stats = _count_findings(issues)
     state["stats"] = {
         "total": sum(counters.values()),
         **counters,
@@ -410,7 +410,7 @@ def _recompute_stats(
     }
     _update_objective_health(
         state,
-        findings,
+        issues,
         subjective_integrity_target=subjective_integrity_target,
     )
 

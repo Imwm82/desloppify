@@ -91,7 +91,7 @@ def _emit(
     line: int,
     content: str,
 ) -> None:
-    """Append a smell finding."""
+    """Append a smell issue."""
     smell_counts[key].append({"file": ctx.filepath, "line": line, "content": content})
 
 

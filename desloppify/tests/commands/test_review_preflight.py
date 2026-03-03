@@ -56,7 +56,7 @@ def _mock_queue_context(objective_count: int = 0) -> SimpleNamespace:
 
 
 def test_blocked_when_open_objective_items(capsys):
-    """Preflight blocks when open objective findings exist."""
+    """Preflight blocks when open objective issues exist."""
     state = _state_with_prior_review()
     with patch(_QUEUE_CONTEXT, return_value=_mock_queue_context(objective_count=3)):
         with pytest.raises(CommandError) as exc:
@@ -64,7 +64,7 @@ def test_blocked_when_open_objective_items(capsys):
         assert exc.value.exit_code == 1
 
     err = capsys.readouterr().err
-    assert "Open objective finding(s): 3" in err
+    assert "Open objective issue(s): 3" in err
     assert "--force-review-rerun" in err
 
 
@@ -90,14 +90,14 @@ def test_targeted_dimension_does_not_block_own_preparation():
 
 
 def test_blocked_message_is_concise(capsys):
-    """Blocked message does not dump individual finding IDs."""
+    """Blocked message does not dump individual issue IDs."""
     state = _state_with_prior_review()
     with patch(_QUEUE_CONTEXT, return_value=_mock_queue_context(objective_count=8)):
         with pytest.raises(CommandError):
             review_rerun_preflight(state, _make_args())
 
     err = capsys.readouterr().err
-    assert "Open objective finding(s): 8" in err
+    assert "Open objective issue(s): 8" in err
 
 
 def test_allowed_when_queue_empty():
@@ -602,7 +602,7 @@ def test_import_skips_preflight():
         patch(_LANG, return_value=MagicMock(name="python")),
         patch("desloppify.app.commands.review.entrypoint.do_import"),
     ):
-        cmd_review(_review_args(import_file="findings.json"))
+        cmd_review(_review_args(import_file="issues.json"))
         mock_pf.assert_not_called()
 
 
@@ -616,7 +616,7 @@ def test_validate_import_skips_preflight():
         patch(_LANG, return_value=MagicMock(name="python")),
         patch("desloppify.app.commands.review.entrypoint.do_validate_import"),
     ):
-        cmd_review(_review_args(validate_import_file="findings.json"))
+        cmd_review(_review_args(validate_import_file="issues.json"))
         mock_pf.assert_not_called()
 
 

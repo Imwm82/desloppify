@@ -26,10 +26,10 @@ def build_show_payload(
     by_file: dict[str, list] = defaultdict(list)
     by_detector: dict[str, int] = defaultdict(int)
     by_tier: dict[int, int] = defaultdict(int)
-    for finding in matches:
-        by_file[finding["file"]].append(finding)
-        by_detector[finding["detector"]] += 1
-        by_tier[finding["tier"]] += 1
+    for issue in matches:
+        by_file[issue["file"]].append(issue)
+        by_detector[issue["detector"]] += 1
+        by_tier[issue["tier"]] += 1
 
     payload = {
         "query": pattern,

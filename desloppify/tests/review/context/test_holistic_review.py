@@ -23,7 +23,7 @@ from desloppify.intelligence.review import (
     generate_remediation_plan,
 )
 from desloppify.intelligence.review import (
-    import_holistic_findings as _import_holistic_findings_impl,
+    import_holistic_issues as _import_holistic_issues_impl,
 )
 from desloppify.intelligence.review import (
     prepare_holistic_review as _prepare_holistic_review_impl,
@@ -45,7 +45,7 @@ from desloppify.scoring import (
     HOLISTIC_POTENTIAL,
     detector_pass_rate,
 )
-from desloppify.state import empty_state, path_scoped_findings
+from desloppify.state import empty_state, path_scoped_issues
 
 
 @pytest.fixture
@@ -109,9 +109,9 @@ def prepare_holistic_review(
     )
 
 
-def import_holistic_findings(findings_data, state, lang_name):
-    payload = findings_data if isinstance(findings_data, dict) else {"findings": findings_data}
-    return _import_holistic_findings_impl(payload, state, lang_name)
+def import_holistic_issues(issues_data, state, lang_name):
+    payload = issues_data if isinstance(issues_data, dict) else {"issues": issues_data}
+    return _import_holistic_issues_impl(payload, state, lang_name)
 
 
 # ===================================================================
@@ -489,7 +489,7 @@ class TestPrepareHolisticReview:
         lang = _mock_lang([in_scope_file])
         lang.name = "python"
         state = empty_state()
-        state["findings"] = {
+        state["issues"] = {
             "in_scope_structural": {
                 "id": "in_scope_structural",
                 "detector": "structural",
@@ -561,14 +561,14 @@ class TestPrepareHolisticReview:
 
 
 # ===================================================================
-# import_holistic_findings
+# import_holistic_issues
 # ===================================================================
 
 
-class TestImportHolisticFindings:
+class TestImportHolisticIssues:
     def test_basic_import(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "god_module",
@@ -580,12 +580,12 @@ class TestImportHolisticFindings:
             }
         ]
 
-        diff = import_holistic_findings(findings_data, state, "python")
+        diff = import_holistic_issues(issues_data, state, "python")
 
         assert diff["new"] == 1
-        findings = list(state["findings"].values())
-        assert len(findings) == 1
-        f = findings[0]
+        issues = list(state["issues"].values())
+        assert len(issues) == 1
+        f = issues[0]
         assert f["file"] == "."
         assert f["detector"] == "review"
         assert f["detail"]["holistic"] is True
@@ -594,7 +594,7 @@ class TestImportHolisticFindings:
 
     def test_invalid_dimension_rejected(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "nonexistent_dimension",
                 "identifier": "foo",
@@ -603,24 +603,24 @@ class TestImportHolisticFindings:
             }
         ]
 
-        diff = import_holistic_findings(findings_data, state, "python")
+        diff = import_holistic_issues(issues_data, state, "python")
 
         assert diff["new"] == 0
-        assert len(state["findings"]) == 0
+        assert len(state["issues"]) == 0
 
     def test_missing_fields_rejected(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {"dimension": "cross_module_architecture"}
         ]  # missing identifier, summary, confidence
 
-        diff = import_holistic_findings(findings_data, state, "python")
+        diff = import_holistic_issues(issues_data, state, "python")
 
         assert diff["new"] == 0
 
     def test_multiple_findings(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "god_module",
@@ -641,18 +641,18 @@ class TestImportHolisticFindings:
             },
         ]
 
-        diff = import_holistic_findings(findings_data, state, "python")
+        diff = import_holistic_issues(issues_data, state, "python")
 
         assert diff["new"] == 2
-        assert len(state["findings"]) == 2
+        assert len(state["issues"]) == 2
 
     def test_holistic_cache_updated(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "god_module",
-                "summary": "test finding",
+                "summary": "test issue",
                 "confidence": "high",
                 "related_files": ["src/a.py"],
                 "evidence": ["Single file coordinates unrelated responsibilities."],
@@ -660,11 +660,11 @@ class TestImportHolisticFindings:
             }
         ]
 
-        import_holistic_findings(findings_data, state, "python")
+        import_holistic_issues(issues_data, state, "python")
 
         rc = state.get("review_cache", {})
         assert "holistic" in rc
-        assert rc["holistic"]["finding_count"] == 1
+        assert rc["holistic"]["issue_count"] == 1
         assert "reviewed_at" in rc["holistic"]
 
     def test_reviewed_files_refreshes_per_file_cache(self, tmp_path):
@@ -673,9 +673,9 @@ class TestImportHolisticFindings:
         module_path.parent.mkdir(parents=True, exist_ok=True)
         module_path.write_text("def run():\n    return 1\n")
 
-        findings_data = {
+        issues_data = {
             "assessments": {"high_level_elegance": 95},
-            "findings": [],
+            "issues": [],
             "reviewed_files": ["pkg/module.py"],
         }
 
@@ -683,7 +683,7 @@ class TestImportHolisticFindings:
         ctx = RuntimeContext(project_root=tmp_path)
         with runtime_scope(ctx), \
              patch("desloppify.intelligence.review.importing.holistic.PROJECT_ROOT", tmp_path):
-            _ = import_holistic_findings(findings_data, state, "python")
+            _ = import_holistic_issues(issues_data, state, "python")
 
         files_cache = state.get("review_cache", {}).get("files", {})
         assert "pkg/module.py" in files_cache
@@ -698,7 +698,7 @@ class TestImportHolisticFindings:
         module_path.write_text("def run():\n    return 1\n")
 
         coverage_id = "subjective_review::pkg/module.py::changed"
-        state["findings"][coverage_id] = {
+        state["issues"][coverage_id] = {
             "id": coverage_id,
             "detector": "subjective_review",
             "file": "pkg/module.py",
@@ -716,7 +716,7 @@ class TestImportHolisticFindings:
 
         payload = {
             "assessments": {"high_level_elegance": 95},
-            "findings": [],
+            "issues": [],
             "reviewed_files": ["pkg/module.py"],
         }
 
@@ -726,14 +726,14 @@ class TestImportHolisticFindings:
         with runtime_scope(ctx), patch(
             "desloppify.intelligence.review.importing.holistic.PROJECT_ROOT", tmp_path
         ):
-            diff = import_holistic_findings(payload, state, "python")
+            diff = import_holistic_issues(payload, state, "python")
 
         assert diff["auto_resolved"] >= 1
-        assert state["findings"][coverage_id]["status"] == "auto_resolved"
+        assert state["issues"][coverage_id]["status"] == "auto_resolved"
 
     def test_holistic_potential_added(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "dependency_health",
                 "identifier": "unused_deps",
@@ -745,14 +745,14 @@ class TestImportHolisticFindings:
             }
         ]
 
-        import_holistic_findings(findings_data, state, "python")
+        import_holistic_issues(issues_data, state, "python")
 
         pots = state.get("potentials", {})
         assert pots.get("python", {}).get("review") == HOLISTIC_POTENTIAL
 
     def test_finding_id_contains_holistic(self):
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "god_module",
@@ -764,15 +764,15 @@ class TestImportHolisticFindings:
             }
         ]
 
-        import_holistic_findings(findings_data, state, "python")
+        import_holistic_issues(issues_data, state, "python")
 
-        fid = list(state["findings"].keys())[0]
+        fid = list(state["issues"].keys())[0]
         assert "holistic" in fid
 
     def test_positive_observation_skipped(self):
         """Positive observations (compliments) are rejected during import."""
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "good_decomposition",
@@ -802,19 +802,19 @@ class TestImportHolisticFindings:
             },
         ]
 
-        diff = import_holistic_findings(findings_data, state, "python")
+        diff = import_holistic_issues(issues_data, state, "python")
 
         # Only the actual defect should be imported
         assert diff["new"] == 1
         assert diff.get("skipped", 0) == 2
-        findings = list(state["findings"].values())
-        assert len(findings) == 1
-        assert "vague_name" in findings[0]["id"]
+        issues = list(state["issues"].values())
+        assert len(issues) == 1
+        assert "vague_name" in issues[0]["id"]
 
     def test_missing_suggestion_rejected(self):
-        """Findings without suggestion field are rejected."""
+        """Issues without suggestion field are rejected."""
         state = empty_state()
-        findings_data = [
+        issues_data = [
             {
                 "dimension": "cross_module_architecture",
                 "identifier": "god_module",
@@ -826,7 +826,7 @@ class TestImportHolisticFindings:
             },
         ]
 
-        diff = import_holistic_findings(findings_data, state, "python")
+        diff = import_holistic_issues(issues_data, state, "python")
 
         assert diff["new"] == 0
         assert diff.get("skipped", 0) == 1
@@ -839,11 +839,11 @@ class TestImportHolisticFindings:
 
 
 class TestHolisticScoring:
-    """Review findings are excluded from detection-side scoring.
+    """Review issues are excluded from detection-side scoring.
 
     The review detector is scored via subjective assessments only.
     ``detector_pass_rate("review", ...)`` always returns a perfect score
-    regardless of the findings present.
+    regardless of the issues present.
     """
 
     def _holistic_finding(self, confidence="high", status="open"):
@@ -867,43 +867,43 @@ class TestHolisticScoring:
         }
 
     def test_review_excluded_from_scoring(self):
-        """Review findings always return perfect pass rate."""
-        findings = {"0": self._holistic_finding(confidence="high")}
-        rate, issues, weighted = detector_pass_rate("review", findings, 60)
+        """Review issues always return perfect pass rate."""
+        issues = {"0": self._holistic_finding(confidence="high")}
+        rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
         assert rate == 1.0
         assert issues == 0
         assert weighted == 0.0
 
     def test_multiple_review_findings_still_excluded(self):
-        """Multiple review findings still produce perfect score."""
-        findings = {
+        """Multiple review issues still produce perfect score."""
+        issues = {
             "0": self._holistic_finding(confidence="high"),
             "1": self._holistic_finding(confidence="medium"),
         }
-        rate, issues, weighted = detector_pass_rate("review", findings, 60)
+        rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
         assert rate == 1.0
         assert issues == 0
         assert weighted == 0.0
 
     def test_mixed_holistic_and_file_excluded(self):
-        """Both holistic and file-based review findings are excluded."""
-        findings = {
+        """Both holistic and file-based review issues are excluded."""
+        issues = {
             "0": self._holistic_finding(confidence="high"),
             "1": self._file_finding(confidence="high", file="src/a.py"),
             "2": self._file_finding(confidence="high", file="src/a.py"),
         }
-        rate, issues, weighted = detector_pass_rate("review", findings, 60)
+        rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
         assert rate == 1.0
         assert issues == 0
         assert weighted == 0.0
 
     def test_resolved_review_also_excluded(self):
-        """Even resolved review findings return perfect score."""
-        findings = {"0": self._holistic_finding(confidence="high", status="fixed")}
-        rate, issues, weighted = detector_pass_rate("review", findings, 60)
+        """Even resolved review issues return perfect score."""
+        issues = {"0": self._holistic_finding(confidence="high", status="fixed")}
+        rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
         assert issues == 0
         assert weighted == 0.0
@@ -911,13 +911,13 @@ class TestHolisticScoring:
 
 
 # ===================================================================
-# path_scoped_findings includes holistic
+# path_scoped_issues includes holistic
 # ===================================================================
 
 
-class TestPathScopedFindings:
+class TestPathScopedIssues:
     def test_holistic_included_with_scan_path(self):
-        findings = {
+        issues = {
             "review::.::holistic::arch::abc": {
                 "file": ".",
                 "status": "open",
@@ -936,7 +936,7 @@ class TestPathScopedFindings:
             },
         }
 
-        result = path_scoped_findings(findings, "src")
+        result = path_scoped_issues(issues, "src")
 
         # Should include holistic (file=".") and src/a.py, but not lib/b.py
         assert "review::.::holistic::arch::abc" in result
@@ -944,25 +944,25 @@ class TestPathScopedFindings:
         assert "unused::lib/b.py::bar" not in result
 
     def test_holistic_included_with_root_path(self):
-        findings = {
+        issues = {
             "review::.::holistic::test": {
                 "file": ".",
                 "status": "open",
             },
         }
 
-        result = path_scoped_findings(findings, ".")
+        result = path_scoped_issues(issues, ".")
         assert len(result) == 1
 
     def test_holistic_included_with_no_path(self):
-        findings = {
+        issues = {
             "review::.::holistic::test": {
                 "file": ".",
                 "status": "open",
             },
         }
 
-        result = path_scoped_findings(findings, None)
+        result = path_scoped_issues(issues, None)
         assert len(result) == 1
 
 
@@ -983,7 +983,7 @@ class TestHolisticStaleness:
             "holistic": {
                 "reviewed_at": now,
                 "file_count_at_review": 100,
-                "finding_count": 2,
+                "issue_count": 2,
             }
         }
         entries = detect_holistic_review_staleness(cache, total_files=100)
@@ -997,7 +997,7 @@ class TestHolisticStaleness:
             "holistic": {
                 "reviewed_at": old,
                 "file_count_at_review": 100,
-                "finding_count": 2,
+                "issue_count": 2,
             }
         }
         entries = detect_holistic_review_staleness(cache, total_files=100)
@@ -1011,7 +1011,7 @@ class TestHolisticStaleness:
             "holistic": {
                 "reviewed_at": now,
                 "file_count_at_review": 50,
-                "finding_count": 2,
+                "issue_count": 2,
             }
         }
         # 50 → 80 = 60% drift, exceeds 20% threshold
@@ -1027,7 +1027,7 @@ class TestHolisticStaleness:
             "holistic": {
                 "reviewed_at": now,
                 "file_count_at_review": 100,
-                "finding_count": 2,
+                "issue_count": 2,
             }
         }
         # 100 → 110 = 10% drift, within 20% threshold
@@ -1039,7 +1039,7 @@ class TestHolisticStaleness:
             "holistic": {
                 "reviewed_at": "not-a-date",
                 "file_count_at_review": 100,
-                "finding_count": 2,
+                "issue_count": 2,
             }
         }
         entries = detect_holistic_review_staleness(cache, total_files=100)
@@ -1054,7 +1054,7 @@ class TestHolisticStaleness:
 
 class TestNarrativeHolisticCounting:
     def test_review_holistic_counted_separately(self):
-        findings = {
+        issues = {
             "review::.::holistic::arch::abc": {
                 "status": "open",
                 "detector": "review",
@@ -1067,13 +1067,13 @@ class TestNarrativeHolisticCounting:
             },
         }
 
-        by_det = _count_open_by_detector(findings)
+        by_det = _count_open_by_detector(issues)
 
-        assert by_det["review"] == 2  # total review findings
+        assert by_det["review"] == 2  # total review issues
         assert by_det["review_holistic"] == 1  # holistic subset
 
     def test_no_holistic_no_key(self):
-        findings = {
+        issues = {
             "review::src/a.py::naming::def": {
                 "status": "open",
                 "detector": "review",
@@ -1081,13 +1081,13 @@ class TestNarrativeHolisticCounting:
             },
         }
 
-        by_det = _count_open_by_detector(findings)
+        by_det = _count_open_by_detector(issues)
 
         assert by_det["review"] == 1
         assert "review_holistic" not in by_det
 
     def test_resolved_holistic_not_counted(self):
-        findings = {
+        issues = {
             "review::.::holistic::arch::abc": {
                 "status": "fixed",
                 "detector": "review",
@@ -1095,7 +1095,7 @@ class TestNarrativeHolisticCounting:
             },
         }
 
-        by_det = _count_open_by_detector(findings)
+        by_det = _count_open_by_detector(issues)
 
         assert by_det.get("review", 0) == 0
         assert by_det.get("review_holistic", 0) == 0
@@ -1689,13 +1689,13 @@ class TestConventionOutlierPrompt:
 
 
 def _state_with_holistic_findings(*findings_args):
-    """Create a state with holistic findings for plan testing."""
+    """Create a state with holistic issues for plan testing."""
     state = empty_state()
     state["potentials"] = {"python": {"review": HOLISTIC_POTENTIAL}}
     state["objective_score"] = 45.0
     state["strict_score"] = 38.0
     for fid, conf, dim, summary in findings_args:
-        state["findings"][fid] = {
+        state["issues"][fid] = {
             "id": fid,
             "file": ".",
             "status": "open",
@@ -1762,7 +1762,7 @@ class TestGenerateRemediationPlan:
                 "review::.::holistic::arch::abc",
                 "high",
                 "cross_module_architecture",
-                "Test finding",
+                "Test issue",
             ),
         )
 
@@ -1774,7 +1774,7 @@ class TestGenerateRemediationPlan:
     def test_resolve_command_included(self):
         fid = "review::.::holistic::arch::abc123"
         state = _state_with_holistic_findings(
-            (fid, "high", "cross_module_architecture", "Finding X"),
+            (fid, "high", "cross_module_architecture", "Issue X"),
         )
 
         plan = generate_remediation_plan(state, "python")
@@ -1787,7 +1787,7 @@ class TestGenerateRemediationPlan:
                 "review::.::holistic::arch::abc",
                 "high",
                 "cross_module_architecture",
-                "Finding",
+                "Issue",
             ),
         )
 
@@ -1802,7 +1802,7 @@ class TestGenerateRemediationPlan:
                 "review::.::holistic::arch::abc",
                 "high",
                 "cross_module_architecture",
-                "Finding",
+                "Issue",
             ),
         )
 
@@ -1818,7 +1818,7 @@ class TestGenerateRemediationPlan:
                 "review::.::holistic::arch::abc",
                 "high",
                 "cross_module_architecture",
-                "Finding",
+                "Issue",
             ),
         )
 
@@ -1833,7 +1833,7 @@ class TestGenerateRemediationPlan:
 
         plan = generate_remediation_plan(state, "python")
 
-        assert "No open holistic findings" in plan
+        assert "No open holistic issues" in plan
         assert "95.0/100" in plan
 
     def test_resolved_findings_excluded(self):
@@ -1845,21 +1845,21 @@ class TestGenerateRemediationPlan:
                 "Open one",
             ),
         )
-        # Add a resolved finding that should NOT appear
-        state["findings"]["review::.::holistic::test::def"] = {
+        # Add a resolved issue that should NOT appear
+        state["issues"]["review::.::holistic::test::def"] = {
             "id": "review::.::holistic::test::def",
             "file": ".",
             "status": "fixed",
             "detector": "review",
             "confidence": "high",
             "detail": {"holistic": True, "dimension": "test_strategy"},
-            "summary": "Resolved finding",
+            "summary": "Resolved issue",
         }
 
         plan = generate_remediation_plan(state, "python")
 
         assert "Open one" in plan
-        assert "Resolved finding" not in plan
+        assert "Resolved issue" not in plan
 
     def test_writes_to_file(self, tmp_path):
         state = _state_with_holistic_findings(
@@ -1867,7 +1867,7 @@ class TestGenerateRemediationPlan:
                 "review::.::holistic::arch::abc",
                 "high",
                 "cross_module_architecture",
-                "Finding",
+                "Issue",
             ),
         )
         output = tmp_path / "plan.md"
@@ -1876,7 +1876,7 @@ class TestGenerateRemediationPlan:
 
         assert output.exists()
         assert output.read_text() == plan
-        assert "Finding" in output.read_text()
+        assert "Issue" in output.read_text()
 
     def test_lang_name_in_commands(self):
         state = _state_with_holistic_findings(
@@ -1884,7 +1884,7 @@ class TestGenerateRemediationPlan:
                 "review::.::holistic::arch::abc",
                 "high",
                 "cross_module_architecture",
-                "Finding",
+                "Issue",
             ),
         )
 
@@ -1954,7 +1954,7 @@ class TestNewHolisticDimensions:
                 "suggestion": "Consolidate to fetch",
             },
         ]
-        diff = import_holistic_findings(data, state, "typescript")
+        diff = import_holistic_issues(data, state, "typescript")
         assert diff["new"] == 3
 
     def test_cross_module_prompt_includes_contract_drift_signal(self):
@@ -2324,7 +2324,7 @@ class TestPackageOrganizationDimension:
                 "suggestion": "Move viz files into output/ subpackage",
             }
         ]
-        diff = import_holistic_findings(data, state, "python")
+        diff = import_holistic_issues(data, state, "python")
         assert diff["new"] == 1
 
     def test_investigation_batch_generated(self):

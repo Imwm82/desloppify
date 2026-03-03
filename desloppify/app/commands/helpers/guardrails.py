@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from desloppify.app.commands.helpers.display import short_finding_id
+from desloppify.app.commands.helpers.display import short_issue_id
 from desloppify.core.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.core.output_api import colorize
 from desloppify.engine.plan import (
@@ -59,7 +59,7 @@ def print_triage_guardrail_info(
 
     if result.new_ids:
         print(colorize(
-            f"  {len(result.new_ids)} new review finding(s) not yet triaged.",
+            f"  {len(result.new_ids)} new review issue(s) not yet triaged.",
             "yellow",
         ))
 
@@ -91,17 +91,17 @@ def require_triage_current_or_exit(
 
     new_ids = result.new_ids
     lines = [
-        f"BLOCKED: {len(new_ids) or 'some'} new review finding(s) have not been triaged."
+        f"BLOCKED: {len(new_ids) or 'some'} new review issue(s) have not been triaged."
     ]
     if new_ids:
         for fid in sorted(new_ids)[:5]:
-            f = state.get("findings", {}).get(fid, {})
-            lines.append(f"    * [{short_finding_id(fid)}] {f.get('summary', '')}")
+            f = state.get("issues", {}).get(fid, {})
+            lines.append(f"    * [{short_issue_id(fid)}] {f.get('summary', '')}")
         if len(new_ids) > 5:
             lines.append(f"    ... and {len(new_ids) - 5} more")
     lines.append("")
     lines.append("  NEXT STEP: desloppify plan triage")
-    lines.append("  (Review new findings, then either --confirm-existing or re-plan.)")
+    lines.append("  (Review new issues, then either --confirm-existing or re-plan.)")
     lines.append("")
     lines.append("  View new items:  desloppify plan queue --sort recent")
     lines.append('  To bypass: --force-resolve --attest "I understand the plan may be stale..."')

@@ -36,7 +36,7 @@ class ScoreBundle:
 
 
 def compute_dimension_scores_by_mode(
-    findings: dict,
+    issues: dict,
     potentials: dict[str, int],
     *,
     subjective_assessments: dict | None = None,
@@ -61,16 +61,16 @@ def compute_dimension_scores_by_mode(
             if potential <= 0:
                 continue
 
-            detector_stats = detector_stats_by_mode(detector, findings, potential)
+            detector_stats = detector_stats_by_mode(detector, issues, potential)
             for mode in SCORING_MODES:
-                pass_rate, issues, weighted = detector_stats[mode]
+                pass_rate, failing, weighted = detector_stats[mode]
                 totals[mode]["checks"] += potential
-                totals[mode]["failing"] += issues
+                totals[mode]["failing"] += failing
                 totals[mode]["weighted_failures"] += weighted
                 totals[mode]["detectors"][detector] = {
                     "potential": potential,
                     "pass_rate": pass_rate,
-                    "failing": issues,
+                    "failing": failing,
                     "weighted_failures": weighted,
                 }
 
@@ -96,7 +96,7 @@ def compute_dimension_scores_by_mode(
     for mode in SCORING_MODES:
         append_subjective_dimensions(
             results[mode],
-            findings,
+            issues,
             subjective_assessments,
             FAILURE_STATUSES_BY_MODE[mode],
             allowed_dimensions=allowed_subjective_dimensions,
@@ -105,17 +105,17 @@ def compute_dimension_scores_by_mode(
 
 
 def compute_dimension_scores(
-    findings: dict,
+    issues: dict,
     potentials: dict[str, int],
     *,
     strict: bool = False,
     subjective_assessments: dict | None = None,
     allowed_subjective_dimensions: set[str] | None = None,
 ) -> dict[str, dict]:
-    """Compute per-dimension scores from findings and potentials."""
+    """Compute per-dimension scores from issues and potentials."""
     mode: ScoreMode = "strict" if strict else "lenient"
     return compute_dimension_scores_by_mode(
-        findings,
+        issues,
         potentials,
         subjective_assessments=subjective_assessments,
         allowed_subjective_dimensions=allowed_subjective_dimensions,
@@ -123,7 +123,7 @@ def compute_dimension_scores(
 
 
 def compute_score_bundle(
-    findings: dict,
+    issues: dict,
     potentials: dict[str, int],
     *,
     subjective_assessments: dict | None = None,
@@ -131,7 +131,7 @@ def compute_score_bundle(
 ) -> ScoreBundle:
     """Compute all score channels from one scoring engine pass."""
     by_mode = compute_dimension_scores_by_mode(
-        findings,
+        issues,
         potentials,
         subjective_assessments=subjective_assessments,
         allowed_subjective_dimensions=allowed_subjective_dimensions,

@@ -1,4 +1,4 @@
-"""Finding factory functions — normalize raw detector output into Finding dicts."""
+"""Issue factory functions — normalize raw detector output into Issue dicts."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from pathlib import Path
 
 from desloppify.core.enums import Tier
 from desloppify.core.discovery_api import rel
-from desloppify.state import Finding, make_finding
+from desloppify.state import Issue, make_issue
 
 
-def make_unused_findings(entries: list[dict], stderr_fn) -> list[Finding]:
-    """Transform raw unused-detector entries into normalized findings.
+def make_unused_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+    """Transform raw unused-detector entries into normalized issues.
 
     Shared by both Python and TypeScript unused phases.
     """
@@ -19,7 +19,7 @@ def make_unused_findings(entries: list[dict], stderr_fn) -> list[Finding]:
     for e in entries:
         tier = 1 if e["category"] == "imports" else 2
         results.append(
-            make_finding(
+            make_issue(
                 "unused",
                 e["file"],
                 e["name"],
@@ -29,14 +29,14 @@ def make_unused_findings(entries: list[dict], stderr_fn) -> list[Finding]:
                 detail={"line": e["line"], "category": e["category"]},
             )
         )
-    stderr_fn(f"         {len(entries)} instances -> {len(results)} findings")
+    stderr_fn(f"         {len(entries)} instances -> {len(results)} issues")
     return results
 
 
-def make_dupe_findings(entries: list[dict], stderr_fn) -> list[Finding]:
-    """Transform clustered duplicate entries into normalized findings.
+def make_dupe_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+    """Transform clustered duplicate entries into normalized issues.
 
-    Each entry represents a cluster of similar functions. One finding per cluster.
+    Each entry represents a cluster of similar functions. One issue per cluster.
     """
     results = []
     for e in entries:
@@ -63,7 +63,7 @@ def make_dupe_findings(entries: list[dict], stderr_fn) -> list[Finding]:
                 f"{b['name']} ({rel(b['file'])}:{b['line']}) [{e['similarity']:.0%}]"
             )
         results.append(
-            make_finding(
+            make_issue(
                 "dupes",
                 pair[0][0],
                 name,
@@ -95,8 +95,8 @@ def make_single_use_findings(
     suppress_colocated: bool = True,
     skip_dir_names: set[str] | None = None,
     stderr_fn,
-) -> list[Finding]:
-    """Filter and normalize single-use entries into findings.
+) -> list[Issue]:
+    """Filter and normalize single-use entries into issues.
 
     Suppresses entries within the LOC range (they're appropriately-sized abstractions),
     entries co-located with their sole importer, and entries in skip_dir_names
@@ -120,7 +120,7 @@ def make_single_use_findings(
                 colocated_suppressed += 1
                 continue
         results.append(
-            make_finding(
+            make_issue(
                 "single_use",
                 e["file"],
                 "",
@@ -139,8 +139,8 @@ def make_single_use_findings(
     return results
 
 
-def make_cycle_findings(entries: list[dict], stderr_fn) -> list[Finding]:
-    """Normalize import cycles into findings."""
+def make_cycle_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+    """Normalize import cycles into issues."""
     results = []
     for cy in entries:
         cycle_files = [rel(f) for f in cy["files"]]
@@ -149,7 +149,7 @@ def make_cycle_findings(entries: list[dict], stderr_fn) -> list[Finding]:
             name += f"::+{len(cycle_files) - 4}"
         tier = 3 if cy["length"] <= 3 else 4
         results.append(
-            make_finding(
+            make_issue(
                 "cycles",
                 cy["files"][0],
                 name,
@@ -166,12 +166,12 @@ def make_cycle_findings(entries: list[dict], stderr_fn) -> list[Finding]:
     return results
 
 
-def make_orphaned_findings(entries: list[dict], stderr_fn) -> list[Finding]:
-    """Normalize orphaned file entries into findings."""
+def make_orphaned_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+    """Normalize orphaned file entries into issues."""
     results = []
     for e in entries:
         results.append(
-            make_finding(
+            make_issue(
                 "orphaned",
                 e["file"],
                 "",
@@ -189,11 +189,11 @@ def make_orphaned_findings(entries: list[dict], stderr_fn) -> list[Finding]:
 SMELL_TIER_MAP = {"high": Tier.QUICK_FIX, "medium": Tier.JUDGMENT, "low": Tier.JUDGMENT}
 
 
-def make_smell_findings(entries: list[dict], stderr_fn) -> list[Finding]:
+def make_smell_findings(entries: list[dict], stderr_fn) -> list[Issue]:
     """Group smell entries by file and assign tiers from severity.
 
     Input: list of smell dicts from detect_smells, each with id/label/severity/matches.
-    Output: findings grouped per (file, smell_id).
+    Output: issues grouped per (file, smell_id).
     """
     results = []
     for e in entries:
@@ -204,7 +204,7 @@ def make_smell_findings(entries: list[dict], stderr_fn) -> list[Finding]:
             conf = "medium" if e["severity"] != "low" else "low"
             tier = SMELL_TIER_MAP.get(e["severity"], 3)
             results.append(
-                make_finding(
+                make_issue(
                     "smells",
                     file,
                     e["id"],
@@ -219,7 +219,7 @@ def make_smell_findings(entries: list[dict], stderr_fn) -> list[Finding]:
                     },
                 )
             )
-    stderr_fn(f"         -> {len(results)} smell findings")
+    stderr_fn(f"         -> {len(results)} smell issues")
     return results
 
 
@@ -228,13 +228,13 @@ def make_passthrough_findings(
     name_key: str,
     total_key: str,
     stderr_fn,
-) -> list[Finding]:
-    """Normalize passthrough detection results into findings."""
+) -> list[Issue]:
+    """Normalize passthrough detection results into issues."""
     results = []
     for e in entries:
         label = e[name_key]
         results.append(
-            make_finding(
+            make_issue(
                 "props",
                 e["file"],
                 f"passthrough::{label}",
@@ -246,12 +246,12 @@ def make_passthrough_findings(
             )
         )
     if entries:
-        stderr_fn(f"         passthrough: {len(entries)} findings")
+        stderr_fn(f"         passthrough: {len(entries)} issues")
     return results
 
 
-def make_facade_findings(entries: list[dict], stderr_fn) -> list[Finding]:
-    """Normalize re-export facade entries into findings."""
+def make_facade_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+    """Normalize re-export facade entries into issues."""
     results = []
     for e in entries:
         kind = e["kind"]
@@ -269,7 +269,7 @@ def make_facade_findings(entries: list[dict], stderr_fn) -> list[Finding]:
                 f"imports from {from_str} ({e['importers']} importers)"
             )
         results.append(
-            make_finding(
+            make_issue(
                 "facade",
                 e["file"],
                 "",
@@ -285,5 +285,5 @@ def make_facade_findings(entries: list[dict], stderr_fn) -> list[Finding]:
             )
         )
     if entries:
-        stderr_fn(f"         facades: {len(entries)} re-export facade findings")
+        stderr_fn(f"         facades: {len(entries)} re-export facade issues")
     return results

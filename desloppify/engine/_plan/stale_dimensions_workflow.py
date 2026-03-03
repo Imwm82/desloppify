@@ -72,7 +72,7 @@ def sync_communicate_score_needed(
     if not should_inject:
         return result
 
-    # Insert after any subjective items, before triage/workflow/findings
+    # Insert after any subjective items, before triage/workflow/issues
     insert_at = 0
     for i, fid in enumerate(order):
         if fid.startswith(SUBJECTIVE_PREFIX):
@@ -103,7 +103,7 @@ def sync_create_plan_needed(
 
     Only injects when:
     - No unscored (placeholder) subjective dimensions remain
-    - At least one objective finding exists
+    - At least one objective issue exists
     - ``workflow::create-plan`` is not already in the queue
     - No triage stages are pending
     """
@@ -127,11 +127,11 @@ def sync_create_plan_needed(
         unscored = current_unscored_ids(state)
         if unscored:
             return result
-        findings = state.get("findings", {})
+        issues = state.get("issues", {})
         has_objective = any(
             f.get("status") == "open"
             and f.get("detector") not in NON_OBJECTIVE_DETECTORS
-            for f in findings.values()
+            for f in issues.values()
         )
     if not has_objective:
         return result
@@ -164,7 +164,7 @@ def sync_import_scores_needed(
     *,
     assessment_mode: str | None = None,
 ) -> ImportScoresSyncResult:
-    """Inject ``workflow::import-scores`` after findings-only import.
+    """Inject ``workflow::import-scores`` after issues-only import.
 
     Only injects when:
     - Assessment mode was ``findings_only`` (scores were skipped)
@@ -180,7 +180,7 @@ def sync_import_scores_needed(
     if WORKFLOW_IMPORT_SCORES_ID in order:
         return result
 
-    # Only inject when scores were skipped (findings-only mode)
+    # Only inject when scores were skipped (issues-only mode)
     if assessment_mode != "findings_only":
         return result
 

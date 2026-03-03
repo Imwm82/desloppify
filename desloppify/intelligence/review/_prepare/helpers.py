@@ -9,13 +9,13 @@ from desloppify.core.discovery_api import rel
 HOLISTIC_WORKFLOW = [
     "Read .desloppify/query.json for context, excerpts, and investigation batches",
     "For each batch: start from listed seed files, then explore likely hotspots/unreviewed neighbors; evaluate the batch's dimensions (batches are independent — parallelize)",
-    "Cross-reference findings with the sibling_behavior and convention data",
-    "IMPORTANT: findings must be defects only — never positive observations. High scores capture quality; findings capture problems.",
-    "Write ALL findings to findings.json — do NOT fix code before importing. Import creates tracked state entries that let desloppify correlate fixes to findings.",
+    "Cross-reference issues with the sibling_behavior and convention data",
+    "IMPORTANT: issues must be defects only — never positive observations. High scores capture quality; issues capture problems.",
+    "Write ALL issues to issues.json — do NOT fix code before importing. Import creates tracked state entries that let desloppify correlate fixes to issues.",
     "Preferred local Codex path: desloppify review --run-batches --runner codex --parallel --scan-after-import",
     "Claude cloud durable path: run `desloppify review --external-start --external-runner claude`, follow the session template/instructions, then run the printed `--external-submit` command",
-    "Fallback path: `desloppify review --import findings.json` (findings only). Use manual override only for emergency/provisional imports.",
-    "AFTER importing: run `desloppify show review --status open` to see the work queue, then fix each finding in code and `desloppify plan resolve <id>`",
+    "Fallback path: `desloppify review --import issues.json` (issues only). Use manual override only for emergency/provisional imports.",
+    "AFTER importing: run `desloppify show review --status open` to see the work queue, then fix each issue in code and `desloppify plan resolve <id>`",
 ]
 
 

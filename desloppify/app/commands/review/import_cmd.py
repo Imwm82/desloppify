@@ -30,7 +30,7 @@ from desloppify.intelligence.review.importing.contracts import (
     AssessmentImportPolicyModel,
     ReviewImportPayload,
 )
-from desloppify.app.commands.helpers.display import short_finding_id
+from desloppify.app.commands.helpers.display import short_issue_id
 from desloppify.core.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.core.output_api import colorize
 
@@ -70,9 +70,9 @@ def _validate_import_flag_combos(
         raise ImportFlagValidationError("--manual-override requires --attest")
 
 
-def _imported_assessment_keys(findings_data: ReviewImportPayload) -> set[str]:
+def _imported_assessment_keys(issues_data: ReviewImportPayload) -> set[str]:
     """Return normalized assessment dimension keys from payload."""
-    raw_assessments = findings_data["assessments"]
+    raw_assessments = issues_data["assessments"]
     keys: set[str] = set()
     for raw_key in raw_assessments:
         normalized = normalize_dimension_name(str(raw_key))
@@ -139,13 +139,13 @@ def _print_review_import_sync(state: dict, result: ReviewImportSyncResult) -> No
     """Print summary of plan changes after review import sync."""
     new_ids = result.new_ids
     print(colorize(
-        f"\n  Plan updated: {len(new_ids)} new review finding(s) added to queue.",
+        f"\n  Plan updated: {len(new_ids)} new review issue(s) added to queue.",
         "bold",
     ))
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     for fid in sorted(new_ids)[:10]:
-        f = findings.get(fid, {})
-        print(f"    * [{short_finding_id(fid)}] {f.get('summary', '')}")
+        f = issues.get(fid, {})
+        print(f"    * [{short_issue_id(fid)}] {f.get('summary', '')}")
     if len(new_ids) > 10:
         print(colorize(f"    ... and {len(new_ids) - 10} more", "dim"))
     print()
@@ -156,7 +156,7 @@ def _print_review_import_sync(state: dict, result: ReviewImportSyncResult) -> No
     print()
     print(colorize("  NEXT STEP:  desloppify plan triage", "yellow"))
     print(colorize(
-        "  (Review new findings and decide whether to re-plan or accept current queue.)",
+        "  (Review new issues and decide whether to re-plan or accept current queue.)",
         "dim",
     ))
 
@@ -164,7 +164,7 @@ def _print_review_import_sync(state: dict, result: ReviewImportSyncResult) -> No
 def _sync_plan_after_import(state: dict, diff: dict, assessment_mode: str) -> None:
     """All post-import plan syncs. Load once, save once.
 
-    Phase 1 (finding sync): Only when new/reopened findings arrived — adds them
+    Phase 1 (issue sync): Only when new/reopened issues arrived — adds them
     to queue, auto-resolves covered subjective items.
     Phase 2 (workflow items): Always — injects score-checkpoint, create-plan,
     import-scores, and communicate-score workflow items as needed.
@@ -192,14 +192,14 @@ def _sync_plan_after_import(state: dict, diff: dict, assessment_mode: str) -> No
         plan = load_plan()
         dirty = False
 
-        # Phase 1: Finding sync (only when new/reopened findings arrived)
-        has_new_findings = (
+        # Phase 1: Issue sync (only when new/reopened issues arrived)
+        has_new_issues = (
             int(diff.get("new", 0) or 0) > 0
             or int(diff.get("reopened", 0) or 0) > 0
         )
         import_result = None
         covered_ids: list[str] = []
-        if has_new_findings:
+        if has_new_issues:
             import_result = sync_plan_after_review_import(plan, state)
             if import_result is not None:
                 dirty = True
@@ -296,7 +296,7 @@ def do_import(
     assessment_override: bool = False,
     assessment_note: str | None = None,
 ) -> None:
-    """Import mode: ingest agent-produced findings."""
+    """Import mode: ingest agent-produced issues."""
     override_enabled, override_attest = import_helpers_mod.resolve_override_context(
         manual_override=manual_override,
         manual_attest=manual_attest,
@@ -314,7 +314,7 @@ def do_import(
         raise CommandError(str(exc), exit_code=1) from exc
 
     try:
-        findings_data = import_helpers_mod.load_import_findings_data(
+        issues_data = import_helpers_mod.load_import_findings_data(
             import_file,
             lang_name=lang.name,
             allow_partial=allow_partial,
@@ -334,7 +334,7 @@ def do_import(
         )
         raise CommandError("import payload validation failed", exit_code=1) from exc
     assessment_policy: AssessmentImportPolicyModel = (
-        import_helpers_mod.assessment_policy_model_from_payload(findings_data)
+        import_helpers_mod.assessment_policy_model_from_payload(issues_data)
     )
     import_helpers_mod.print_assessment_mode_banner(
         assessment_policy.to_dict(),
@@ -356,9 +356,9 @@ def do_import(
         working_state = copy.deepcopy(state_mod.load_state(state_path))
     else:
         working_state = copy.deepcopy(state)
-    diff = review_mod.import_holistic_findings(findings_data, working_state, lang.name)
+    diff = review_mod.import_holistic_issues(issues_data, working_state, lang.name)
     label = "Holistic review"
-    imported_assessment_keys = _imported_assessment_keys(findings_data)
+    imported_assessment_keys = _imported_assessment_keys(issues_data)
     provisional_count = 0
     if assessment_policy.mode == "manual_override":
         provisional_count = _mark_manual_override_assessments_provisional(
@@ -378,7 +378,7 @@ def do_import(
             details_lines.append(
                 f"  #{detail.get('index', '?')} ({detail.get('identifier', '<none>')}): {reasons}"
             )
-        msg = "import produced skipped finding(s); refusing partial import."
+        msg = "import produced skipped issue(s); refusing partial import."
         if details_lines:
             msg += "\n" + "\n".join(details_lines)
         msg += "\nFix the payload and retry, or pass --allow-partial to override."
@@ -404,7 +404,7 @@ def do_import(
     state.update(working_state)
     state_mod.save_state(state, state_file)
 
-    # Sync plan: finding sync (if new findings) + workflow items (always).
+    # Sync plan: issue sync (if new issues) + workflow items (always).
     _sync_plan_after_import(state, diff, assessment_policy.mode)
 
     _print_import_results(
@@ -440,7 +440,7 @@ def _print_import_results(
     print(
         colorize(
             f"  +{issue_count} new issue{'s' if issue_count != 1 else ''} "
-            f"(review findings), "
+            f"(review issues), "
             f"{diff['auto_resolved']} resolved, "
             f"{diff['reopened']} reopened",
             "dim",
@@ -526,7 +526,7 @@ def do_validate_import(
         raise CommandError(str(exc), exit_code=1) from exc
 
     try:
-        findings_data = import_helpers_mod.load_import_findings_data(
+        issues_data = import_helpers_mod.load_import_findings_data(
             import_file,
             lang_name=lang.name,
             allow_partial=allow_partial,
@@ -544,7 +544,7 @@ def do_validate_import(
         )
         raise CommandError("import payload validation failed", exit_code=1) from exc
     assessment_policy = import_helpers_mod.assessment_policy_model_from_payload(
-        findings_data
+        issues_data
     )
     import_helpers_mod.print_assessment_mode_banner(
         assessment_policy.to_dict(),
@@ -556,9 +556,9 @@ def do_validate_import(
         colorize_fn=colorize,
     )
 
-    findings_count = len(findings_data["findings"])
+    findings_count = len(issues_data["issues"])
     print(colorize("\n  Import payload validation passed.", "bold"))
-    print(colorize(f"  Findings parsed: {findings_count}", "dim"))
+    print(colorize(f"  Issues parsed: {findings_count}", "dim"))
     if assessment_policy.assessments_present:
         count = int(assessment_policy.assessment_count)
         print(colorize(f"  Assessment entries in payload: {count}", "dim"))

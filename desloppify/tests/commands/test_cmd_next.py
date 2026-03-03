@@ -64,7 +64,7 @@ class TestCmdNextOutput:
             monkeypatch,
             state={
                 "last_scan": None,
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {},
                 "scan_path": ".",
             },
@@ -84,7 +84,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {
                     "Naming quality": {
                         "score": 94.0,
@@ -113,7 +113,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "medium",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -138,7 +138,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {
+                "issues": {
                     "subjective_review::src/a.py::changed": {
                         "id": "subjective_review::src/a.py::changed",
                         "detector": "subjective_review",
@@ -165,7 +165,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "medium",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -192,7 +192,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {
                     "High elegance": {
                         "score": 0.0,
@@ -215,7 +215,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "medium",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -239,7 +239,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {
+                "issues": {
                     "subjective_review::.::holistic_unreviewed": {
                         "id": "subjective_review::.::holistic_unreviewed",
                         "detector": "subjective_review",
@@ -266,7 +266,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "medium",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -289,7 +289,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {
                     "Naming quality": {
                         "score": 96.0,
@@ -313,7 +313,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "medium",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -338,7 +338,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "subjective_integrity": {
                     "status": "penalized",
                     "target_score": 95.0,
@@ -374,7 +374,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "medium",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -404,7 +404,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {},
                 "overall_score": 99.0,
                 "objective_score": 99.0,
@@ -452,7 +452,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {
                     "Code quality": {
                         "score": 80.0,
@@ -477,7 +477,7 @@ class TestCmdNextOutput:
                 "items": [
                     {
                         "id": "smells::src/a.py::x",
-                        "kind": "finding",
+                        "kind": "issue",
                         "confidence": "high",
                         "detector": "smells",
                         "file": "src/a.py",
@@ -502,7 +502,7 @@ class TestCmdNextOutput:
         _patch_common(
             monkeypatch,
             state={
-                "findings": {},
+                "issues": {},
                 "dimension_scores": {},
                 "overall_score": 94.0,
                 "objective_score": 98.0,

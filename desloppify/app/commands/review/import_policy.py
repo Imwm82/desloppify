@@ -23,11 +23,11 @@ ATTESTED_EXTERNAL_ATTEST_EXAMPLE = (
     "I validated this review was completed without awareness of overall score and is unbiased."
 )
 ASSESSMENT_MODE_LABELS = {
-    "none": "findings-only (no assessments in payload)",
+    "none": "issues-only (no assessments in payload)",
     "trusted_internal": "trusted internal (durable scores)",
     "attested_external": "attested external (durable scores)",
     "manual_override": "manual override (provisional scores)",
-    "findings_only": "findings-only (assessments skipped)",
+    "findings_only": "issues-only (assessments skipped)",
 }
 
 
@@ -62,12 +62,12 @@ def _resolve_packet_path(raw_path: object) -> Path | None:
 
 
 def _assessment_provenance_status(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     import_file: str,
 ) -> AssessmentProvenanceModel:
     """Evaluate whether assessments come from a trusted blind batch artifact."""
-    provenance = findings_data["provenance"]
+    provenance = issues_data["provenance"]
     if not provenance:
         return AssessmentProvenanceModel(
             trusted=False,
@@ -154,7 +154,7 @@ def validate_attested_external_attestation(attest: str | None) -> str | None:
 
 
 def apply_assessment_import_policy(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     import_file: str,
     attested_external: bool,
@@ -164,12 +164,12 @@ def apply_assessment_import_policy(
     trusted_assessment_source: bool,
     trusted_assessment_label: str | None,
 ) -> tuple[ReviewImportPayload | None, list[str]]:
-    """Apply trust gating for assessment imports (findings import always allowed)."""
-    assessments = findings_data["assessments"]
+    """Apply trust gating for assessment imports (issues import always allowed)."""
+    assessments = issues_data["assessments"]
     has_assessments = bool(assessments)
     assessment_count = len(assessments) if has_assessments else 0
     provenance_status = _assessment_provenance_status(
-        findings_data, import_file=import_file
+        issues_data, import_file=import_file
     )
     policy = AssessmentImportPolicyModel(
         assessments_present=has_assessments,
@@ -181,7 +181,7 @@ def apply_assessment_import_policy(
     )
 
     if not has_assessments:
-        return _attach_assessment_policy(findings_data, policy), []
+        return _attach_assessment_policy(issues_data, policy), []
 
     if trusted_assessment_source:
         trusted_policy = replace(
@@ -190,11 +190,11 @@ def apply_assessment_import_policy(
             trusted=True,
             reason=(trusted_assessment_label or "trusted internal run-batches import"),
         )
-        return _attach_assessment_policy(findings_data, trusted_policy), []
+        return _attach_assessment_policy(issues_data, trusted_policy), []
 
     if attested_external:
         return _apply_attested_external_policy(
-            findings_data,
+            issues_data,
             policy=policy,
             provenance_status=provenance_status,
             attested_attest=attested_attest,
@@ -202,13 +202,13 @@ def apply_assessment_import_policy(
 
     if manual_override:
         return _apply_manual_override_policy(
-            findings_data,
+            issues_data,
             policy=policy,
             manual_attest=manual_attest,
         )
 
     return _apply_findings_only_policy(
-        findings_data,
+        issues_data,
         policy=policy,
         provenance_status=provenance_status,
     )
@@ -224,7 +224,7 @@ def _attach_assessment_policy(
 
 
 def _apply_attested_external_policy(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     policy: AssessmentImportPolicyModel,
     provenance_status: AssessmentProvenanceModel,
@@ -253,11 +253,11 @@ def _apply_attested_external_policy(
         reason="attested external blind subagent provenance",
         attest=normalized_attest,
     )
-    return _attach_assessment_policy(findings_data, attested_policy), []
+    return _attach_assessment_policy(issues_data, attested_policy), []
 
 
 def _apply_manual_override_policy(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     policy: AssessmentImportPolicyModel,
     manual_attest: str | None,
@@ -270,16 +270,16 @@ def _apply_manual_override_policy(
         reason="manual override attested by operator",
         attest=manual_attest.strip(),
     )
-    return _attach_assessment_policy(findings_data, override_policy), []
+    return _attach_assessment_policy(issues_data, override_policy), []
 
 
 def _findings_only_reason(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     provenance_status: AssessmentProvenanceModel,
 ) -> str:
-    if not findings_data["provenance"]:
-        return "missing trusted run-batches source; imported findings only"
+    if not issues_data["provenance"]:
+        return "missing trusted run-batches source; imported issues only"
     provenance_reason = provenance_status.reason.strip()
     if provenance_status.trusted is True:
         return (
@@ -298,7 +298,7 @@ def _findings_only_reason(
 
 
 def _apply_findings_only_policy(
-    findings_data: ReviewImportPayload,
+    issues_data: ReviewImportPayload,
     *,
     policy: AssessmentImportPolicyModel,
     provenance_status: AssessmentProvenanceModel,
@@ -306,9 +306,9 @@ def _apply_findings_only_policy(
     findings_only_policy = replace(
         policy,
         mode="findings_only",
-        reason=_findings_only_reason(findings_data, provenance_status=provenance_status),
+        reason=_findings_only_reason(issues_data, provenance_status=provenance_status),
     )
-    payload = dict(findings_data)
+    payload = dict(issues_data)
     payload["assessments"] = {}
     payload[ASSESSMENT_POLICY_KEY] = findings_only_policy.to_dict()
     return payload, []

@@ -24,7 +24,7 @@ def load_cmd_context(args: object) -> tuple[Path, object | None, dict | None]:
             warn_best_effort(
                 "Could not load scan state for visualization "
                 f"({scan_state_path}, {exc.__class__.__name__}: {exc}); "
-                "rendering without finding overlays."
+                "rendering without issue overlays."
             )
             state = None
     return Path(args.path), lang, state

@@ -17,14 +17,14 @@ _logger = logging.getLogger(__name__)
 
 
 def _try_expand_cluster(pattern: str) -> list[str] | None:
-    """If pattern matches a cluster name, return its finding IDs."""
+    """If pattern matches a cluster name, return its issue IDs."""
     try:
         if not has_living_plan():
             return None
         plan = load_plan()
         cluster = plan.get("clusters", {}).get(pattern)
-        if cluster and cluster.get("finding_ids"):
-            return list(cluster["finding_ids"])
+        if cluster and cluster.get("issue_ids"):
+            return list(cluster["issue_ids"])
     except PLAN_LOAD_EXCEPTIONS:
         _logger.debug("cluster expansion skipped for %r", pattern, exc_info=True)
     return None
@@ -42,7 +42,7 @@ def _resolve_all_patterns(
         cluster_ids = _try_expand_cluster(pattern)
         if cluster_ids:
             for fid in cluster_ids:
-                resolved = state_mod.resolve_findings(
+                resolved = state_mod.resolve_issues(
                     state,
                     fid,
                     args.status,
@@ -52,7 +52,7 @@ def _resolve_all_patterns(
                 all_resolved.extend(resolved)
             continue
 
-        resolved = state_mod.resolve_findings(
+        resolved = state_mod.resolve_issues(
             state,
             pattern,
             args.status,

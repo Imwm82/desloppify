@@ -1,4 +1,4 @@
-"""Finding upsert/auto-resolve helpers for scan merge."""
+"""Issue upsert/auto-resolve helpers for scan merge."""
 
 from __future__ import annotations
 
@@ -12,20 +12,20 @@ def find_suspect_detectors(
     force_resolve: bool,
     ran_detectors: set[str] | None = None,
 ) -> set[str]:
-    """Detectors that had open findings but likely did not actually run this scan."""
+    """Detectors that had open issues but likely did not actually run this scan."""
     if force_resolve:
         return set()
 
     previous_open_by_detector: dict[str, int] = {}
-    for finding in existing.values():
-        if finding["status"] != "open":
+    for issue in existing.values():
+        if issue["status"] != "open":
             continue
-        detector = finding.get("detector", "unknown")
+        detector = issue.get("detector", "unknown")
         previous_open_by_detector[detector] = (
             previous_open_by_detector.get(detector, 0) + 1
         )
 
-    # 'review' findings enter via `desloppify review --import`, not via scan phases.
+    # 'review' issues enter via `desloppify review --import`, not via scan phases.
     # They are always marked suspect so the scan never auto-resolves them.
     import_only_detectors = {"review"}
     suspect: set[str] = set()
@@ -46,20 +46,20 @@ def find_suspect_detectors(
     return suspect
 
 
-def _mark_auto_resolved(finding: dict, now: str, *, note: str, attestation_text: str) -> None:
-    """Stamp a finding as auto-resolved with the given note and attestation."""
-    finding["status"] = "auto_resolved"
-    finding["resolved_at"] = now
-    finding["suppressed"] = False
-    finding["suppressed_at"] = None
-    finding["suppression_pattern"] = None
-    finding["resolution_attestation"] = {
+def _mark_auto_resolved(issue: dict, now: str, *, note: str, attestation_text: str) -> None:
+    """Stamp a issue as auto-resolved with the given note and attestation."""
+    issue["status"] = "auto_resolved"
+    issue["resolved_at"] = now
+    issue["suppressed"] = False
+    issue["suppressed_at"] = None
+    issue["suppression_pattern"] = None
+    issue["resolution_attestation"] = {
         "kind": "scan_verified",
         "text": attestation_text,
         "attested_at": now,
         "scan_verified": True,
     }
-    finding["note"] = note
+    issue["note"] = note
 
 
 def auto_resolve_disappeared(
@@ -72,17 +72,17 @@ def auto_resolve_disappeared(
     scan_path: str | None,
     exclude: tuple[str, ...] = (),
 ) -> tuple[int, int, int, set[str]]:
-    """Auto-resolve open/wontfix/fixed/false_positive findings absent from scan.
+    """Auto-resolve open/wontfix/fixed/false_positive issues absent from scan.
 
     Returns (resolved, skipped_other_lang, resolved_out_of_scope, resolved_detectors).
-    Out-of-scope findings are auto-resolved (not skipped) so they stop polluting
+    Out-of-scope issues are auto-resolved (not skipped) so they stop polluting
     queue counts.  Re-scanning with a wider scan_path will reopen them via upsert.
     """
     resolved = skipped_other_lang = resolved_out_of_scope = 0
     resolved_detectors: set[str] = set()
 
-    for finding_id, previous in existing.items():
-        if finding_id in current_ids or previous["status"] not in (
+    for issue_id, previous in existing.items():
+        if issue_id in current_ids or previous["status"] not in (
             "open",
             "wontfix",
             "fixed",
@@ -131,7 +131,7 @@ def auto_resolve_disappeared(
     return resolved, skipped_other_lang, resolved_out_of_scope, resolved_detectors
 
 
-def upsert_findings(
+def upsert_issues(
     existing: dict,
     current_findings: list[dict],
     ignore: list[str],
@@ -139,7 +139,7 @@ def upsert_findings(
     *,
     lang: str | None,
 ) -> tuple[set[str], int, int, dict[str, int], int, set[str]]:
-    """Insert new findings and update existing ones.
+    """Insert new issues and update existing ones.
 
     Returns (current_ids, new_count, reopened_count, by_detector, ignored_count, changed_detectors).
     """
@@ -148,39 +148,39 @@ def upsert_findings(
     by_detector: dict[str, int] = {}
     changed_detectors: set[str] = set()
 
-    for finding in current_findings:
-        finding_id = finding["id"]
-        detector = finding.get("detector", "unknown")
-        current_ids.add(finding_id)
+    for issue in current_findings:
+        issue_id = issue["id"]
+        detector = issue.get("detector", "unknown")
+        current_ids.add(issue_id)
         by_detector[detector] = by_detector.get(detector, 0) + 1
-        matched_ignore = matched_ignore_pattern(finding_id, finding["file"], ignore)
+        matched_ignore = matched_ignore_pattern(issue_id, issue["file"], ignore)
         if matched_ignore:
             ignored_count += 1
 
         if lang:
-            finding["lang"] = lang
+            issue["lang"] = lang
 
-        if finding_id not in existing:
-            existing[finding_id] = dict(finding)
+        if issue_id not in existing:
+            existing[issue_id] = dict(issue)
             if matched_ignore:
-                existing[finding_id]["suppressed"] = True
-                existing[finding_id]["suppressed_at"] = now
-                existing[finding_id]["suppression_pattern"] = matched_ignore
+                existing[issue_id]["suppressed"] = True
+                existing[issue_id]["suppressed_at"] = now
+                existing[issue_id]["suppression_pattern"] = matched_ignore
                 continue
             new_count += 1
             changed_detectors.add(detector)
             continue
 
-        previous = existing[finding_id]
+        previous = existing[issue_id]
         previous.update(
             last_seen=now,
-            tier=finding["tier"],
-            confidence=finding["confidence"],
-            summary=finding["summary"],
-            detail=finding.get("detail", {}),
+            tier=issue["tier"],
+            confidence=issue["confidence"],
+            summary=issue["summary"],
+            detail=issue.get("detail", {}),
         )
-        if "zone" in finding:
-            previous["zone"] = finding["zone"]
+        if "zone" in issue:
+            previous["zone"] = issue["zone"]
         if lang and not previous.get("lang"):
             previous["lang"] = lang
 
@@ -195,7 +195,7 @@ def upsert_findings(
         previous["suppression_pattern"] = None
 
         if previous["status"] in ("fixed", "auto_resolved"):
-            # subjective_review findings are condition-based.  When just
+            # subjective_review issues are condition-based.  When just
             # auto-resolved by an agent import, skip reopening to avoid a
             # resolve-then-reopen loop on the same scan cycle.
             if (
@@ -224,5 +224,5 @@ def upsert_findings(
 __all__ = [
     "auto_resolve_disappeared",
     "find_suspect_detectors",
-    "upsert_findings",
+    "upsert_issues",
 ]

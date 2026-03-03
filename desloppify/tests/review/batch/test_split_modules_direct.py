@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from desloppify.core.issues_render import finding_weight, render_issue_detail
+from desloppify.core.issues_render import issue_weight, render_issue_detail
 from desloppify.intelligence.review._prepare.remediation_engine import (
     empty_plan,
 )
@@ -23,12 +23,12 @@ from desloppify.intelligence.review.importing.shared import (
 def test_import_split_extract_helpers_require_object_payloads():
     with pytest.raises(ValueError):
         parse_per_file_import_payload([{"summary": "x"}])  # type: ignore[arg-type]
-    with pytest.raises(ValueError, match="findings\\[0\\]"):
-        parse_per_file_import_payload({"findings": ["x"]})  # type: ignore[list-item]
+    with pytest.raises(ValueError, match="issues\\[0\\]"):
+        parse_per_file_import_payload({"issues": ["x"]})  # type: ignore[list-item]
 
     findings2, assessments2, reviewed_files = parse_holistic_import_payload(
         {
-            "findings": [{"summary": "y"}],
+            "issues": [{"summary": "y"}],
             "assessments": {"naming_quality": 88},
             "reviewed_files": ["a.py"],
         }
@@ -37,8 +37,8 @@ def test_import_split_extract_helpers_require_object_payloads():
     assert assessments2 == {"naming_quality": 88}
     assert reviewed_files == ["a.py"]
 
-    with pytest.raises(ValueError, match="findings\\[0\\]"):
-        parse_holistic_import_payload({"findings": ["bad"]})  # type: ignore[list-item]
+    with pytest.raises(ValueError, match="issues\\[0\\]"):
+        parse_holistic_import_payload({"issues": ["bad"]})  # type: ignore[list-item]
 
 
 def test_import_shared_extract_reviewed_files_deduplicates():
@@ -76,7 +76,7 @@ def test_remediation_empty_plan_renders_scores_block():
 
 
 def test_issues_render_builds_markdown_payload():
-    finding = {
+    issue = {
         "id": "review::src/foo.py::logic_clarity::abc12345",
         "summary": "Simplify conditional chain",
         "confidence": "medium",
@@ -89,10 +89,10 @@ def test_issues_render_builds_markdown_payload():
         },
         "file": "src/foo.py",
     }
-    weight, impact, _ = finding_weight(finding)
+    weight, impact, _ = issue_weight(issue)
     assert weight > 0
     assert impact > 0
 
-    rendered = render_issue_detail(finding, "python")
+    rendered = render_issue_detail(issue, "python")
     assert "Suggested Fix" in rendered
     assert "desloppify plan resolve" in rendered

@@ -84,7 +84,7 @@ def _build_rows(display_items: list[dict], new_ids: set[str] | None = None) -> l
     _new = new_ids or set()
     for idx, item in enumerate(display_items, 1):
         pos = str(idx)
-        kind = item.get("kind", "finding")
+        kind = item.get("kind", "issue")
 
         if kind == "workflow_stage":
             blocked = item.get("is_blocked", False)
@@ -161,7 +161,7 @@ def cmd_plan_queue(args: argparse.Namespace) -> None:
 
     sort_by = getattr(args, "sort", "priority")
     all_new_ids: set[str] = queue.get("new_ids", set())
-    # Merge review-based new finding IDs (since last triage)
+    # Merge review-based new issue IDs (since last triage)
     review_new_ids = compute_new_finding_ids(plan, state)
     all_new_ids = all_new_ids | review_new_ids
     item_ids = {it.get("id") for it in items}

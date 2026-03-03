@@ -1,4 +1,4 @@
-"""Merge conceptually duplicate open review findings."""
+"""Merge conceptually duplicate open review issues."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from desloppify import state as state_mod
 from desloppify.app.commands.helpers.query import write_query
 from desloppify.app.commands.helpers.runtime import command_runtime
 from desloppify.app.commands.helpers.queue_progress import show_score_with_plan_context
-from desloppify.core.issues_render import finding_weight
+from desloppify.core.issues_render import issue_weight
 from desloppify.core.output_api import colorize
-from desloppify.engine.work_queue import list_open_review_findings
+from desloppify.engine.work_queue import list_open_review_issues
 from desloppify.intelligence.narrative import NarrativeContext, compute_narrative
-from desloppify.intelligence.review.finding_merge import (
+from desloppify.intelligence.review.issue_merge import (
     merge_list_fields,
     normalize_word_set,
     pick_longer_text,
@@ -31,8 +31,8 @@ def _summary_similarity(a: str, b: str) -> float:
     return float(overlap) / float(union) if union else 0.0
 
 
-def _parse_holistic_identifier(finding_id: str) -> str:
-    parts = [part for part in str(finding_id).split("::") if part]
+def _parse_holistic_identifier(issue_id: str) -> str:
+    parts = [part for part in str(issue_id).split("::") if part]
     if len(parts) < 2:
         return ""
     candidate = parts[-2].strip()
@@ -41,8 +41,8 @@ def _parse_holistic_identifier(finding_id: str) -> str:
     return candidate
 
 
-def _related_files_set(finding: dict) -> set[str]:
-    related = finding.get("detail", {}).get("related_files", [])
+def _related_files_set(issue: dict) -> set[str]:
+    related = issue.get("detail", {}).get("related_files", [])
     if not isinstance(related, list):
         return set()
     return {str(path).strip() for path in related if str(path).strip()}
@@ -90,15 +90,15 @@ def _merge_finding_details(primary: dict, duplicate: dict) -> None:
 
 
 def do_merge(args: argparse.Namespace) -> None:
-    """Merge conceptually duplicate open review findings."""
+    """Merge conceptually duplicate open review issues."""
     runtime = command_runtime(args)
     state = runtime.state
     state_file = runtime.state_path
     narrative = compute_narrative(state, context=NarrativeContext(command="review"))
-    items = list_open_review_findings(state)
+    items = list_open_review_issues(state)
 
     if not items:
-        print(colorize("\n  No review findings open.\n", "dim"))
+        print(colorize("\n  No review issues open.\n", "dim"))
         return
 
     try:
@@ -108,13 +108,13 @@ def do_merge(args: argparse.Namespace) -> None:
     similarity = max(0.0, min(1.0, similarity))
 
     open_holistic = [
-        finding
-        for finding in items
-        if finding.get("detector") == "review"
-        and finding.get("detail", {}).get("holistic")
+        issue
+        for issue in items
+        if issue.get("detector") == "review"
+        and issue.get("detail", {}).get("holistic")
     ]
     if len(open_holistic) < 2:
-        print(colorize("\n  Not enough holistic review findings to merge.\n", "dim"))
+        print(colorize("\n  Not enough holistic review issues to merge.\n", "dim"))
         return
 
     consumed: set[str] = set()
@@ -155,7 +155,7 @@ def do_merge(args: argparse.Namespace) -> None:
     for group in merge_groups:
         ranked = sorted(
             group,
-            key=lambda finding: (finding_weight(finding)[0], finding.get("id", "")),
+            key=lambda issue: (issue_weight(issue)[0], issue.get("id", "")),
             reverse=True,
         )
         primary = ranked[0]
@@ -170,7 +170,7 @@ def do_merge(args: argparse.Namespace) -> None:
             duplicate["note"] = f"merged into {primary.get('id', '')}"
             duplicate["resolution_attestation"] = {
                 "kind": "issue_merge",
-                "text": "Merged conceptually duplicate review finding",
+                "text": "Merged conceptually duplicate review issue",
                 "attested_at": timestamp,
                 "scan_verified": False,
             }
@@ -180,7 +180,7 @@ def do_merge(args: argparse.Namespace) -> None:
     print(
         colorize(
             f"\n  Merge groups: {len(merge_groups)} | "
-            f"duplicate findings: {sum(len(group) - 1 for group in merge_groups)}",
+            f"duplicate issues: {sum(len(group) - 1 for group in merge_groups)}",
             "bold",
         )
     )

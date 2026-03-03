@@ -29,7 +29,7 @@ class DetectorScoringPolicy:
     excluded_zones: frozenset[str] = frozenset(EXCLUDED_ZONE_VALUES)
 
 
-# Security findings are excluded in non-production zones.
+# Security issues are excluded in non-production zones.
 SECURITY_EXCLUDED_ZONES = frozenset({"test", "config", "generated", "vendor"})
 
 # Central scoring policy for each detector: dimension/tier assignment,
@@ -85,14 +85,14 @@ DETECTOR_SCORING_POLICIES: dict[str, DetectorScoringPolicy] = {
     "cycles": DetectorScoringPolicy("cycles", "Security", 4),
     # Design coherence (concerns confirmed by subjective review)
     "concerns": DetectorScoringPolicy("concerns", None, None, file_based=True),
-    # Review findings are scored via subjective dimensions, not mechanical dimensions.
+    # Review issues are scored via subjective dimensions, not mechanical dimensions.
     "review": DetectorScoringPolicy("review", None, None, file_based=True),
 }
 _BASE_DETECTOR_SCORING_POLICIES: dict[str, DetectorScoringPolicy] = dict(
     DETECTOR_SCORING_POLICIES
 )
 
-# Detectors where potential = file count but findings are per-(file, sub-type).
+# Detectors where potential = file count but issues are per-(file, sub-type).
 # Per-file weighted failures are capped at 1.0 to match the file-based denominator.
 FILE_BASED_DETECTORS = {
     detector
@@ -139,9 +139,9 @@ CONFIDENCE_WEIGHTS = {Confidence.HIGH: 1.0, Confidence.MEDIUM: 0.7, Confidence.L
 # proportionally. Prevents small-sample dimensions from swinging the overall score.
 MIN_SAMPLE = 200
 
-# Holistic review weight: findings with file="." and detail.holistic=True
+# Holistic review weight: issues with file="." and detail.holistic=True
 # get a 10x weight multiplier for display/priority purposes (issues list,
-# remediation engine).  NOT used in score computation — review findings are
+# remediation engine).  NOT used in score computation — review issues are
 # excluded from the detection scoring pipeline (scored via assessments only).
 HOLISTIC_MULTIPLIER = 10.0
 HOLISTIC_POTENTIAL = 10

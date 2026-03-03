@@ -29,7 +29,7 @@ _UNDER_TARGET_NAME = "auto/under-target-review"
 def sync_subjective_clusters(
     plan: PlanModel,
     state: StateModel,
-    findings: dict,
+    issues: dict,
     clusters: dict,
     existing_by_key: dict[str, str],
     active_auto_keys: set[str],
@@ -108,7 +108,7 @@ def sync_subjective_clusters(
     # Prune: remove IDs that were previously in the under-target cluster
     # but are no longer under target (they've improved above threshold).
     prev_ut_cluster = clusters.get(_UNDER_TARGET_NAME, {})
-    prev_ut_ids = set(prev_ut_cluster.get("finding_ids", []))
+    prev_ut_ids = set(prev_ut_cluster.get("issue_ids", []))
     order = plan.get("queue_order", [])
     _ut_prune = [
         fid for fid in prev_ut_ids
@@ -121,7 +121,7 @@ def sync_subjective_clusters(
         order.remove(fid)
         changes += 1
 
-    # Guard: only inject under-target items when no objective findings
+    # Guard: only inject under-target items when no objective issues
     # remain open — mirror the guard used by sync_stale_dimensions().
     if policy is not None:
         has_objective_items = policy.has_objective_backlog
@@ -130,7 +130,7 @@ def sync_subjective_clusters(
             f.get("status") == "open"
             and f.get("detector") not in NON_OBJECTIVE_DETECTORS
             and not f.get("suppressed")
-            for f in findings.values()
+            for f in issues.values()
         )
 
     if not has_objective_items and len(under_target_queue_ids) >= _MIN_CLUSTER_SIZE:

@@ -72,7 +72,7 @@ def print_review_quality(quality: object, *, colorize_fn) -> None:
     pressure_segment = ""
     if isinstance(finding_pressure, int | float) and isinstance(dims_with_findings, int):
         pressure_segment = (
-            f", finding-pressure {float(finding_pressure):.2f} "
+            f", issue-pressure {float(finding_pressure):.2f} "
             f"across {dims_with_findings} dims"
         )
     print(

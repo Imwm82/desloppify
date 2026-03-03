@@ -657,13 +657,13 @@ class TestSecurityRegistry:
 
 
 class TestSecurityDimensionScoring:
-    """Verify security findings affect the Security dimension score."""
+    """Verify security issues affect the Security dimension score."""
 
     def test_security_dimension_scoring(self):
-        findings = {}
+        issues = {}
         for i in range(5):
             fid = f"security::test{i}.py::security::check::{i}"
-            findings[fid] = {
+            issues[fid] = {
                 "id": fid,
                 "detector": "security",
                 "file": f"test{i}.py",
@@ -673,15 +673,15 @@ class TestSecurityDimensionScoring:
                 "zone": "production",
             }
         potentials = {"security": 100}
-        scores = compute_dimension_scores(findings, potentials)
+        scores = compute_dimension_scores(issues, potentials)
         assert "Security" in scores
         assert scores["Security"]["score"] < 100.0
         assert scores["Security"]["failing"] == 5
 
     def test_security_zone_test_excluded(self):
-        """Security findings in test zone are skipped from scoring."""
+        """Security issues in test zone are skipped from scoring."""
         fid = "security::test_file.py::security::check::1"
-        findings = {
+        issues = {
             fid: {
                 "id": fid,
                 "detector": "security",
@@ -693,15 +693,15 @@ class TestSecurityDimensionScoring:
             },
         }
         potentials = {"security": 10}
-        scores = compute_dimension_scores(findings, potentials)
+        scores = compute_dimension_scores(issues, potentials)
         assert "Security" in scores
         assert scores["Security"]["failing"] == 0
         assert scores["Security"]["score"] == 100.0
 
     def test_security_zone_config_excluded(self):
-        """Security findings in config zone are skipped from scoring."""
+        """Security issues in config zone are skipped from scoring."""
         fid = "security::config.py::security::check::1"
-        findings = {
+        issues = {
             fid: {
                 "id": fid,
                 "detector": "security",
@@ -713,15 +713,15 @@ class TestSecurityDimensionScoring:
             },
         }
         potentials = {"security": 10}
-        scores = compute_dimension_scores(findings, potentials)
+        scores = compute_dimension_scores(issues, potentials)
         assert "Security" in scores
         assert scores["Security"]["failing"] == 0
         assert scores["Security"]["score"] == 100.0
 
     def test_security_zone_vendor_excluded(self):
-        """Security findings in vendor zone ARE skipped from scoring."""
+        """Security issues in vendor zone ARE skipped from scoring."""
         fid = "security::vendor/lib.py::security::check::1"
-        findings = {
+        issues = {
             fid: {
                 "id": fid,
                 "detector": "security",
@@ -733,15 +733,15 @@ class TestSecurityDimensionScoring:
             },
         }
         potentials = {"security": 10}
-        scores = compute_dimension_scores(findings, potentials)
+        scores = compute_dimension_scores(issues, potentials)
         assert "Security" in scores
         assert scores["Security"]["failing"] == 0
         assert scores["Security"]["score"] == 100.0
 
     def test_security_zone_generated_excluded(self):
-        """Security findings in generated zone ARE skipped from scoring."""
+        """Security issues in generated zone ARE skipped from scoring."""
         fid = "security::gen.py::security::check::1"
-        findings = {
+        issues = {
             fid: {
                 "id": fid,
                 "detector": "security",
@@ -753,7 +753,7 @@ class TestSecurityDimensionScoring:
             },
         }
         potentials = {"security": 10}
-        scores = compute_dimension_scores(findings, potentials)
+        scores = compute_dimension_scores(issues, potentials)
         assert "Security" in scores
         assert scores["Security"]["failing"] == 0
 
@@ -786,7 +786,7 @@ class TestSecurityZonePolicy:
 
 
 class TestSecurityInNarrative:
-    """Verify security findings appear in narrative headline."""
+    """Verify security issues appear in narrative headline."""
 
     def test_security_in_narrative_headline(self):
         result = _compute_headline(
@@ -802,7 +802,7 @@ class TestSecurityInNarrative:
             open_by_detector={"security": 3},
         )
         assert result is not None
-        assert "\u26a0 3 security findings" in result
+        assert "\u26a0 3 security issues" in result
 
     def test_no_security_no_prefix(self):
         result = _compute_headline(
@@ -834,7 +834,7 @@ class TestSecurityInNarrative:
             open_by_detector={"security": 1},
         )
         assert result is not None
-        assert "\u26a0 1 security finding" in result
+        assert "\u26a0 1 security issue" in result
         assert "Great job!" in result
 
     def test_security_singular(self):
@@ -851,5 +851,5 @@ class TestSecurityInNarrative:
             open_by_detector={"security": 1},
         )
         assert result is not None
-        assert "1 security finding " in result
-        assert "findings" not in result.split("security finding")[0]
+        assert "1 security issue " in result
+        assert "issues" not in result.split("security issue")[0]

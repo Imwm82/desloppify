@@ -12,22 +12,22 @@ from desloppify.core.paths_api import get_area
 def collect_structural_areas(
     state: dict,
 ) -> list[tuple[str, list]] | None:
-    """Collect T3/T4 structural findings grouped by area."""
-    findings = state_mod.path_scoped_findings(
-        state.get("findings", {}), state.get("scan_path")
+    """Collect T3/T4 structural issues grouped by area."""
+    issues = state_mod.path_scoped_issues(
+        state.get("issues", {}), state.get("scan_path")
     )
     structural = [
-        finding
-        for finding in findings.values()
-        if finding["tier"] in (3, 4) and finding["status"] in ("open", "wontfix")
+        issue
+        for issue in issues.values()
+        if issue["tier"] in (3, 4) and issue["status"] in ("open", "wontfix")
     ]
     if len(structural) < 5:
         return None
 
     areas: dict[str, list] = defaultdict(list)
-    for finding in structural:
-        area = get_area(str(finding.get("file", "")))
-        areas[area].append(finding)
+    for issue in structural:
+        area = get_area(str(issue.get("file", "")))
+        areas[area].append(issue)
     if len(areas) < 2:
         return None
 
@@ -39,14 +39,14 @@ def build_area_rows(
     *,
     max_areas: int = 15,
 ) -> list[list[str]]:
-    """Build table rows from sorted area findings."""
+    """Build table rows from sorted area issues."""
     rows: list[list[str]] = []
     for area, area_findings in sorted_areas[:max_areas]:
-        t3 = sum(1 for finding in area_findings if finding["tier"] == 3)
-        t4 = sum(1 for finding in area_findings if finding["tier"] == 4)
-        open_count = sum(1 for finding in area_findings if finding["status"] == "open")
-        debt_count = sum(1 for finding in area_findings if finding["status"] == "wontfix")
-        weight = sum(finding["tier"] for finding in area_findings)
+        t3 = sum(1 for issue in area_findings if issue["tier"] == 3)
+        t4 = sum(1 for issue in area_findings if issue["tier"] == 4)
+        open_count = sum(1 for issue in area_findings if issue["status"] == "open")
+        debt_count = sum(1 for issue in area_findings if issue["status"] == "wontfix")
+        weight = sum(issue["tier"] for issue in area_findings)
         rows.append(
             [
                 area,

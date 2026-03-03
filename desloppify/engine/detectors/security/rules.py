@@ -1,4 +1,4 @@
-"""Security finding rule metadata and finding builders."""
+"""Security issue rule metadata and issue builders."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from desloppify.core.discovery_api import rel
 
 @dataclass(frozen=True)
 class SecurityRule:
-    """Metadata describing one detector finding shape."""
+    """Metadata describing one detector issue shape."""
 
     check_id: str
     summary: str
@@ -49,7 +49,7 @@ def make_security_entry(
     content: str,
     rule: SecurityRule,
 ) -> dict[str, Any]:
-    """Build a security finding entry dict."""
+    """Build a security issue entry dict."""
     rel_path = rel(filepath)
     return {
         "file": filepath,

@@ -24,7 +24,7 @@ from desloppify.languages._framework.base.structural import (
     add_structural_signal,
     merge_structural_signals,
 )
-from desloppify.languages._framework.finding_factories import (
+from desloppify.languages._framework.issue_factories import (
     make_cycle_findings,
     make_facade_findings,
     make_orphaned_findings,
@@ -50,7 +50,7 @@ from desloppify.languages.typescript.extractors_components import (
     detect_passthrough_components,
     extract_ts_components,
 )
-from desloppify.state import Finding, make_finding
+from desloppify.state import Issue, make_issue
 from desloppify.core.output_api import log
 from desloppify.core.paths_api import get_src_path
 
@@ -134,7 +134,7 @@ TS_SKIP_DIRS = {"src/shared/components/ui"}
 # ── Phase runners ──────────────────────────────────────────
 
 
-def phase_logs(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_logs(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     log_result = logs_detector_mod.detect_logs_result(path)
     log_entries = log_result.entries
     total_files = log_result.population_size
@@ -144,7 +144,7 @@ def phase_logs(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]
     results = []
     for (file, tag), entries in log_groups.items():
         results.append(
-            make_finding(
+            make_issue(
                 "logs",
                 file,
                 tag,
@@ -157,23 +157,23 @@ def phase_logs(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]
                 },
             )
         )
-    log(f"         {len(log_entries)} instances → {len(results)} findings")
+    log(f"         {len(log_entries)} instances → {len(results)} issues")
     return results, {"logs": adjust_potential(lang.zone_map, total_files)}
 
 
-def phase_unused(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_unused(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     entries, total_files = unused_detector_mod.detect_unused(path)
     return make_unused_findings(entries, log), {
         "unused": adjust_potential(lang.zone_map, total_files),
     }
 
 
-def phase_exports(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_exports(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     export_entries, total_exports = exports_detector_mod.detect_dead_exports(path)
     results = []
     for e in export_entries:
         results.append(
-            make_finding(
+            make_issue(
                 "exports",
                 e["file"],
                 e["name"],
@@ -183,13 +183,13 @@ def phase_exports(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, i
                 detail={"line": e.get("line"), "kind": e.get("kind")},
             )
         )
-    log(f"         {len(export_entries)} instances → {len(results)} findings")
+    log(f"         {len(export_entries)} instances → {len(results)} issues")
     return results, {"exports": total_exports}
 
 
 def phase_deprecated(
     path: Path, lang: LangRun
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     dep_result = deprecated_detector_mod.detect_deprecated_result(path)
     dep_entries = dep_result.entries
     total_deprecated = dep_result.population_size
@@ -199,7 +199,7 @@ def phase_deprecated(
             continue
         tier = 1 if e["importers"] == 0 else 3
         results.append(
-            make_finding(
+            make_issue(
                 "deprecated",
                 e["file"],
                 e["symbol"],
@@ -211,14 +211,14 @@ def phase_deprecated(
             )
         )
     log(
-        f"         {len(dep_entries)} instances → {len(results)} findings (properties suppressed)"
+        f"         {len(dep_entries)} instances → {len(results)} issues (properties suppressed)"
     )
     return results, {"deprecated": total_deprecated}
 
 
 def phase_structural(
     path: Path, lang: LangRun
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     structural: dict[str, dict] = {}
 
     large_entries, file_count = large_detector_mod.detect_large_files(
@@ -279,7 +279,7 @@ def phase_structural(
         child_dir_count = int(e.get("child_dir_count", 0))
         combined_score = int(e.get("combined_score", e.get("file_count", 0)))
         results.append(
-            make_finding(
+            make_issue(
                 "flat_dirs",
                 e["directory"],
                 "",
@@ -322,7 +322,7 @@ def phase_structural(
         else:
             conf, tier = "low", 3
         results.append(
-            make_finding(
+            make_issue(
                 "props",
                 e["file"],
                 e["interface"],
@@ -341,7 +341,7 @@ def phase_structural(
     pt_entries = detect_passthrough_components(path)
     for e in pt_entries:
         results.append(
-            make_finding(
+            make_issue(
                 "props",
                 e["file"],
                 f"passthrough::{e['component']}",
@@ -375,7 +375,7 @@ def _make_boundary_findings(
     shared_prefix: str,
     tools_prefix: str,
 ) -> tuple[list[dict], int]:
-    """Create boundary-candidate findings, deduplicated against single-use."""
+    """Create boundary-candidate issues, deduplicated against single-use."""
     single_use_emitted = set()
     for e in single_entries:
         is_size_ok = 50 <= e["loc"] <= 200
@@ -399,7 +399,7 @@ def _make_boundary_findings(
             deduped += 1
             continue
         results.append(
-            make_finding(
+            make_issue(
                 "coupling",
                 e["file"],
                 f"boundary::{e['sole_tool']}",
@@ -419,7 +419,7 @@ def _make_boundary_findings(
     return results, total_shared
 
 
-def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     results = []
     graph = deps_detector_mod.build_dep_graph(path)
     lang.dep_graph = graph
@@ -446,7 +446,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, 
     coupling_entries = filter_entries(zm, coupling_entries, "coupling")
     for e in coupling_entries:
         results.append(
-            make_finding(
+            make_issue(
                 "coupling",
                 e["file"],
                 e["target"],
@@ -474,7 +474,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, 
     cross_tool = filter_entries(zm, cross_tool, "coupling")
     for e in cross_tool:
         results.append(
-            make_finding(
+            make_issue(
                 "coupling",
                 e["file"],
                 e["target"],
@@ -521,7 +521,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, 
     total_areas = pattern_result.population_size
     for e in pattern_entries:
         results.append(
-            make_finding(
+            make_issue(
                 "patterns",
                 e["area"],
                 e["family"],
@@ -546,7 +546,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, 
     )
     for e in naming_entries:
         results.append(
-            make_finding(
+            make_issue(
                 "naming",
                 e["directory"],
                 e["minority"],
@@ -563,7 +563,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, 
                 },
             )
         )
-    log(f"         → {len(results)} coupling/structural findings total")
+    log(f"         → {len(results)} coupling/structural issues total")
     coupling_edges = coupling_edge_counts.eligible_edges
     cross_edges = cross_edge_counts.eligible_edges
     potentials = {
@@ -578,7 +578,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, 
     return results, potentials
 
 
-def phase_smells(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, int]]:
+def phase_smells(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     smell_entries, total_smell_files = smells_detector_mod.detect_smells(path)
     results = make_smell_findings(smell_entries, log)
 
@@ -587,7 +587,7 @@ def phase_smells(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, in
     for e in react_entries:
         setter_str = ", ".join(e["setters"])
         results.append(
-            make_finding(
+            make_issue(
                 "react",
                 e["file"],
                 setter_str,
@@ -605,7 +605,7 @@ def phase_smells(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, in
     for e in nesting_entries:
         providers_str = " → ".join(e["providers"][:5])
         results.append(
-            make_finding(
+            make_issue(
                 "react",
                 e["file"],
                 f"nesting::{e['depth']}",
@@ -622,7 +622,7 @@ def phase_smells(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, in
     hook_entries, _ = react_detector_mod.detect_hook_return_bloat(path)
     for e in hook_entries:
         results.append(
-            make_finding(
+            make_issue(
                 "react",
                 e["file"],
                 f"hook_bloat::{e['hook']}",
@@ -644,7 +644,7 @@ def phase_smells(path: Path, lang: LangRun) -> tuple[list[Finding], dict[str, in
     for e in bool_entries:
         states_str = ", ".join(e["states"][:5])
         results.append(
-            make_finding(
+            make_issue(
                 "react",
                 e["file"],
                 f"bool_state::{e['prefix']}",

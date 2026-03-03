@@ -20,7 +20,7 @@ def _audit_excluded_dirs(
 ) -> list[dict]:
     """Check if any --exclude directory has zero references from scanned code.
 
-    Returns findings for directories that appear stale (no file references them).
+    Returns issues for directories that appear stale (no file references them).
     """
     if not exclusions:
         return []
@@ -57,7 +57,7 @@ def _audit_excluded_dirs(
         if ex_dir not in unresolved:
             continue
         stale_findings.append(
-            state_mod.make_finding(
+            state_mod.make_issue(
                 "stale_exclude",
                 ex_dir,
                 ex_dir,
@@ -113,7 +113,7 @@ def _effective_include_slow(include_slow: bool, profile: str) -> bool:
 
 
 def _format_hidden_by_detector(hidden_by_detector: dict[str, int]) -> str:
-    """Format hidden findings counts for terminal output."""
+    """Format hidden issues counts for terminal output."""
     return ", ".join(f"{det}: +{count}" for det, count in hidden_by_detector.items())
 
 

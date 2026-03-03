@@ -14,18 +14,18 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # ---------------------------------------------------------------------------
 
 def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Review finding {fid}",
+            "summary": f"Review issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {"dimension": dimension},
         }
-    return {"findings": findings, "scan_count": 5, "dimension_scores": {}}
+    return {"issues": issues, "scan_count": 5, "dimension_scores": {}}
 
 
 def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
@@ -42,12 +42,12 @@ def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
             ),
             "cited_ids": [],
             "timestamp": "2025-06-01T00:00:00Z",
-            "finding_count": 5,
+            "issue_count": 5,
         }
         if confirmed:
             stages[name]["confirmed_at"] = "2025-06-01T00:01:00Z"
             stages[name]["confirmed_text"] = (
-                "I have thoroughly reviewed all the findings in naming dimension "
+                "I have thoroughly reviewed all the issues in naming dimension "
                 "and this stage analysis is complete"
             )
     return plan
@@ -58,7 +58,7 @@ def _plan_with_enriched_clusters(stage_names, confirmed=False):
     plan = _plan_with_stages(*stage_names, confirmed=confirmed)
     plan["clusters"]["fix-naming"] = {
         "name": "fix-naming",
-        "finding_ids": ["r1", "r2"],
+        "issue_ids": ["r1", "r2"],
         "description": "Fix naming issues",
         "action_steps": ["step 1", "step 2"],
         "auto": False,
@@ -270,7 +270,7 @@ class TestCompleteJumpBackGuidance:
             "issues across the codebase. Start with the most impactful files "
             "and work outward. Verify each fix with a scan afterwards. "
             "The approach addresses root causes rather than symptoms. "
-            "After naming is clean, reassess remaining findings."
+            "After naming is clean, reassess remaining issues."
         )
         args = _fake_args(complete=True, strategy=strategy)
         triage_mod.cmd_plan_triage(args)

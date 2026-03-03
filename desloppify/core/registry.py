@@ -53,7 +53,7 @@ class DetectorMeta:
     fixers: tuple[str, ...] = ()
     tool: str = ""  # "move" or empty
     structural: bool = False  # Merges under "structural" in display
-    needs_judgment: bool = False  # Findings need LLM design judgment (vs clear-cut fixes)
+    needs_judgment: bool = False  # Issues need LLM design judgment (vs clear-cut fixes)
     standalone_threshold: str | None = None  # Min confidence for standalone queue item
 
 
@@ -309,7 +309,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "security",
         "Security",
         "manual_fix",
-        "review and fix security findings — prioritize by severity",
+        "review and fix security issues — prioritize by severity",
     ),
     # ── Subjective review ────────────────────────────────────
     "review": DetectorMeta(
@@ -317,7 +317,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "design review",
         "Test health",
         "refactor",
-        "address design quality findings from AI code review",
+        "address design quality issues from AI code review",
     ),
     "subjective_review": DetectorMeta(
         "subjective_review",

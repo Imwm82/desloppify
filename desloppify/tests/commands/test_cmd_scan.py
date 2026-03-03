@@ -221,7 +221,7 @@ class TestCmdScanExecution:
             scan_cmd_mod,
             "prepare_scan_runtime",
             lambda _args: (_ for _ in ()).throw(
-                scan_cmd_mod.ScanStateContractError("state.findings must be an object")
+                scan_cmd_mod.ScanStateContractError("state.issues must be an object")
             ),
         )
         monkeypatch.setattr(scan_cmd_mod, "colorize", lambda text, _style: text)
@@ -230,7 +230,7 @@ class TestCmdScanExecution:
             cmd_scan(args)
         assert exc.value.code == 2
         out = capsys.readouterr().out
-        assert "state.findings must be an object" in out
+        assert "state.issues must be an object" in out
 
 
 class TestScorecardBadgeContract:
@@ -461,7 +461,7 @@ class TestAuditExcludedDirs:
         assert result == []
 
     def test_stale_dir_produces_finding(self, tmp_path):
-        """A dir that exists but has no references should produce a finding."""
+        """A dir that exists but has no references should produce a issue."""
         stale_dir = tmp_path / "old_lib"
         stale_dir.mkdir()
         # Create a scanned file that does not reference 'old_lib'
@@ -474,7 +474,7 @@ class TestAuditExcludedDirs:
         assert "old_lib" in result[0]["summary"]
 
     def test_referenced_dir_no_finding(self, tmp_path):
-        """A dir that is referenced should NOT produce a finding."""
+        """A dir that is referenced should NOT produce a issue."""
         ref_dir = tmp_path / "utils"
         ref_dir.mkdir()
         src = tmp_path / "main.py"
@@ -593,7 +593,7 @@ class TestShowPostScanAnalysis:
 
         diff = {"new": 0, "auto_resolved": 0, "reopened": 10, "chronic_reopeners": []}
         state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 50,
             "objective_score": 50,
             "strict_score": 50,
@@ -614,7 +614,7 @@ class TestShowPostScanAnalysis:
 
         diff = {"new": 15, "auto_resolved": 1, "reopened": 0, "chronic_reopeners": []}
         state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 50,
             "objective_score": 50,
             "strict_score": 50,
@@ -639,7 +639,7 @@ class TestShowPostScanAnalysis:
             "chronic_reopeners": ["f1", "f2", "f3"],
         }
         state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 50,
             "objective_score": 50,
             "strict_score": 50,
@@ -659,7 +659,7 @@ class TestShowPostScanAnalysis:
 
         diff = {"new": 2, "auto_resolved": 5, "reopened": 0, "chronic_reopeners": []}
         state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 90,
             "objective_score": 90,
             "strict_score": 90,
@@ -687,7 +687,7 @@ class TestShowPostScanAnalysis:
 
         diff = {"new": 0, "auto_resolved": 0, "reopened": 0, "chronic_reopeners": []}
         state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 50,
             "objective_score": 50,
             "strict_score": 50,
@@ -711,7 +711,7 @@ class TestShowPostScanAnalysis:
 
         diff = {"new": 0, "auto_resolved": 0, "reopened": 0, "chronic_reopeners": []}
         state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 50,
             "objective_score": 50,
             "strict_score": 50,
@@ -741,7 +741,7 @@ class TestShowPostScanAnalysis:
                 ],
                 "why_now": "Security work should come first.",
                 "primary_action": {"command": "desloppify show security", "description": "review security"},
-                "risk_flags": [{"severity": "high", "message": "40% findings hidden"}],
+                "risk_flags": [{"severity": "high", "message": "40% issues hidden"}],
             },
         )
 
@@ -749,7 +749,7 @@ class TestShowPostScanAnalysis:
             name = "python"
 
         diff = {"new": 0, "auto_resolved": 0, "reopened": 0, "chronic_reopeners": []}
-        state = {"findings": {}, "overall_score": 90, "objective_score": 90, "strict_score": 90}
+        state = {"issues": {}, "overall_score": 90, "objective_score": 90, "strict_score": 90}
         show_post_scan_analysis(diff, state, FakeLang())
         out = capsys.readouterr().out
         # These sections moved to status — scan only shows headline + pointers

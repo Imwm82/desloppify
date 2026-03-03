@@ -17,11 +17,11 @@ from desloppify.intelligence.review._prepare.remediation_engine import (
     empty_plan as _empty_plan,
 )
 from desloppify.intelligence.review.importing.holistic import (
-    import_holistic_findings,
+    import_holistic_issues,
     update_holistic_review_cache,
 )
 from desloppify.intelligence.review.importing.per_file import (
-    import_review_findings,
+    import_review_issues,
     parse_per_file_import_payload,
     update_review_cache,
 )
@@ -51,7 +51,7 @@ from desloppify.intelligence.review.selection import (
     _compute_review_priority,
     count_fresh,
     count_stale,
-    get_file_findings,
+    get_file_issues,
     hash_file,
     is_low_value_file,
 )
@@ -59,7 +59,7 @@ from desloppify.intelligence.review.selection import (
     select_files_for_review as _select_files_for_review_impl,
 )
 from desloppify.state import empty_state as build_empty_state
-from desloppify.state import make_finding
+from desloppify.state import make_issue
 
 # ── Fixtures ──────────────────────────────────────────────────────
 
@@ -80,7 +80,7 @@ def mock_lang():
 
 
 def _as_review_payload(data):
-    return data if isinstance(data, dict) else {"findings": data}
+    return data if isinstance(data, dict) else {"issues": data}
 
 
 def select_files_for_review(lang, path, state, **kwargs):
@@ -144,12 +144,12 @@ class TestCountFreshStale:
         assert count_stale(empty_state, 30) == 1
 
 
-class TestGetFileFindings:
+class TestGetFileIssues:
     def test_empty_state(self, empty_state):
-        assert get_file_findings(empty_state, "src/foo.ts") == []
+        assert get_file_issues(empty_state, "src/foo.ts") == []
 
     def test_finds_matching(self, empty_state):
-        empty_state["findings"] = {
+        empty_state["issues"] = {
             "f1": {
                 "detector": "smells",
                 "file": "src/foo.ts",
@@ -166,7 +166,7 @@ class TestGetFileFindings:
             },
         }
         with patch("desloppify.intelligence.review.selection.rel", side_effect=lambda x: x):
-            results = get_file_findings(empty_state, "src/foo.ts")
+            results = get_file_issues(empty_state, "src/foo.ts")
         assert len(results) == 1
         assert results[0]["summary"] == "bad smell"
 
@@ -351,18 +351,18 @@ class TestPrepareHolisticReview:
 # ── import_findings.py tests ──────────────────────────────────────
 
 
-class TestExtractFindingsAndAssessments:
+class TestExtractIssuesAndAssessments:
     def test_list_format_rejected(self):
         with pytest.raises(ValueError):
             parse_per_file_import_payload([{"file": "a.ts", "summary": "x"}])  # type: ignore[arg-type]
 
     def test_dict_format(self):
         data = {
-            "findings": [{"file": "a.ts"}],
+            "issues": [{"file": "a.ts"}],
             "assessments": {"naming": 80},
         }
-        findings, assessments = parse_per_file_import_payload(data)
-        assert len(findings) == 1
+        issues, assessments = parse_per_file_import_payload(data)
+        assert len(issues) == 1
         assert assessments == {"naming": 80}
 
     def test_invalid_type_rejected(self):
@@ -370,10 +370,10 @@ class TestExtractFindingsAndAssessments:
             parse_per_file_import_payload("bad")  # type: ignore[arg-type]
 
     def test_non_object_finding_item_rejected(self):
-        with pytest.raises(ValueError, match="findings\\[0\\]"):
+        with pytest.raises(ValueError, match="issues\\[0\\]"):
             parse_per_file_import_payload(
                 {
-                    "findings": ["bad-item"],  # type: ignore[list-item]
+                    "issues": ["bad-item"],  # type: ignore[list-item]
                 }
             )
 
@@ -384,7 +384,7 @@ class TestExtractReviewedFiles:
 
     def test_valid_reviewed_files_dedupes_and_filters(self):
         payload = {
-            "findings": [],
+            "issues": [],
             "reviewed_files": ["src/a.ts", "src/a.ts", " ", 42, "src/b.ts"],
         }
         assert extract_reviewed_files(payload) == ["src/a.ts", "src/b.ts"]
@@ -442,7 +442,7 @@ class TestStoreAssessments:
         assert stored["component_scores"]["Indirection Cost"] == 68.0
 
 
-class TestImportReviewFindings:
+class TestImportReviewIssues:
     def test_valid_finding(self, empty_state):
         data = [
             {
@@ -453,17 +453,17 @@ class TestImportReviewFindings:
                 "confidence": "medium",
             }
         ]
-        diff = import_review_findings(_as_review_payload(data), empty_state, "typescript")
+        diff = import_review_issues(_as_review_payload(data), empty_state, "typescript")
         assert diff.get("skipped", 0) == 0
-        # Finding should be in state
+        # Issue should be in state
         assert any(
             f.get("detector") == "review"
-            for f in empty_state.get("findings", {}).values()
+            for f in empty_state.get("issues", {}).values()
         )
 
     def test_skips_missing_fields(self, empty_state):
         data = [{"file": "src/foo.ts"}]  # Missing dimension, identifier, etc.
-        diff = import_review_findings(_as_review_payload(data), empty_state, "typescript")
+        diff = import_review_issues(_as_review_payload(data), empty_state, "typescript")
         assert diff.get("skipped", 0) == 1
 
     def test_skips_invalid_dimension(self, empty_state):
@@ -476,7 +476,7 @@ class TestImportReviewFindings:
                 "confidence": "high",
             }
         ]
-        diff = import_review_findings(_as_review_payload(data), empty_state, "typescript")
+        diff = import_review_issues(_as_review_payload(data), empty_state, "typescript")
         assert diff.get("skipped", 0) == 1
 
     def test_normalizes_invalid_confidence(self, empty_state):
@@ -489,11 +489,11 @@ class TestImportReviewFindings:
                 "confidence": "INVALID",
             }
         ]
-        _ = import_review_findings(_as_review_payload(data), empty_state, "typescript")
-        findings = list(empty_state.get("findings", {}).values())
-        review_findings = [f for f in findings if f.get("detector") == "review"]
-        assert len(review_findings) == 1
-        assert review_findings[0]["confidence"] == "low"
+        _ = import_review_issues(_as_review_payload(data), empty_state, "typescript")
+        issues = list(empty_state.get("issues", {}).values())
+        review_issues = [f for f in issues if f.get("detector") == "review"]
+        assert len(review_issues) == 1
+        assert review_issues[0]["confidence"] == "low"
 
     def test_import_with_reviewed_files_and_no_findings_updates_cache(
         self, empty_state, tmp_path
@@ -503,8 +503,8 @@ class TestImportReviewFindings:
         fpath = src / "reviewed.ts"
         fpath.write_text("export const reviewed = true;\n")
 
-        diff = import_review_findings(
-            {"findings": [], "reviewed_files": ["src/reviewed.ts"]},
+        diff = import_review_issues(
+            {"issues": [], "reviewed_files": ["src/reviewed.ts"]},
             empty_state,
             "typescript",
             project_root=tmp_path,
@@ -513,37 +513,37 @@ class TestImportReviewFindings:
         assert diff.get("new", 0) == 0
         cache = empty_state.get("review_cache", {}).get("files", {})
         assert "src/reviewed.ts" in cache
-        assert cache["src/reviewed.ts"]["finding_count"] == 0
+        assert cache["src/reviewed.ts"]["issue_count"] == 0
 
     def test_auto_resolves_missing_findings(self, empty_state):
-        # Pre-existing review finding for src/foo.ts
-        old = make_finding(
+        # Pre-existing review issue for src/foo.ts
+        old = make_issue(
             detector="review",
             file="src/foo.ts",
             name="naming_quality::old::abc12345",
             tier=3,
             confidence="medium",
-            summary="old finding",
+            summary="old issue",
             detail={"dimension": "naming_quality"},
         )
         old["lang"] = "typescript"
-        empty_state["findings"][old["id"]] = old
-        # Import new findings for same file, but different finding
+        empty_state["issues"][old["id"]] = old
+        # Import new issues for same file, but different issue
         data = [
             {
                 "file": "src/foo.ts",
                 "dimension": "naming_quality",
                 "identifier": "new_issue",
-                "summary": "New finding",
+                "summary": "New issue",
                 "confidence": "high",
             }
         ]
-        _ = import_review_findings(_as_review_payload(data), empty_state, "typescript")
-        # Old finding should be auto-resolved
-        assert empty_state["findings"][old["id"]]["status"] == "auto_resolved"
+        _ = import_review_issues(_as_review_payload(data), empty_state, "typescript")
+        # Old issue should be auto-resolved
+        assert empty_state["issues"][old["id"]]["status"] == "auto_resolved"
 
 
-class TestImportHolisticFindings:
+class TestImportHolisticIssues:
     def test_valid_holistic(self, empty_state):
         data = [
             {
@@ -556,14 +556,14 @@ class TestImportHolisticFindings:
                 "suggestion": "Split by domain",
             }
         ]
-        import_holistic_findings(_as_review_payload(data), empty_state, "typescript")
-        findings = list(empty_state.get("findings", {}).values())
-        holistic = [f for f in findings if f.get("detail", {}).get("holistic")]
+        import_holistic_issues(_as_review_payload(data), empty_state, "typescript")
+        issues = list(empty_state.get("issues", {}).values())
+        holistic = [f for f in issues if f.get("detail", {}).get("holistic")]
         assert len(holistic) == 1
 
     def test_skips_invalid(self, empty_state):
         data = [{"summary": "missing dimension"}]
-        diff = import_holistic_findings(_as_review_payload(data), empty_state, "typescript")
+        diff = import_holistic_issues(_as_review_payload(data), empty_state, "typescript")
         assert diff.get("skipped", 0) == 1
 
 
@@ -632,16 +632,16 @@ class TestEmptyPlan:
         empty_state["objective_score"] = 88.5
         result = _empty_plan(empty_state, "typescript")
         assert "88.5" in result
-        assert "No open holistic findings" in result
+        assert "No open holistic issues" in result
 
 
 class TestGenerateRemediationPlan:
     def test_empty_findings(self, empty_state):
         result = generate_remediation_plan(empty_state, "typescript")
-        assert "No open holistic findings" in result
+        assert "No open holistic issues" in result
 
     def test_with_findings(self, empty_state):
-        f = make_finding(
+        f = make_issue(
             detector="review",
             file="",
             name="holistic::cross_module_architecture::god::abc12345",
@@ -657,7 +657,7 @@ class TestGenerateRemediationPlan:
                 "reasoning": "Reduces coupling",
             },
         )
-        empty_state["findings"][f["id"]] = f
+        empty_state["issues"][f["id"]] = f
         empty_state["objective_score"] = 85.0
         empty_state["strict_score"] = 84.0
         empty_state["potentials"] = {"typescript": {"review": 50}}

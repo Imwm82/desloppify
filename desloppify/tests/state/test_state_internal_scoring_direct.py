@@ -6,13 +6,13 @@ import desloppify.engine._state.scoring as scoring_mod
 
 
 def test_count_findings_tracks_status_and_tiers():
-    findings = {
+    issues = {
         "f1": {"status": "open", "tier": 2},
         "f2": {"status": "fixed", "tier": 2},
         "f3": {"status": "auto_resolved", "tier": 3},
     }
 
-    counters, by_tier = scoring_mod._count_findings(findings)
+    counters, by_tier = scoring_mod._count_findings(issues)
     assert counters["open"] == 1
     assert counters["fixed"] == 1
     assert counters["auto_resolved"] == 1
@@ -28,7 +28,7 @@ def test_update_objective_health_verified_strict_penalizes_manual_fixed():
         "potentials": {"python": {"unused": 10}},
         "subjective_assessments": {dim: {"score": 100} for dim in DIMENSIONS},
     }
-    findings = {
+    issues = {
         "f1": {
             "detector": "unused",
             "status": "fixed",
@@ -39,7 +39,7 @@ def test_update_objective_health_verified_strict_penalizes_manual_fixed():
         }
     }
 
-    scoring_mod._update_objective_health(state, findings)
+    scoring_mod._update_objective_health(state, issues)
     assert state["strict_score"] == 100.0
     assert state["verified_strict_score"] < state["strict_score"]
 
@@ -78,7 +78,7 @@ def test_update_objective_health_resets_two_target_matched_subjective_dimensions
 
     scoring_mod._update_objective_health(
         state,
-        findings={},
+        issues={},
         subjective_integrity_target=95.0,
     )
 
@@ -111,7 +111,7 @@ def test_update_objective_health_warns_single_target_matched_subjective_dimensio
 
     scoring_mod._update_objective_health(
         state,
-        findings={},
+        issues={},
         subjective_integrity_target=95.0,
     )
 
@@ -147,7 +147,7 @@ def test_update_objective_health_applies_scan_coverage_confidence_metadata():
         },
     }
 
-    scoring_mod._update_objective_health(state, findings={})
+    scoring_mod._update_objective_health(state, issues={})
 
     security_dim = state["dimension_scores"]["Security"]
     detector_meta = security_dim["detectors"]["security"]

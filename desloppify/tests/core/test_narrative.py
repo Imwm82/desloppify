@@ -41,7 +41,7 @@ def _finding(
     file: str = "a.py",
     zone: str = "production",
 ) -> dict:
-    """Build a minimal finding dict."""
+    """Build a minimal issue dict."""
     return {
         "detector": detector,
         "status": status,
@@ -51,9 +51,9 @@ def _finding(
     }
 
 
-def _findings_dict(*findings: dict) -> dict:
-    """Wrap a list of finding dicts into an id-keyed dict."""
-    return {str(i): f for i, f in enumerate(findings)}
+def _findings_dict(*issues: dict) -> dict:
+    """Wrap a list of issue dicts into an id-keyed dict."""
+    return {str(i): f for i, f in enumerate(issues)}
 
 
 def _history_entry(
@@ -85,62 +85,62 @@ class TestCountOpenByDetector:
         assert _count_open_by_detector({}) == {}
 
     def test_only_open_counted(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", status="open"),
             _finding("unused", status="resolved"),
             _finding("unused", status="wontfix"),
             _finding("unused", status="false_positive"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"unused": 1}
 
     def test_multiple_detectors(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", status="open"),
             _finding("unused", status="open"),
             _finding("logs", status="open"),
             _finding("smells", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"unused": 2, "logs": 1, "smells": 1}
 
     def test_structural_merge_large(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("large", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_complexity(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("complexity", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_gods(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("gods", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_concerns(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("concerns", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_combines_all_subdetectors(self):
         """All four structural sub-detectors merge into a single count."""
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("large", status="open"),
             _finding("complexity", status="open"),
             _finding("gods", status="open"),
             _finding("concerns", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"structural": 4}
 
     def test_structural_merge_set_matches_constant(self):
@@ -148,36 +148,36 @@ class TestCountOpenByDetector:
 
     def test_non_structural_not_merged(self):
         """Detectors not in STRUCTURAL_MERGE stay separate."""
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", status="open"),
             _finding("large", status="open"),
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"unused": 1, "structural": 1}
 
     def test_missing_detector_key(self):
-        findings = {"0": {"status": "open"}}
-        result = _count_open_by_detector(findings)
+        issues = {"0": {"status": "open"}}
+        result = _count_open_by_detector(issues)
         assert result == {"unknown": 1}
 
     def test_suppressed_findings_excluded(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("security", status="open"),
             {**_finding("security", status="open"), "suppressed": True},
             {**_finding("security", status="open"), "suppressed": True},
             _finding("unused", status="open"),
             {**_finding("unused", status="open"), "suppressed": True},
         )
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result == {"security": 1, "unused": 1}
 
     def test_suppressed_review_uninvestigated_excluded(self):
-        findings = {
+        issues = {
             "a": {"status": "open", "detector": "review", "detail": {}},
             "b": {"status": "open", "detector": "review", "detail": {},
                    "suppressed": True},
         }
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result["review"] == 1
         assert result["review_uninvestigated"] == 1
 
@@ -456,7 +456,7 @@ class TestDetectMilestone:
         result = _detect_milestone(state, None, history)
         assert result is None
 
-    def test_zero_open_findings(self):
+    def test_zero_open_issues(self):
         state = {
             "strict_score": 100.0,
             "stats": {
@@ -467,7 +467,7 @@ class TestDetectMilestone:
         }
         history = [_history_entry(strict_score=100.0)]
         result = _detect_milestone(state, None, history)
-        assert result == "Zero open findings!"
+        assert result == "Zero open issues!"
 
     def test_zero_total_findings_no_milestone(self):
         """Zero open AND zero total means nothing was ever found -- no celebration."""
@@ -537,13 +537,13 @@ class TestAnalyzeDebt:
         assert result["trend"] == "stable"
 
     def test_wontfix_count(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", status="wontfix"),
             _finding("unused", status="wontfix"),
             _finding("logs", status="open"),
             _finding("smells", status="resolved"),
         )
-        result = _analyze_debt({}, findings, [])
+        result = _analyze_debt({}, issues, [])
         assert result["wontfix_count"] == 2
 
     def test_worst_dimension_gap(self):
@@ -1037,17 +1037,17 @@ class TestComputeReminders:
 
     def test_feedback_nudge_fp_variant(self):
         """High FP rate triggers the FP-specific message."""
-        # Need 5+ findings per (detector, zone) with >30% FP rate
-        findings = {}
+        # Need 5+ issues per (detector, zone) with >30% FP rate
+        issues = {}
         for i in range(4):
-            findings[str(i)] = _finding("unused", status="open")
+            issues[str(i)] = _finding("unused", status="open")
         for i in range(4, 7):
-            findings[str(i)] = _finding("unused", status="false_positive")
+            issues[str(i)] = _finding("unused", status="false_positive")
         # 7 total, 3 FP → 43% FP rate
         state = {
             "strict_score": 50.0,
             "scan_history": [{"strict_score": 45.0}, {"strict_score": 50.0}],
-            "findings": findings,
+            "issues": issues,
         }
         reminders, _ = _compute_reminders(
             state,
@@ -1161,7 +1161,7 @@ class TestComputeHeadline:
         )
         assert result is not None
         assert "First scan complete" in result
-        assert "15 open findings" in result
+        assert "15 open issues" in result
         assert "3 dimensions" in result
 
     def test_first_scan_no_dimensions(self):
@@ -1178,7 +1178,7 @@ class TestComputeHeadline:
         )
         assert result is not None
         assert "First scan complete" in result
-        assert "8 findings detected" in result
+        assert "8 issues detected" in result
 
     def test_regression_message(self):
         history = [
@@ -1315,7 +1315,7 @@ class TestComputeHeadline:
             history=[_history_entry()] * 6,
         )
         assert result is not None
-        assert "30 findings open" in result
+        assert "30 issues open" in result
         assert "Debug cleanliness" in result
         assert "`desloppify next`" in result
 
@@ -1378,44 +1378,44 @@ class TestOpenFilesByDetector:
         assert _open_files_by_detector({}) == {}
 
     def test_only_open_counted(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", status="open", file="a.py"),
             _finding("unused", status="resolved", file="b.py"),
             _finding("unused", status="wontfix", file="c.py"),
         )
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}}
 
     def test_multiple_detectors(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
             _finding("logs", file="b.py"),
         )
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}, "logs": {"b.py"}}
 
     def test_structural_merge(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("large", file="big.py"),
             _finding("complexity", file="complex.py"),
         )
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert result == {"structural": {"big.py", "complex.py"}}
 
     def test_dedup_same_file(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
             _finding("unused", file="a.py"),
         )
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}}
 
     def test_empty_file_excluded(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file=""),
             _finding("unused", file="a.py"),
         )
-        result = _open_files_by_detector(findings)
+        result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}}
 
 
@@ -1819,7 +1819,7 @@ class TestComputeStrategyHint:
 
 class TestComputeStrategy:
     def test_structure_has_expected_keys(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
         )
         by_det = {"unused": 1}
@@ -1833,7 +1833,7 @@ class TestComputeStrategy:
             }
         ]
         result = _compute_strategy(
-            findings, by_det, actions, "middle_grind", "typescript"
+            issues, by_det, actions, "middle_grind", "typescript"
         )
         assert "fixer_leverage" in result
         assert "lanes" in result
@@ -1841,7 +1841,7 @@ class TestComputeStrategy:
         assert "hint" in result
 
     def test_actions_annotated_with_lane(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
             _finding("structural", file="b.py"),
         )
@@ -1862,13 +1862,13 @@ class TestComputeStrategy:
                 "impact": 2.0,
             },
         ]
-        _compute_strategy(findings, by_det, actions, "middle_grind", "typescript")
+        _compute_strategy(issues, by_det, actions, "middle_grind", "typescript")
         assert actions[0].get("lane") == "cleanup"
         assert actions[1].get("lane") is not None
         assert actions[1]["lane"].startswith("refactor")
 
     def test_python_no_cleanup_lane(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
         )
         by_det = {"unused": 1}
@@ -1882,12 +1882,12 @@ class TestComputeStrategy:
                 "impact": 1.0,
             }
         ]
-        result = _compute_strategy(findings, by_det, actions, "middle_grind", "python")
+        result = _compute_strategy(issues, by_det, actions, "middle_grind", "python")
         assert "cleanup" not in result["lanes"]
         assert result["fixer_leverage"]["recommendation"] == "none"
 
     def test_can_parallelize_true(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             *[_finding("structural", file=f"file_{i}.py") for i in range(10)],
             *[_finding("props", file=f"comp_{i}.tsx") for i in range(10)],
         )
@@ -1909,13 +1909,13 @@ class TestComputeStrategy:
             },
         ]
         result = _compute_strategy(
-            findings, by_det, actions, "middle_grind", "typescript"
+            issues, by_det, actions, "middle_grind", "typescript"
         )
         assert result["can_parallelize"] is True
 
     def test_can_parallelize_ignores_insignificant_lanes(self):
         """One tiny lane shouldn't block parallelism of larger lanes."""
-        findings = _findings_dict(
+        issues = _findings_dict(
             *[_finding("structural", file=f"file_{i}.py") for i in range(10)],
             *[_finding("props", file=f"comp_{i}.tsx") for i in range(10)],
             _finding("deprecated", file="tiny.ts"),  # 1 file, tiny lane
@@ -1945,13 +1945,13 @@ class TestComputeStrategy:
             },
         ]
         result = _compute_strategy(
-            findings, by_det, actions, "middle_grind", "typescript"
+            issues, by_det, actions, "middle_grind", "typescript"
         )
         # structural and props are significant, deprecated is not — still parallelizable
         assert result["can_parallelize"] is True
 
     def test_can_parallelize_false_single_lane(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("structural", file="a.py"),
         )
         by_det = {"structural": 1}
@@ -1965,7 +1965,7 @@ class TestComputeStrategy:
             }
         ]
         result = _compute_strategy(
-            findings, by_det, actions, "middle_grind", "typescript"
+            issues, by_det, actions, "middle_grind", "typescript"
         )
         assert result["can_parallelize"] is False
 
@@ -1976,7 +1976,7 @@ class TestComputeStrategy:
 
 
 class TestReviewHeadline:
-    """Headline should mention review findings in all phases."""
+    """Headline should mention review issues in all phases."""
 
     def test_review_suffix_in_middle_grind(self):
         """Review suffix should appear even during middle_grind (not just maintenance)."""
@@ -1994,10 +1994,10 @@ class TestReviewHeadline:
             open_by_detector=by_det,
         )
         assert headline is not None
-        assert "review finding" in headline.lower()
+        assert "review issue" in headline.lower()
 
     def test_review_suffix_with_uninvestigated(self):
-        """Uninvestigated review findings should mention show review."""
+        """Uninvestigated review issues should mention show review."""
         by_det = {"review": 2, "review_uninvestigated": 2}
         headline = _compute_headline(
             "maintenance",
@@ -2015,7 +2015,7 @@ class TestReviewHeadline:
         assert "desloppify show review" in headline
 
     def test_review_suffix_all_investigated(self):
-        """When all review findings are investigated, show 'pending' not 'issues'."""
+        """When all review issues are investigated, show 'pending' not 'issues'."""
         by_det = {"review": 2, "review_uninvestigated": 0}
         headline = _compute_headline(
             "maintenance",
@@ -2049,14 +2049,14 @@ class TestReviewHeadline:
         )
         # Should not mention review at all
         if headline:
-            assert "review finding" not in headline.lower()
+            assert "review issue" not in headline.lower()
 
 
 class TestReviewUninvestigatedCount:
     """_count_open_by_detector should track review_uninvestigated."""
 
     def test_uninvestigated_count(self):
-        findings = {
+        issues = {
             "a": {"status": "open", "detector": "review", "detail": {}},
             "b": {
                 "status": "open",
@@ -2066,24 +2066,24 @@ class TestReviewUninvestigatedCount:
             "c": {"status": "open", "detector": "review", "detail": {}},
             "d": {"status": "fixed", "detector": "review", "detail": {}},
         }
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result["review"] == 3  # a, b, c
         assert result["review_uninvestigated"] == 2  # a, c
 
     def test_no_review_findings(self):
-        findings = {
+        issues = {
             "a": {"status": "open", "detector": "unused"},
         }
-        result = _count_open_by_detector(findings)
+        result = _count_open_by_detector(issues)
         assert result.get("review_uninvestigated", 0) == 0
 
 
 class TestReviewReminders:
-    """Review-related reminders: pending findings + re-review needed."""
+    """Review-related reminders: pending issues + re-review needed."""
 
     def _base_state(self):
         return {
-            "findings": {
+            "issues": {
                 "r1": {"status": "open", "detector": "review", "detail": {}},
                 "r2": {
                     "status": "open",
@@ -2102,12 +2102,12 @@ class TestReviewReminders:
         types = [r["type"] for r in reminders]
         assert "review_findings_pending" in types
         msg = next(r for r in reminders if r["type"] == "review_findings_pending")
-        assert "1 review finding" in msg["message"]
+        assert "1 review issue" in msg["message"]
         assert "desloppify show review" in msg["message"]
 
     def test_no_review_pending_when_all_investigated(self):
         state = self._base_state()
-        state["findings"]["r1"]["detail"]["investigation"] = "done too"
+        state["issues"]["r1"]["detail"]["investigation"] = "done too"
         reminders, _ = _compute_reminders(
             state, "typescript", "middle_grind", {}, [], {}, {}, "scan"
         )
@@ -2144,10 +2144,10 @@ class TestReviewReminders:
 
 
 class TestStrategyReviewHint:
-    """Strategy hint should mention review findings when issue_queue action exists."""
+    """Strategy hint should mention review issues when issue_queue action exists."""
 
     def test_review_appended_to_hint(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
         )
         by_det = {"unused": 1}
@@ -2170,13 +2170,13 @@ class TestStrategyReviewHint:
             },
         ]
         result = _compute_strategy(
-            findings, by_det, actions, "middle_grind", "typescript"
+            issues, by_det, actions, "middle_grind", "typescript"
         )
         assert "desloppify show review" in result["hint"]
-        assert "3 finding" in result["hint"]
+        assert "3 issue" in result["hint"]
 
     def test_no_review_in_hint_without_action(self):
-        findings = _findings_dict(
+        issues = _findings_dict(
             _finding("unused", file="a.py"),
         )
         by_det = {"unused": 1}
@@ -2191,7 +2191,7 @@ class TestStrategyReviewHint:
             },
         ]
         result = _compute_strategy(
-            findings, by_det, actions, "middle_grind", "typescript"
+            issues, by_det, actions, "middle_grind", "typescript"
         )
         assert "desloppify show review" not in result["hint"]
 
@@ -2217,7 +2217,7 @@ class TestComputeNarrativeContract:
                 },
             },
             "stats": {"open": 4, "total": 6},
-            "findings": {
+            "issues": {
                 "smells::a.ts::foo": {
                     "id": "smells::a.ts::foo",
                     "status": "open",
@@ -2274,7 +2274,7 @@ class TestComputeNarrativeContract:
             "scan_history": [_history_entry(strict_score=91.0, lang="typescript")],
             "dimension_scores": {},
             "stats": {"open": 1, "total": 1},
-            "findings": {},
+            "issues": {},
             "reminder_history": {},
         }
         narrative = compute_narrative(

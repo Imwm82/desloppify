@@ -29,7 +29,7 @@ from desloppify.app.commands.scan.scan_helpers import (
     _warn_explicit_lang_with_no_files,
 )
 from desloppify.app.commands.scan.scan_wontfix import (
-    augment_with_stale_wontfix_findings as _augment_stale_wontfix_impl,
+    augment_with_stale_wontfix_issues as _augment_stale_wontfix_impl,
 )
 from desloppify.core.text_api import PROJECT_ROOT
 from desloppify.engine import work_queue as issues_mod
@@ -37,7 +37,7 @@ from desloppify.engine import planning as plan_mod
 from desloppify.engine.planning.scan import PlanScanOptions
 from desloppify.engine.plan import (
     append_log_entry,
-    auto_cluster_findings,
+    auto_cluster_issues,
     load_plan,
     reconcile_plan_after_scan,
     save_plan,
@@ -152,7 +152,7 @@ def _sync_auto_clusters(
     cycle_just_completed: bool = False,
 ) -> bool:
     """Regenerate automatic task clusters after scan merge."""
-    return bool(auto_cluster_findings(
+    return bool(auto_cluster_issues(
         plan, state,
         target_strict=target_strict,
         policy=policy,
@@ -232,7 +232,7 @@ def _reconcile_plan_post_scan(runtime: "ScanRuntime") -> None:
         # Detect cycle completion: plan_start_scores is empty when the
         # previous cycle drained the queue and revealed scores.  In that
         # case stale subjective dimensions should be prioritized over new
-        # objective findings so the user reviews before a new cycle begins.
+        # objective issues so the user reviews before a new cycle begins.
         _cycle_just_completed = not plan.get("plan_start_scores")
 
         stale_changed = _sync_stale_dimensions(
@@ -261,7 +261,7 @@ def _reconcile_plan_post_scan(runtime: "ScanRuntime") -> None:
             if triage_sync.injected:
                 print(
                     colorize(
-                        "  Plan: planning mode needed — review findings changed since last triage.",
+                        "  Plan: planning mode needed — review issues changed since last triage.",
                         "cyan",
                     )
                 )
@@ -334,12 +334,12 @@ def _state_lang_capabilities(
 
 
 def _state_findings(state: state_mod.StateModel) -> dict[str, dict[str, Any]]:
-    """Return normalized finding map from state."""
-    findings = state.get("findings")
-    if isinstance(findings, dict):
-        return findings
+    """Return normalized issue map from state."""
+    issues = state.get("issues")
+    if isinstance(issues, dict):
+        return issues
     raise ScanStateContractError(
-        "state.findings must be an object; state file appears corrupted"
+        "state.issues must be an object; state file appears corrupted"
     )
 
 
@@ -381,7 +381,7 @@ class ScanMergeResult:
 
 @dataclass
 class ScanNoiseSnapshot:
-    """Noise budget settings and hidden finding counts for this scan."""
+    """Noise budget settings and hidden issue counts for this scan."""
 
     noise_budget: int
     global_noise_budget: int
@@ -533,37 +533,37 @@ def prepare_scan_runtime(args) -> ScanRuntime:
 
 
 def _augment_with_stale_exclusion_findings(
-    findings: list[dict[str, Any]],
+    issues: list[dict[str, Any]],
     runtime: ScanRuntime,
 ) -> list[dict[str, Any]]:
-    """Append stale exclude findings when excluded dirs are unreferenced."""
+    """Append stale exclude issues when excluded dirs are unreferenced."""
     extra_exclusions = get_exclusions()
     if not (extra_exclusions and runtime.lang and runtime.lang.file_finder):
-        return findings
+        return issues
 
     scanned_files = runtime.lang.file_finder(runtime.path)
     stale = _audit_excluded_dirs(
         extra_exclusions, scanned_files, PROJECT_ROOT
     )
     if not stale:
-        return findings
+        return issues
 
-    augmented = list(findings)
+    augmented = list(issues)
     augmented.extend(stale)
     for stale_finding in stale:
         print(colorize(f"  ℹ {stale_finding['summary']}", "dim"))
     return augmented
 
 
-def _augment_with_stale_wontfix_findings(
-    findings: list[dict[str, Any]],
+def _augment_with_stale_wontfix_issues(
+    issues: list[dict[str, Any]],
     runtime: ScanRuntime,
     *,
     decay_scans: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Append re-triage findings for stale/worsening wontfix debt."""
+    """Append re-triage issues for stale/worsening wontfix debt."""
     return _augment_stale_wontfix_impl(
-        findings,
+        issues,
         state=runtime.state,
         scan_path=runtime.path,
         project_root=PROJECT_ROOT,
@@ -574,11 +574,11 @@ def _augment_with_stale_wontfix_findings(
 def run_scan_generation(
     runtime: ScanRuntime,
 ) -> tuple[list[dict[str, Any]], dict[str, object], dict[str, object] | None]:
-    """Run detector pipeline and return findings, potentials, and codebase metrics."""
+    """Run detector pipeline and return issues, potentials, and codebase metrics."""
     enable_file_cache()
     enable_parse_cache()
     try:
-        findings, potentials = plan_mod.generate_findings(
+        issues, potentials = plan_mod.generate_issues(
             runtime.path,
             lang=runtime.lang,
             options=PlanScanOptions(
@@ -595,27 +595,27 @@ def run_scan_generation(
     _warn_explicit_lang_with_no_files(
         runtime.args, runtime.lang, runtime.path, codebase_metrics
     )
-    findings = _augment_with_stale_exclusion_findings(findings, runtime)
+    issues = _augment_with_stale_exclusion_findings(issues, runtime)
     decay_scans = _coerce_int(
         runtime.config.get("wontfix_decay_scans"),
         default=_WONTFIX_DECAY_SCANS_DEFAULT,
     )
-    findings, monitored_wontfix = _augment_with_stale_wontfix_findings(
-        findings,
+    issues, monitored_wontfix = _augment_with_stale_wontfix_issues(
+        issues,
         runtime,
         decay_scans=max(decay_scans, 0),
     )
     potentials["stale_wontfix"] = monitored_wontfix
-    return findings, potentials, codebase_metrics
+    return issues, potentials, codebase_metrics
 
 
 def merge_scan_results(
     runtime: ScanRuntime,
-    findings: list[dict[str, Any]],
+    issues: list[dict[str, Any]],
     potentials: dict[str, object],
     codebase_metrics: dict[str, object] | None,
 ) -> ScanMergeResult:
-    """Merge findings into persistent state and return diff + previous score snapshot."""
+    """Merge issues into persistent state and return diff + previous score snapshot."""
     scan_path_rel = rel(str(runtime.path))
     prev_scan_path = runtime.state.get("scan_path")
     path_changed = prev_scan_path is not None and prev_scan_path != scan_path_rel
@@ -636,7 +636,7 @@ def merge_scan_results(
 
     diff = state_mod.merge_scan(
         runtime.state,
-        findings,
+        issues,
         options=state_mod.MergeScanOptions(
             lang=runtime.lang.name if runtime.lang else None,
             scan_path=scan_path_rel,
@@ -676,20 +676,20 @@ def resolve_noise_snapshot(
     state: state_mod.StateModel,
     config: dict[str, object],
 ) -> ScanNoiseSnapshot:
-    """Resolve noise budget settings and hidden finding counters."""
+    """Resolve noise budget settings and hidden issue counters."""
     noise_budget, global_noise_budget, budget_warning = (
-        state_mod.resolve_finding_noise_settings(config)
+        state_mod.resolve_issue_noise_settings(config)
     )
     findings_by_id = _state_findings(state)
-    open_findings = [
-        finding
-        for finding in state_mod.path_scoped_findings(
+    open_issues = [
+        issue
+        for issue in state_mod.path_scoped_issues(
             findings_by_id, state.get("scan_path")
         ).values()
-        if finding.get("status") == "open"
+        if issue.get("status") == "open"
     ]
-    _, hidden_by_detector = state_mod.apply_finding_noise_budget(
-        open_findings,
+    _, hidden_by_detector = state_mod.apply_issue_noise_budget(
+        open_issues,
         budget=noise_budget,
         global_budget=global_noise_budget,
     )

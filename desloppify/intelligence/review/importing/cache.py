@@ -25,19 +25,19 @@ def upsert_review_cache_entry(
     project_root: Path,
     hash_file_fn,
     utc_now_fn=utc_now,
-    finding_count: int | None = None,
+    issue_count: int | None = None,
 ) -> None:
     """Write one normalized review-cache entry for a reviewed file."""
     absolute = project_root / file_path
     content_hash = hash_file_fn(str(absolute)) if absolute.exists() else ""
-    if finding_count is None:
+    if issue_count is None:
         previous = file_cache.get(file_path, {})
-        count = previous.get("finding_count", 0) if isinstance(previous, dict) else 0
-        finding_count = count if isinstance(count, int) else 0
+        count = previous.get("issue_count", 0) if isinstance(previous, dict) else 0
+        issue_count = count if isinstance(count, int) else 0
     file_cache[file_path] = {
         "content_hash": content_hash,
         "reviewed_at": utc_now_fn(),
-        "finding_count": max(0, int(finding_count)),
+        "issue_count": max(0, int(issue_count)),
     }
 
 
@@ -45,7 +45,7 @@ def refresh_review_file_cache(
     state: dict[str, Any],
     *,
     reviewed_files: list[str] | None,
-    findings_by_file: dict[str, int | None] | None = None,
+    issues_by_file: dict[str, int | None] | None = None,
     project_root: Path | str | None = None,
     hash_file_fn,
     utc_now_fn=utc_now,
@@ -53,7 +53,7 @@ def refresh_review_file_cache(
     """Refresh normalized review cache entries for all reviewed files."""
     file_cache = _review_file_cache(state)
     resolved_project_root = resolve_import_project_root(project_root)
-    counts = findings_by_file or {}
+    counts = issues_by_file or {}
 
     reviewed_set = set(counts)
     if reviewed_files:
@@ -70,5 +70,5 @@ def refresh_review_file_cache(
             project_root=resolved_project_root,
             hash_file_fn=hash_file_fn,
             utc_now_fn=utc_now_fn,
-            finding_count=counts.get(file_path),
+            issue_count=counts.get(file_path),
         )

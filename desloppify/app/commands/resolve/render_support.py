@@ -37,13 +37,13 @@ def print_strict_gap_note(status: str, *, overall: float, strict: float) -> None
 def print_post_resolve_guidance(
     *,
     status: str,
-    has_review_findings: bool,
+    has_review_issues: bool,
     overall_delta: float,
 ) -> None:
-    if has_review_findings and abs(overall_delta) < 0.05:
+    if has_review_issues and abs(overall_delta) < 0.05:
         print(
             colorize(
-                "  Scores unchanged (review findings don't affect scores directly).",
+                "  Scores unchanged (review issues don't affect scores directly).",
                 "yellow",
             )
         )
@@ -57,7 +57,7 @@ def print_post_resolve_guidance(
     if status == "fixed":
         print(
             colorize(
-                "  Verified score updates after a scan confirms the finding disappeared.",
+                "  Verified score updates after a scan confirms the issue disappeared.",
                 "yellow",
             )
         )

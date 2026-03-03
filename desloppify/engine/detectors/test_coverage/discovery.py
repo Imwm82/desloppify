@@ -66,13 +66,13 @@ def _discover_scorable_and_tests(
     return production_files, test_files, scorable, potential
 
 
-def _no_tests_findings(
+def _no_tests_issues(
     scorable: set[str],
     graph: dict,
     lang_name: str,
     complexity_map: dict[str, float] | None = None,
 ) -> list[dict]:
-    """Generate findings when there are zero test files."""
+    """Generate issues when there are zero test files."""
     cmap = complexity_map or {}
     by_loc = sorted(scorable, key=lambda f: -_file_loc(f))
     entries = []

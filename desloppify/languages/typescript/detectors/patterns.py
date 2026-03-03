@@ -10,7 +10,7 @@ Only COMPETING patterns (multiple approaches to the same decision) are flagged:
   different tradeoffs. An area using 2+ suggests fragmentation or migration debt.
 
 All families are included in the census (raw `detect patterns` command shows everything).
-Only competing families produce findings for the scan pipeline.
+Only competing families produce issues for the scan pipeline.
 """
 
 import argparse

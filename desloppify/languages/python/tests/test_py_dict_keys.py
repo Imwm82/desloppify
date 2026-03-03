@@ -19,14 +19,14 @@ def _write_py(tmp_path: Path, code: str, filename: str = "test_mod.py") -> Path:
     return tmp_path
 
 
-def _kinds(findings: list[dict]) -> set[str]:
-    """Extract unique finding kinds."""
-    return {f["kind"] for f in findings}
+def _kinds(issues: list[dict]) -> set[str]:
+    """Extract unique issue kinds."""
+    return {f["kind"] for f in issues}
 
 
-def _find_kind(findings: list[dict], kind: str) -> list[dict]:
-    """Filter findings by kind."""
-    return [f for f in findings if f["kind"] == kind]
+def _find_kind(issues: list[dict], kind: str) -> list[dict]:
+    """Filter issues by kind."""
+    return [f for f in issues if f["kind"] == kind]
 
 
 # ── Levenshtein / singular-plural helpers ─────────────────
@@ -328,7 +328,7 @@ class TestSchemaDrift:
         """)
         path = _write_py(tmp_path, code)
         entries, count = detect_schema_drift(path)
-        # The function needs at least 3 literals to produce findings
+        # The function needs at least 3 literals to produce issues
         assert count >= 3
         # "town" is the outlier — only in 1 of 3 dicts while "city" is in 2
         if entries:
@@ -351,7 +351,7 @@ class TestSchemaDrift:
         """)
         path = _write_py(tmp_path, code)
         entries, count = detect_schema_drift(path)
-        # Fewer than 3 literals -> no findings
+        # Fewer than 3 literals -> no issues
         assert len(entries) == 0
 
 

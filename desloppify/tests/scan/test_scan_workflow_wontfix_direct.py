@@ -7,7 +7,7 @@ from desloppify.app.commands.scan.scan_workflow import (
     ScanStateContractError,
     ScanRuntime,
     _expire_provisional_manual_override_assessments,
-    _augment_with_stale_wontfix_findings,
+    _augment_with_stale_wontfix_issues,
     _reset_subjective_assessments_for_scan_reset,
 )
 
@@ -20,7 +20,7 @@ def test_stale_wontfix_adds_decay_and_drift_finding(tmp_path, monkeypatch):
         state_path=None,
         state={
             "scan_count": 25,
-            "findings": {
+            "issues": {
                 "structural::a.py::": {
                     "id": "structural::a.py::",
                     "status": "wontfix",
@@ -43,7 +43,7 @@ def test_stale_wontfix_adds_decay_and_drift_finding(tmp_path, monkeypatch):
         zone_overrides=None,
     )
 
-    findings = [
+    issues = [
         {
             "id": "structural::a.py::",
             "detector": "structural",
@@ -52,14 +52,14 @@ def test_stale_wontfix_adds_decay_and_drift_finding(tmp_path, monkeypatch):
         }
     ]
 
-    augmented, monitored = _augment_with_stale_wontfix_findings(
-        findings,
+    augmented, monitored = _augment_with_stale_wontfix_issues(
+        issues,
         runtime,
         decay_scans=20,
     )
 
     assert monitored == 1
-    stale = [finding for finding in augmented if finding.get("detector") == "stale_wontfix"]
+    stale = [issue for issue in augmented if issue.get("detector") == "stale_wontfix"]
     assert len(stale) == 1
     reasons = stale[0]["detail"]["reasons"]
     assert "scan_decay" in reasons
@@ -75,7 +75,7 @@ def test_stale_wontfix_not_added_when_recent_and_stable(tmp_path, monkeypatch):
         state_path=None,
         state={
             "scan_count": 10,
-            "findings": {
+            "issues": {
                 "structural::a.py::": {
                     "id": "structural::a.py::",
                     "status": "wontfix",
@@ -98,7 +98,7 @@ def test_stale_wontfix_not_added_when_recent_and_stable(tmp_path, monkeypatch):
         zone_overrides=None,
     )
 
-    findings = [
+    issues = [
         {
             "id": "structural::a.py::",
             "detector": "structural",
@@ -107,14 +107,14 @@ def test_stale_wontfix_not_added_when_recent_and_stable(tmp_path, monkeypatch):
         }
     ]
 
-    augmented, monitored = _augment_with_stale_wontfix_findings(
-        findings,
+    augmented, monitored = _augment_with_stale_wontfix_issues(
+        issues,
         runtime,
         decay_scans=20,
     )
 
     assert monitored == 1
-    stale = [finding for finding in augmented if finding.get("detector") == "stale_wontfix"]
+    stale = [issue for issue in augmented if issue.get("detector") == "stale_wontfix"]
     assert stale == []
 
 

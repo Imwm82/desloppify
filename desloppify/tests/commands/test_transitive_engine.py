@@ -93,7 +93,7 @@ class TestMergeScan:
 
     @patch.object(merge_mod, "_recompute_stats")
     def test_merge_empty_scan_into_empty_state(self, mock_recompute):
-        """Merging zero findings into empty state produces a clean diff."""
+        """Merging zero issues into empty state produces a clean diff."""
         mock_recompute.return_value = None
         state = self._make_state()
         diff = merge_scan(state, [], MergeScanOptions(lang="python"))
@@ -107,10 +107,10 @@ class TestMergeScan:
 
     @patch.object(merge_mod, "_recompute_stats")
     def test_merge_new_findings(self, mock_recompute):
-        """New findings are counted correctly."""
+        """New issues are counted correctly."""
         mock_recompute.return_value = None
         state = self._make_state()
-        findings = [
+        issues = [
             {
                 "id": "smells::foo.py::debug_tag",
                 "detector": "smells",
@@ -127,23 +127,23 @@ class TestMergeScan:
                 "reopen_count": 0,
             },
         ]
-        diff = merge_scan(state, findings, MergeScanOptions(lang="python"))
+        diff = merge_scan(state, issues, MergeScanOptions(lang="python"))
         assert diff["new"] == 1
         assert diff["total_current"] == 1
-        assert "smells::foo.py::debug_tag" in state["findings"]
+        assert "smells::foo.py::debug_tag" in state["issues"]
 
     @patch.object(merge_mod, "_recompute_stats")
     def test_merge_auto_resolves_disappeared(self, mock_recompute):
-        """Old open findings not in current scan get auto-resolved."""
+        """Old open issues not in current scan get auto-resolved."""
         mock_recompute.return_value = None
         state = self._make_state()
-        state["findings"]["smells::old.py::leftover"] = {
+        state["issues"]["smells::old.py::leftover"] = {
             "id": "smells::old.py::leftover",
             "detector": "smells",
             "file": "old.py",
             "tier": 2,
             "confidence": "high",
-            "summary": "Old finding",
+            "summary": "Old issue",
             "detail": {},
             "status": "open",
             "note": None,
@@ -157,14 +157,14 @@ class TestMergeScan:
             state, [], MergeScanOptions(lang="python", force_resolve=True)
         )
         assert diff["auto_resolved"] == 1
-        assert state["findings"]["smells::old.py::leftover"]["status"] == "auto_resolved"
+        assert state["issues"]["smells::old.py::leftover"]["status"] == "auto_resolved"
 
     @patch.object(merge_mod, "_recompute_stats")
     def test_merge_with_ignore_patterns(self, mock_recompute):
-        """Findings matching ignore patterns are suppressed but still counted."""
+        """Issues matching ignore patterns are suppressed but still counted."""
         mock_recompute.return_value = None
         state = self._make_state()
-        findings = [
+        issues = [
             {
                 "id": "smells::vendor/lib.py::debug",
                 "detector": "smells",
@@ -183,13 +183,13 @@ class TestMergeScan:
         ]
         diff = merge_scan(
             state,
-            findings,
+            issues,
             MergeScanOptions(lang="python", ignore=["vendor/*"]),
         )
         assert diff["ignored"] == 1
         assert diff["raw_findings"] == 1
-        # Finding is inserted but suppressed:
-        f = state["findings"]["smells::vendor/lib.py::debug"]
+        # Issue is inserted but suppressed:
+        f = state["issues"]["smells::vendor/lib.py::debug"]
         assert f["suppressed"] is True
 
     @patch.object(merge_mod, "_recompute_stats")
@@ -804,7 +804,7 @@ class TestApplyDirectoryMove:
 # =====================================================================
 
 
-class TestEntriesToFindings:
+class TestEntriesToIssues:
     def test_basic_conversion(self):
         entries = [
             {
@@ -893,7 +893,7 @@ class TestLogPhaseSummary:
         mock_log.assert_called_once()
         msg = mock_log.call_args[0][0]
         assert "test coverage" in msg
-        assert "2 findings" in msg
+        assert "2 issues" in msg
         assert "50 production files" in msg
 
     @patch("desloppify.languages._framework.base.shared_phases.log")

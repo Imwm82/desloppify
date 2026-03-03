@@ -7,7 +7,7 @@ from desloppify.engine._plan.epic_triage import (
     build_triage_prompt,
     collect_triage_input,
     detect_recurring_patterns,
-    extract_finding_citations,
+    extract_issue_citations,
 )
 from desloppify.engine._plan.stale_dimensions import review_finding_snapshot_hash
 
@@ -16,6 +16,6 @@ __all__ = [
     "build_triage_prompt",
     "collect_triage_input",
     "detect_recurring_patterns",
-    "extract_finding_citations",
+    "extract_issue_citations",
     "review_finding_snapshot_hash",
 ]

@@ -13,11 +13,11 @@ import desloppify.engine.planning.select as plan_select_mod
 
 class _Phase:
     def __init__(
-        self, label: str, slow: bool, findings: list[dict], potentials: dict[str, int]
+        self, label: str, slow: bool, issues: list[dict], potentials: dict[str, int]
     ):
         self.label = label
         self.slow = slow
-        self._findings = findings
+        self._findings = issues
         self._potentials = potentials
         self.run = self._run
 
@@ -56,8 +56,8 @@ def test_select_phases_and_run_phases_behavior():
     assert [phase.label for phase in ci] == ["Fast"]
 
     full = plan_scan_mod._select_phases(lang, include_slow=True, profile="full")
-    findings, potentials = plan_scan_mod._run_phases(Path("."), lang, full)
-    assert [finding["id"] for finding in findings] == ["f1", "s1", "r1"]
+    issues, potentials = plan_scan_mod._run_phases(Path("."), lang, full)
+    assert [issue["id"] for issue in issues] == ["f1", "s1", "r1"]
     assert potentials == {"fast": 1, "slow": 2, "review": 3}
 
 
@@ -73,20 +73,20 @@ def test_resolve_lang_prefers_explicit_and_fallbacks(monkeypatch):
 
 
 def test_get_next_items_orders_by_tier_confidence_and_count():
-    finding_a = filtering_mod.make_finding(
+    finding_a = filtering_mod.make_issue(
         "unused", "pkg/a.py", "a", tier=3, confidence="low", summary="a"
     )
     finding_a["detail"] = {"count": 2}
-    finding_b = filtering_mod.make_finding(
+    finding_b = filtering_mod.make_issue(
         "unused", "pkg/b.py", "b", tier=2, confidence="medium", summary="b"
     )
     finding_b["detail"] = {"count": 1}
-    finding_c = filtering_mod.make_finding(
+    finding_c = filtering_mod.make_issue(
         "unused", "other/c.py", "c", tier=2, confidence="high", summary="c"
     )
     finding_c["detail"] = {"count": 10}
 
-    state = {"findings": {f["id"]: f for f in [finding_a, finding_b, finding_c]}}
+    state = {"issues": {f["id"]: f for f in [finding_a, finding_b, finding_c]}}
 
     scoped = plan_select_mod.get_next_items(state, count=2, scan_path="pkg")
     assert len(scoped) == 2

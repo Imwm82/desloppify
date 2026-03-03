@@ -32,7 +32,7 @@ from desloppify.engine.policy.zones import (
     EXCLUDED_ZONES,
     adjust_potential,
     filter_entries,
-    should_skip_finding,
+    should_skip_issue,
 )
 from desloppify.core.file_paths import rel
 from desloppify.languages._framework.base.structural import (
@@ -42,18 +42,18 @@ from desloppify.languages._framework.base.structural import (
 from desloppify.languages._framework.base.types import (
     DetectorCoverageStatus,
 )
-from desloppify.languages._framework.finding_factories import (
+from desloppify.languages._framework.issue_factories import (
     make_cycle_findings,
     make_dupe_findings,
     make_orphaned_findings,
     make_single_use_findings,
 )
 from desloppify.languages._framework.runtime import LangRuntimeContract
-from desloppify.state import Finding, make_finding
+from desloppify.state import Issue, make_issue
 from desloppify.core.output_api import log
 
 
-def phase_dupes(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding], dict[str, int]]:
+def phase_dupes(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase runner: detect duplicate functions via lang.extract_functions.
 
     When a zone map is available, filters out functions from zone-excluded files
@@ -74,21 +74,21 @@ def phase_dupes(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding], d
             log(f"         zones: {excluded} functions excluded (non-production)")
 
     entries, total_functions = detect_duplicates(functions)
-    findings = make_dupe_findings(entries, log)
-    return findings, {"dupes": total_functions}
+    issues = make_dupe_findings(entries, log)
+    return issues, {"dupes": total_functions}
 
 
 def phase_boilerplate_duplication(
     path: Path,
     lang: LangRuntimeContract,
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase runner: detect repeated boilerplate code via jscpd."""
     entries = detect_with_jscpd(path)
     if entries is None:
         return [], {}
     entries = _filter_boilerplate_entries_by_zone(entries, lang.zone_map)
 
-    findings: list[Finding] = []
+    issues: list[Issue] = []
     for entry in entries:
         locations = entry["locations"]
         first = locations[0]
@@ -97,8 +97,8 @@ def phase_boilerplate_duplication(
         )
         if len(locations) > 4:
             loc_preview += f", +{len(locations) - 4} more"
-        findings.append(
-            make_finding(
+        issues.append(
+            make_issue(
                 "boilerplate_duplication",
                 first["file"],
                 entry["id"],
@@ -117,10 +117,10 @@ def phase_boilerplate_duplication(
             )
         )
 
-    if findings:
-        log(f"         boilerplate duplication: {len(findings)} clusters")
+    if issues:
+        log(f"         boilerplate duplication: {len(issues)} clusters")
     distinct_files = len({loc["file"] for e in entries for loc in e["locations"]})
-    return findings, {"boilerplate_duplication": distinct_files}
+    return issues, {"boilerplate_duplication": distinct_files}
 
 
 def _filter_boilerplate_entries_by_zone(entries: list[dict], zone_map) -> list[dict]:
@@ -128,7 +128,7 @@ def _filter_boilerplate_entries_by_zone(entries: list[dict], zone_map) -> list[d
 
     jscpd can return files that are outside language discovery (artifacts/docs).
     Restricting to known zone-map files prevents unknown paths from being treated
-    as production findings.
+    as production issues.
     """
     if zone_map is None:
         return entries
@@ -142,7 +142,7 @@ def _filter_boilerplate_entries_by_zone(entries: list[dict], zone_map) -> list[d
             loc
             for loc in locations
             if loc.get("file") in known_files
-            and not should_skip_finding(
+            and not should_skip_issue(
                 zone_map,
                 loc.get("file", ""),
                 "boilerplate_duplication",
@@ -193,11 +193,11 @@ def _entries_to_findings(
     default_name: str = "",
     include_zone: bool = False,
     zone_map=None,
-) -> list[Finding]:
-    """Convert detector entries to normalized findings."""
-    results: list[Finding] = []
+) -> list[Issue]:
+    """Convert detector entries to normalized issues."""
+    results: list[Issue] = []
     for entry in entries:
-        finding = make_finding(
+        issue = make_issue(
             detector,
             entry["file"],
             entry.get("name", default_name),
@@ -209,15 +209,15 @@ def _entries_to_findings(
         if include_zone and zone_map is not None:
             z = zone_map.get(entry["file"])
             if z is not None:
-                finding["zone"] = z.value
-        results.append(finding)
+                issue["zone"] = z.value
+        results.append(issue)
     return results
 
 
-def _log_phase_summary(label: str, results: list[Finding], potential: int, unit: str) -> None:
+def _log_phase_summary(label: str, results: list[Issue], potential: int, unit: str) -> None:
     """Emit standardized shared-phase summary logging."""
     if results:
-        log(f"         {label}: {len(results)} findings ({potential} {unit})")
+        log(f"         {label}: {len(results)} issues ({potential} {unit})")
     else:
         log(f"         {label}: clean ({potential} {unit})")
 
@@ -278,7 +278,7 @@ def _record_detector_coverage(lang: LangRuntimeContract, coverage: DetectorCover
         lang.detector_coverage[detector] = normalized
 
 
-def phase_security(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding], dict[str, int]]:
+def phase_security(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase: detect security issues (cross-language + lang-specific)."""
     zone_map = lang.zone_map
     files = lang.file_finder(path) if lang.file_finder else []
@@ -326,7 +326,7 @@ def phase_security(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding]
 def phase_test_coverage(
     path: Path,
     lang: LangRuntimeContract,
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase: detect test coverage gaps."""
     zone_map = lang.zone_map
     if zone_map is None:
@@ -352,7 +352,7 @@ def phase_test_coverage(
 def phase_private_imports(
     path: Path,
     lang: LangRuntimeContract,
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase: detect cross-module private imports."""
     zone_map = lang.zone_map
     graph = lang.dep_graph or lang.build_dep_graph(path)
@@ -369,7 +369,7 @@ def phase_private_imports(
 def phase_subjective_review(
     path: Path,
     lang: LangRuntimeContract,
-) -> tuple[list[Finding], dict[str, int]]:
+) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase: detect files missing subjective design review."""
     zone_map = lang.zone_map
     max_age = lang.review_max_age_days
@@ -415,7 +415,7 @@ def phase_subjective_review(
     return results, {"subjective_review": potential}
 
 
-def phase_signature(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding], dict[str, int]]:
+def phase_signature(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Shared phase runner: detect signature variance via lang.extract_functions.
 
     Backend-agnostic — works with any extractor that returns FunctionInfo objects
@@ -426,15 +426,15 @@ def phase_signature(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding
 
     functions = lang.extract_functions(path)
 
-    findings: list[Finding] = []
+    issues: list[Issue] = []
     potentials: dict[str, int] = {}
 
     if not functions:
-        return findings, potentials
+        return issues, potentials
 
     entries, _total = detect_signature_variance(functions, min_occurrences=3)
     for e in entries:
-        findings.append(make_finding(
+        issues.append(make_issue(
             "signature", e["files"][0],
             f"signature_variance::{e['name']}",
             tier=3, confidence="medium",
@@ -447,7 +447,7 @@ def phase_signature(path: Path, lang: LangRuntimeContract) -> tuple[list[Finding
         potentials["signature"] = len(entries)
         log(f"         signature variance: {len(entries)}")
 
-    return findings, potentials
+    return issues, potentials
 
 
 def run_structural_phase(
@@ -514,7 +514,7 @@ def run_structural_phase(
         child_dir_count = int(entry.get("child_dir_count", 0))
         combined_score = int(entry.get("combined_score", entry.get("file_count", 0)))
         results.append(
-            make_finding(
+            make_issue(
                 "flat_dirs",
                 entry["directory"],
                 "",
@@ -559,8 +559,8 @@ def run_coupling_phase(
 ) -> tuple[list[dict], dict[str, int]]:
     """Run single-use/cycles/orphaned detectors against a language dep graph.
 
-    Optional ``post_process_fn(findings, entries, lang)`` is called after
-    creating single-use and orphaned findings to allow per-language
+    Optional ``post_process_fn(issues, entries, lang)`` is called after
+    creating single-use and orphaned issues to allow per-language
     adjustments (e.g. confidence gating based on corroboration signals).
     """
     graph = build_dep_graph_fn(path)
@@ -600,7 +600,7 @@ def run_coupling_phase(
         post_process_fn(orphan_findings, orphan_entries, lang)
     results.extend(orphan_findings)
 
-    log_fn(f"         -> {len(results)} coupling/structural findings total")
+    log_fn(f"         -> {len(results)} coupling/structural issues total")
     potentials = {
         "single_use": adjust_potential(zone_map, single_candidates),
         "cycles": adjust_potential(zone_map, total_graph_files),

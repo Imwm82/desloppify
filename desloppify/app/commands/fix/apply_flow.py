@@ -82,7 +82,7 @@ def _apply_and_report(
     state_mod.save_state(state, state_file)
 
     new = state_mod.score_snapshot(state)
-    print(f"\n  Auto-resolved {len(resolved_ids)} findings in state")
+    print(f"\n  Auto-resolved {len(resolved_ids)} issues in state")
     show_score_with_plan_context(state, prev)
 
     if fixer.post_fix:
@@ -177,9 +177,9 @@ def _resolve_fixer_results(
         rfile = rel(r["file"])
         for sym in r["removed"]:
             fid = f"{detector}::{rfile}::{sym}"
-            if fid in state["findings"] and state["findings"][fid]["status"] == "open":
-                state["findings"][fid]["status"] = "fixed"
-                state["findings"][fid]["note"] = (
+            if fid in state["issues"] and state["issues"][fid]["status"] == "open":
+                state["issues"][fid]["status"] = "fixed"
+                state["issues"][fid]["note"] = (
                     f"auto-fixed by desloppify autofix {fixer_name}"
                 )
                 resolved_ids.append(fid)
@@ -254,7 +254,7 @@ def _cascade_unused_import_cleanup(
         state, results, fixer.detector, "cascade-unused-imports"
     )
     if resolved:
-        print(f"  Cascade: auto-resolved {len(resolved)} import findings")
+        print(f"  Cascade: auto-resolved {len(resolved)} import issues")
 
 _COMMAND_POST_FIX["debug-logs"] = _cascade_unused_import_cleanup
 _COMMAND_POST_FIX["dead-useeffect"] = _cascade_unused_import_cleanup
@@ -281,7 +281,7 @@ def _print_fix_retro(
     print(colorize("\n  ── Post-fix check ──", "dim"))
     print(
         colorize(
-            f"  Fixed {fixed}/{detected} ({skipped} skipped, {resolved} findings resolved)",
+            f"  Fixed {fixed}/{detected} ({skipped} skipped, {resolved} issues resolved)",
             "dim",
         )
     )
@@ -303,7 +303,7 @@ def _print_fix_retro(
             f"{skipped} items were skipped. Should the fixer handle more patterns?"
         )
     checklist += [
-        "Run `desloppify scan` to update state and refresh findings.",
+        "Run `desloppify scan` to update state and refresh issues.",
         "Are there cascading effects? (e.g., removing vars may orphan imports)",
         "`git diff --stat` — review before committing. Anything surprising?",
     ]

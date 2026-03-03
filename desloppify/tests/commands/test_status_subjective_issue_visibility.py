@@ -26,7 +26,7 @@ def test_status_renders_open_issue_count_for_subjective_dimension(monkeypatch, c
     monkeypatch.setattr(render_dims_mod, "dimension_bar", lambda *_args, **_kwargs: "BAR")
 
     state = {
-        "findings": {
+        "issues": {
             "review-1": {
                 "status": "open",
                 "detector": "review",
@@ -48,7 +48,7 @@ def test_status_renders_zero_open_issue_hint_for_low_subjective_score(monkeypatc
     monkeypatch.setattr(status_render, "colorize", lambda text, _style: text)
     monkeypatch.setattr(render_dims_mod, "dimension_bar", lambda *_args, **_kwargs: "BAR")
 
-    state = {"findings": {}}
+    state = {"issues": {}}
     dim_scores = {
         "Abstraction fit": _subjective_dim(68.8, 68.8, "abstraction_fitness"),
     }

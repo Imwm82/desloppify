@@ -26,7 +26,7 @@ VALID_EPIC_DIRECTIONS = {
 
 
 class SkipEntry(TypedDict, total=False):
-    finding_id: Required[str]
+    issue_id: Required[str]
     kind: Required[str]  # "temporary" | "permanent" | "false_positive"
     reason: str | None
     note: str | None  # required for permanent (wontfix note)
@@ -37,7 +37,7 @@ class SkipEntry(TypedDict, total=False):
 
 
 class ItemOverride(TypedDict, total=False):
-    finding_id: Required[str]
+    issue_id: Required[str]
     description: str | None
     note: str | None
     cluster: str | None
@@ -48,7 +48,7 @@ class ItemOverride(TypedDict, total=False):
 class Cluster(TypedDict, total=False):
     name: Required[str]
     description: str | None
-    finding_ids: list[str]
+    issue_ids: list[str]
     created_at: str
     updated_at: str
     auto: bool  # True for auto-generated clusters
@@ -60,7 +60,7 @@ class Cluster(TypedDict, total=False):
 class CommitRecord(TypedDict, total=False):
     sha: Required[str]           # git commit SHA
     branch: str | None           # branch name
-    finding_ids: list[str]       # findings included
+    issue_ids: list[str]       # issues included
     recorded_at: str             # ISO timestamp
     note: str | None             # user-provided rationale
     cluster_name: str | None     # cluster context
@@ -69,7 +69,7 @@ class CommitRecord(TypedDict, total=False):
 class ExecutionLogEntry(TypedDict, total=False):
     timestamp: Required[str]
     action: Required[str]  # "done", "skip", "unskip", "resolve", "reconcile", "cluster_done", "focus", "reset"
-    finding_ids: list[str]
+    issue_ids: list[str]
     cluster_name: str | None
     actor: str  # "user" | "system" | "agent"
     note: str | None

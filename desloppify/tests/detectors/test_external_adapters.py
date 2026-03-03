@@ -3,7 +3,7 @@
 Each adapter must:
   1. Return None (not crash) when the tool is not installed.
   2. Correctly parse the tool's JSON output format.
-  3. Produce entries/findings in the structure the phase runners expect.
+  3. Produce entries/issues in the structure the phase runners expect.
 """
 
 from __future__ import annotations
@@ -348,7 +348,7 @@ class TestBanditAdapter:
                 "filename": "/project/utils.py",
                 "issue_severity": "LOW",
                 "issue_confidence": "LOW",
-                "issue_text": "Very noisy low-signal finding.",
+                "issue_text": "Very noisy low-signal issue.",
                 "line_number": 5,
                 "test_id": "B999",
                 "test_name": "fake_low_rule",

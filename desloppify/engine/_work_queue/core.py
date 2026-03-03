@@ -24,7 +24,7 @@ from desloppify.engine._work_queue.synthetic import (
     build_triage_stage_items,
 )
 from desloppify.engine._work_queue.ranking import (
-    build_finding_items,
+    build_issue_items,
     enrich_with_impact,
     group_queue_items,
     item_explain,
@@ -93,10 +93,10 @@ def build_work_queue(
     *,
     options: QueueBuildOptions | None = None,
 ) -> WorkQueueResult:
-    """Build a ranked work queue from state findings.
+    """Build a ranked work queue from state issues.
 
     Pipeline:
-    1. Gather — finding items, subjective dimensions, workflow stages
+    1. Gather — issue items, subjective dimensions, workflow stages
     2. Score  — estimate impact from dimension headroom, apply floor
     3. Order  — stamp plan positions, sort, filter to cluster focus
     4. Limit  — truncate to count, optionally add explain metadata
@@ -105,7 +105,7 @@ def build_work_queue(
     plan, scan_path, status, threshold = _resolve_inputs(opts, state)
 
     # 1. Gather
-    items = build_finding_items(
+    items = build_issue_items(
         state, scan_path=scan_path, status_filter=status,
         scope=opts.scope, chronic=opts.chronic,
     )
@@ -192,7 +192,7 @@ def _gather_subjective_items(
     )
 
     candidates = build_subjective_items(
-        state, state.get("findings", {}), threshold=threshold,
+        state, state.get("issues", {}), threshold=threshold,
     )
 
     # When a plan explicitly includes a subjective item in queue_order,
@@ -241,7 +241,7 @@ _MIN_STANDALONE_IMPACT = 0.05
 
 def _passes_impact_floor(item: dict) -> bool:
     """Return True if item should survive the impact floor filter."""
-    if item.get("kind") != "finding":
+    if item.get("kind") != "issue":
         return True
     if item.get("is_review") or item.get("is_subjective"):
         return True

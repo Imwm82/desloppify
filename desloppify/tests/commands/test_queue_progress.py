@@ -28,7 +28,7 @@ def testis_subjective_queue_item_plain():
 
 
 def testis_subjective_queue_item_finding():
-    assert is_subjective_queue_item({"kind": "finding"}) is False
+    assert is_subjective_queue_item({"kind": "issue"}) is False
 
 
 def testis_subjective_queue_item_collapsed_cluster_all_subjective():
@@ -47,7 +47,7 @@ def testis_subjective_queue_item_collapsed_cluster_mixed():
         "kind": "cluster",
         "members": [
             {"kind": "subjective_dimension"},
-            {"kind": "finding"},
+            {"kind": "issue"},
         ],
     }
     assert is_subjective_queue_item(item) is False
@@ -79,13 +79,13 @@ def test_get_plan_start_strict_returns_none_when_no_scores():
 
 
 def test_plan_aware_queue_count_delegates_to_build_work_queue():
-    mock_items = [{"id": f"f{i}", "kind": "finding"} for i in range(5)]
+    mock_items = [{"id": f"f{i}", "kind": "issue"} for i in range(5)]
     mock_result = {"total": 5, "items": mock_items}
     with patch(
         "desloppify.engine.work_queue.build_work_queue",
         return_value=mock_result,
     ) as mock_build:
-        count = plan_aware_queue_count({"findings": {}}, plan={"queue_order": []})
+        count = plan_aware_queue_count({"issues": {}}, plan={"queue_order": []})
         assert count == 5
         mock_build.assert_called_once()
 
@@ -247,7 +247,7 @@ def test_block_with_frozen_score():
 def test_plan_aware_queue_breakdown_basic():
     # Items list must match total since collapse is now caller-side
     mock_items = (
-        [{"id": f"f{i}", "kind": "finding"} for i in range(49)]
+        [{"id": f"f{i}", "kind": "issue"} for i in range(49)]
         + [{"id": "s1", "kind": "subjective_dimension"}]
     )
     mock_result = {
@@ -262,7 +262,7 @@ def test_plan_aware_queue_breakdown_basic():
         "desloppify.engine.work_queue.build_work_queue",
         return_value=mock_result,
     ):
-        breakdown = plan_aware_queue_breakdown({"findings": {}}, plan=plan)
+        breakdown = plan_aware_queue_breakdown({"issues": {}}, plan=plan)
     assert breakdown.queue_total == 50
     assert breakdown.plan_ordered == 2  # a, b (c is skipped)
     assert breakdown.skipped == 1
@@ -270,7 +270,7 @@ def test_plan_aware_queue_breakdown_basic():
 
 
 def test_plan_aware_queue_breakdown_no_plan():
-    mock_items = [{"id": f"f{i}", "kind": "finding"} for i in range(30)]
+    mock_items = [{"id": f"f{i}", "kind": "issue"} for i in range(30)]
     mock_result = {
         "total": 30,
         "items": mock_items,
@@ -279,7 +279,7 @@ def test_plan_aware_queue_breakdown_no_plan():
         "desloppify.engine.work_queue.build_work_queue",
         return_value=mock_result,
     ):
-        breakdown = plan_aware_queue_breakdown({"findings": {}})
+        breakdown = plan_aware_queue_breakdown({"issues": {}})
     assert breakdown.queue_total == 30
     assert breakdown.plan_ordered == 0
     assert breakdown.skipped == 0
@@ -297,12 +297,12 @@ def test_plan_aware_queue_breakdown_with_focus():
         "active_cluster": "smart-batch",
         "clusters": {
             "smart-batch": {
-                "finding_ids": ["f1", "f2", "f3"],
+                "issue_ids": ["f1", "f2", "f3"],
             },
         },
     }
     state = {
-        "findings": {
+        "issues": {
             "f1": {"status": "open"},
             "f2": {"status": "resolved"},
             "f3": {"status": "open"},

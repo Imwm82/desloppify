@@ -60,10 +60,10 @@ def write_status_query(
     verified_strict_score: float | None,
     plan: dict | None = None,
 ) -> None:
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     open_scope = (
-        state_mod.open_scope_breakdown(findings, state.get("scan_path"))
-        if isinstance(findings, dict)
+        state_mod.open_scope_breakdown(issues, state.get("scan_path"))
+        if isinstance(issues, dict)
         else None
     )
     write_query(
@@ -119,12 +119,12 @@ def show_ignore_summary(ignores: list[str], suppression: dict) -> None:
         style = "red" if last_pct >= 30 else "yellow" if last_pct >= 10 else "dim"
         print(
             colorize(
-                f"  Ignore suppression (last scan): {last_ignored}/{last_raw} findings hidden ({last_pct:.1f}%)",
+                f"  Ignore suppression (last scan): {last_ignored}/{last_raw} issues hidden ({last_pct:.1f}%)",
                 style,
             )
         )
     elif suppression.get("recent_scans", 0):
-        print(colorize("  Ignore suppression (last scan): 0 findings hidden", "dim"))
+        print(colorize("  Ignore suppression (last scan): 0 issues hidden", "dim"))
 
     recent_scans = int(suppression.get("recent_scans", 0) or 0)
     recent_raw = int(suppression.get("recent_raw_findings", 0) or 0)
@@ -133,7 +133,7 @@ def show_ignore_summary(ignores: list[str], suppression: dict) -> None:
         recent_pct = float(suppression.get("recent_suppressed_pct", 0.0) or 0.0)
         print(
             colorize(
-                f"    Recent ({recent_scans} scans): {recent_ignored}/{recent_raw} findings hidden ({recent_pct:.1f}%)",
+                f"    Recent ({recent_scans} scans): {recent_ignored}/{recent_raw} issues hidden ({recent_pct:.1f}%)",
                 "dim",
             )
         )

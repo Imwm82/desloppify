@@ -19,7 +19,7 @@ from desloppify.intelligence.review.context import (
 from desloppify.intelligence.review.selection_cache import (
     count_fresh,
     count_stale,
-    get_file_findings,
+    get_file_issues,
 )
 from desloppify.languages import get_lang
 
@@ -117,7 +117,7 @@ def select_files_for_review(
 def _compute_review_priority(filepath: str, lang, state: dict) -> int:
     """Higher = more important to review.
 
-    Prioritizes implementation files with high blast radius and existing findings.
+    Prioritizes implementation files with high blast radius and existing issues.
     Deprioritizes types/constants files (low subjective review value).
     """
     score = 0
@@ -142,18 +142,18 @@ def _compute_review_priority(filepath: str, lang, state: dict) -> int:
         else:
             score += ic * 10
 
-    # Already has programmatic findings (compound value — review will be richer)
-    findings = state.get("findings", {})
+    # Already has programmatic issues (compound value — review will be richer)
+    issues = state.get("issues", {})
     n_findings = sum(
-        1 for f in findings.values() if f.get("file") == rpath and f["status"] == "open"
+        1 for f in issues.values() if f.get("file") == rpath and f["status"] == "open"
     )
     score += n_findings * 5
 
-    # High-complexity files with wontfixed structural findings
+    # High-complexity files with wontfixed structural issues
     # (mechanical detector says "complex" but can't say why — subjective review can)
     n_wontfix_structural = sum(
         1
-        for f in findings.values()
+        for f in issues.values()
         if f.get("file") == rpath
         and f["status"] == "wontfix"
         and f.get("detector") in ("structural", "smells")
@@ -211,7 +211,7 @@ __all__ = [
     "ReviewSelectionOptions",
     "count_fresh",
     "count_stale",
-    "get_file_findings",
+    "get_file_issues",
     "hash_file",
     "is_low_value_file",
     "low_value_pattern",

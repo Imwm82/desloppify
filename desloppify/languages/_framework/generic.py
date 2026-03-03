@@ -1,7 +1,7 @@
-"""Generic language plugin system — run external tools, parse output, emit findings.
+"""Generic language plugin system — run external tools, parse output, emit issues.
 
 Provides `generic_lang()` to register a language plugin from a list of tool specs.
-Each tool runs a shell command at scan time, parses the output into findings, and
+Each tool runs a shell command at scan time, parses the output into issues, and
 gracefully degrades when the tool is not installed or times out.
 """
 
@@ -166,7 +166,7 @@ def generic_lang(
             display=tool["label"],
             dimension="Code quality",
             action_type="auto_fix" if has_fixer else "manual_fix",
-            guidance=f"review and fix {tool['label']} findings",
+            guidance=f"review and fix {tool['label']} issues",
             fixers=(fixer_name,) if has_fixer else (),
         ))
         register_scoring_policy(DetectorScoringPolicy(

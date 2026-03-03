@@ -79,12 +79,12 @@ class TestFixResult:
 
 
 class TestResolveFixerResults:
-    """_resolve_fixer_results marks matching findings as fixed."""
+    """_resolve_fixer_results marks matching issues as fixed."""
 
-    def _make_state_with_findings(self, *findings):
-        state = {"findings": {}}
-        for fid, status in findings:
-            state["findings"][fid] = {
+    def _make_state_with_findings(self, *issues):
+        state = {"issues": {}}
+        for fid, status in issues:
+            state["issues"][fid] = {
                 "id": fid,
                 "status": status,
                 "detector": "unused",
@@ -96,7 +96,7 @@ class TestResolveFixerResults:
             }
         return state
 
-    def test_resolves_matching_open_findings(self, monkeypatch):
+    def test_resolves_matching_open_issues(self, monkeypatch):
         monkeypatch.setattr(fix_apply_mod, "rel", lambda p: p)
 
         state = self._make_state_with_findings(
@@ -106,8 +106,8 @@ class TestResolveFixerResults:
         results = [{"file": "a.ts", "removed": ["foo"]}]
         resolved = _resolve_fixer_results(state, results, "unused", "unused-imports")
         assert resolved == ["unused::a.ts::foo"]
-        assert state["findings"]["unused::a.ts::foo"]["status"] == "fixed"
-        assert state["findings"]["unused::a.ts::bar"]["status"] == "open"
+        assert state["issues"]["unused::a.ts::foo"]["status"] == "fixed"
+        assert state["issues"]["unused::a.ts::bar"]["status"] == "open"
 
     def test_skips_already_fixed(self, monkeypatch):
         monkeypatch.setattr(fix_apply_mod, "rel", lambda p: p)
@@ -133,7 +133,7 @@ class TestResolveFixerResults:
         state = self._make_state_with_findings(("unused::a.ts::foo", "open"))
         results = [{"file": "a.ts", "removed": ["foo"]}]
         _resolve_fixer_results(state, results, "unused", "unused-imports")
-        note = state["findings"]["unused::a.ts::foo"]["note"]
+        note = state["issues"]["unused::a.ts::foo"]["note"]
         assert "auto-fixed" in note
         assert "unused-imports" in note
 
@@ -144,7 +144,7 @@ class TestResolveFixerResults:
             ("unused::a.ts::foo", "open"),
             ("unused::b.ts::bar", "open"),
         )
-        state["findings"]["unused::b.ts::bar"]["file"] = "b.ts"
+        state["issues"]["unused::b.ts::bar"]["file"] = "b.ts"
 
         results = [
             {"file": "a.ts", "removed": ["foo"]},
@@ -210,7 +210,7 @@ class TestPrintFixRetro:
         out = capsys.readouterr().out
         assert "Fixed 8/10" in out
         assert "2 skipped" in out
-        assert "6 findings resolved" in out
+        assert "6 issues resolved" in out
         assert "Checklist:" in out
 
     def test_retro_with_skip_reasons(self, capsys):

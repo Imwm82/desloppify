@@ -117,8 +117,8 @@ def _analyze_scope_findings(
     *,
     is_class: bool = False,
 ) -> list[dict]:
-    """Analyze a completed scope and return dict-key findings."""
-    findings: list[dict] = []
+    """Analyze a completed scope and return dict-key issues."""
+    issues: list[dict] = []
     for tracked in scope.values():
         if not tracked.locally_created:
             continue
@@ -143,7 +143,7 @@ def _analyze_scope_findings(
         if not suppress_dead:
             for key in sorted(dead_keys):
                 line = tracked.writes[key][0]
-                findings.append(
+                issues.append(
                     {
                         "file": visitor.filepath,
                         "kind": "dead_write",
@@ -164,7 +164,7 @@ def _analyze_scope_findings(
         phantom_keys = read_keys - written_keys
         for key in sorted(phantom_keys):
             line = tracked.reads[key][0]
-            findings.append(
+            issues.append(
                 {
                     "file": visitor.filepath,
                     "kind": "phantom_read",
@@ -193,7 +193,7 @@ def _analyze_scope_findings(
                 if distance <= 2 or is_plural_miss:
                     write_line = tracked.writes[dead_key][0]
                     read_line = tracked.reads[phantom_key][0]
-                    findings.append(
+                    issues.append(
                         {
                             "file": visitor.filepath,
                             "kind": "near_miss",
@@ -223,7 +223,7 @@ def _analyze_scope_findings(
                 first, second = write_lines[idx], write_lines[idx + 1]
                 has_read_between = any(first < read <= second for read in read_lines)
                 if not has_read_between:
-                    findings.append(
+                    issues.append(
                         {
                             "file": visitor.filepath,
                             "kind": "overwritten_key",
@@ -241,7 +241,7 @@ def _analyze_scope_findings(
                             "detail": f"in {func_name}()",
                         }
                     )
-    return findings
+    return issues
 
 
 class DictKeyVisitor(ast.NodeVisitor):

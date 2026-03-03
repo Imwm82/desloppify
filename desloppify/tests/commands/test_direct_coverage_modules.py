@@ -97,7 +97,7 @@ def test_smoke_planning():
     """Planning modules: common, scan, select."""
     _assert_all_callables(
         plan_common.is_subjective_phase,
-        plan_scan.generate_findings,
+        plan_scan.generate_issues,
         plan_select.get_next_items,
         plan_select.get_next_item,
     )
@@ -152,11 +152,11 @@ def test_smoke_engine():
     _assert_all_callables(
         persistence.load_state,
         persistence.save_state,
-        state_resolution.match_findings,
-        state_resolution.resolve_findings,
-        noise.resolve_finding_noise_budget,
-        noise.resolve_finding_noise_global_budget,
-        noise.resolve_finding_noise_settings,
+        state_resolution.match_issues,
+        state_resolution.resolve_issues,
+        noise.resolve_issue_noise_budget,
+        noise.resolve_issue_noise_global_budget,
+        noise.resolve_issue_noise_settings,
     )
 
     # python detector modules
@@ -276,20 +276,20 @@ def test_smoke_intelligence():
 
 
 def test_noise_budget_defaults():
-    """resolve_finding_noise_budget returns default for None config."""
-    assert noise.resolve_finding_noise_budget(None) == 10
-    assert noise.resolve_finding_noise_budget({}) == 10
+    """resolve_issue_noise_budget returns default for None config."""
+    assert noise.resolve_issue_noise_budget(None) == 10
+    assert noise.resolve_issue_noise_budget({}) == 10
 
 
 def test_noise_budget_from_config():
-    """resolve_finding_noise_budget reads the config value."""
-    assert noise.resolve_finding_noise_budget({"finding_noise_budget": 5}) == 5
-    assert noise.resolve_finding_noise_budget({"finding_noise_budget": 0}) == 0
+    """resolve_issue_noise_budget reads the config value."""
+    assert noise.resolve_issue_noise_budget({"finding_noise_budget": 5}) == 5
+    assert noise.resolve_issue_noise_budget({"finding_noise_budget": 0}) == 0
 
 
 def test_noise_settings_invalid_config():
-    """resolve_finding_noise_settings returns warning for invalid values."""
-    per, glob, warning = noise.resolve_finding_noise_settings(
+    """resolve_issue_noise_settings returns warning for invalid values."""
+    per, glob, warning = noise.resolve_issue_noise_settings(
         {"finding_noise_budget": "bad"}
     )
     assert per == 10  # default
@@ -301,7 +301,7 @@ def test_serialize_item_minimal():
     """serialize_item extracts expected fields from a minimal item dict."""
     item = {
         "id": "smells::foo.py::1",
-        "kind": "finding",
+        "kind": "issue",
         "tier": 2,
         "confidence": "high",
         "detector": "smells",
@@ -311,7 +311,7 @@ def test_serialize_item_minimal():
     }
     result = next_output.serialize_item(item)
     assert result["id"] == "smells::foo.py::1"
-    assert result["kind"] == "finding"
+    assert result["kind"] == "issue"
     assert result["confidence"] == "high"
     assert result["detector"] == "smells"
     assert result["file"] == "foo.py"
@@ -363,11 +363,11 @@ def test_serialize_cluster_item_caps_member_payload():
     members = [
         {
             "id": f"security::src/f{i}.py::B101::{i}",
-            "kind": "finding",
+            "kind": "issue",
             "confidence": "high",
             "detector": "security",
             "file": f"src/f{i}.py",
-            "summary": "Security finding",
+            "summary": "Security issue",
             "status": "open",
             "primary_command": "desloppify plan resolve ...",
             "plan_cluster": {
@@ -381,7 +381,7 @@ def test_serialize_cluster_item_caps_member_payload():
         "id": "auto/security",
         "kind": "cluster",
         "action_type": "refactor",
-        "summary": "Fix security findings",
+        "summary": "Fix security issues",
         "member_count": len(members),
         "members": members,
         "cluster_name": "auto/security",
@@ -401,7 +401,7 @@ def test_serialize_cluster_item_caps_member_payload():
 
 def test_build_query_payload_structure():
     """build_query_payload returns well-formed dict with queue metadata."""
-    items = [{"id": "f1", "kind": "finding", "tier": 1}]
+    items = [{"id": "f1", "kind": "issue", "tier": 1}]
     queue = {"tier_counts": {1: 1}, "total": 1}
     payload = next_output.build_query_payload(
         queue, items, command="next", narrative=None

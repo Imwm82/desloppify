@@ -233,10 +233,10 @@ def _status_json_payload(
     suppression: dict,
 ) -> dict:
     scores = state_mod.score_snapshot(state)
-    findings = state.get("findings", {})
+    issues = state.get("issues", {})
     open_scope = (
-        state_mod.open_scope_breakdown(findings, state.get("scan_path"))
-        if isinstance(findings, dict)
+        state_mod.open_scope_breakdown(issues, state.get("scan_path"))
+        if isinstance(issues, dict)
         else None
     )
     return {

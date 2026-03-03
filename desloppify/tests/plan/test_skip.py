@@ -31,18 +31,18 @@ def _plan_with_queue(*ids: str) -> dict:
 
 
 def _state_with_findings(*ids: str, status: str = "open") -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "id": fid,
             "status": status,
             "detector": "test",
             "file": "test.py",
             "tier": 1,
             "confidence": "high",
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
         }
-    return {"findings": findings, "scan_count": 5}
+    return {"issues": issues, "scan_count": 5}
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ def test_migration_deferred_to_skipped():
 def test_migration_deferred_does_not_overwrite_existing():
     plan = empty_plan()
     plan["deferred"] = ["x"]
-    plan["skipped"] = {"x": {"finding_id": "x", "kind": "permanent", "note": "existing"}}
+    plan["skipped"] = {"x": {"issue_id": "x", "kind": "permanent", "note": "existing"}}
     ensure_plan_defaults(plan)
     # x was already in skipped, should keep existing entry
     assert plan["skipped"]["x"]["kind"] == "permanent"
@@ -231,7 +231,7 @@ def test_migration_deferred_does_not_overwrite_existing():
 def test_validate_no_overlap_queue_skipped():
     plan = empty_plan()
     plan["queue_order"] = ["a"]
-    plan["skipped"] = {"a": {"finding_id": "a", "kind": "temporary"}}
+    plan["skipped"] = {"a": {"issue_id": "a", "kind": "temporary"}}
     try:
         validate_plan(plan)
         assert False, "Should have raised ValueError"
@@ -241,7 +241,7 @@ def test_validate_no_overlap_queue_skipped():
 
 def test_validate_invalid_skip_kind():
     plan = empty_plan()
-    plan["skipped"] = {"a": {"finding_id": "a", "kind": "invalid_kind"}}
+    plan["skipped"] = {"a": {"issue_id": "a", "kind": "invalid_kind"}}
     try:
         validate_plan(plan)
         assert False, "Should have raised ValueError"
@@ -332,12 +332,12 @@ def test_purge_ids_clears_override_cluster_ref():
 
 def test_append_log_entry_basic():
     plan = empty_plan()
-    append_log_entry(plan, "done", finding_ids=["a", "b"], actor="user", note="test note")
+    append_log_entry(plan, "done", issue_ids=["a", "b"], actor="user", note="test note")
     log = plan["execution_log"]
     assert len(log) == 1
     entry = log[0]
     assert entry["action"] == "done"
-    assert entry["finding_ids"] == ["a", "b"]
+    assert entry["issue_ids"] == ["a", "b"]
     assert entry["actor"] == "user"
     assert entry["note"] == "test note"
     assert "timestamp" in entry
@@ -351,13 +351,13 @@ def test_append_log_entry_caps_at_default(monkeypatch):
 
     plan = empty_plan()
     for i in range(cap + 10):
-        append_log_entry(plan, "test", finding_ids=[str(i)], actor="user")
+        append_log_entry(plan, "test", issue_ids=[str(i)], actor="user")
 
     log = plan["execution_log"]
     assert len(log) == cap
     # Oldest entries should have been dropped
-    assert log[0]["finding_ids"] == ["10"]
-    assert log[-1]["finding_ids"] == [str(cap + 9)]
+    assert log[0]["issue_ids"] == ["10"]
+    assert log[-1]["issue_ids"] == [str(cap + 9)]
 
 
 def test_append_log_entry_uncapped(monkeypatch):
@@ -368,7 +368,7 @@ def test_append_log_entry_uncapped(monkeypatch):
     plan = empty_plan()
     total = 600
     for i in range(total):
-        append_log_entry(plan, "test", finding_ids=[str(i)], actor="user")
+        append_log_entry(plan, "test", issue_ids=[str(i)], actor="user")
 
     assert len(plan["execution_log"]) == total
 
@@ -380,10 +380,10 @@ def test_append_log_entry_custom_cap(monkeypatch):
 
     plan = empty_plan()
     for i in range(60):
-        append_log_entry(plan, "test", finding_ids=[str(i)], actor="user")
+        append_log_entry(plan, "test", issue_ids=[str(i)], actor="user")
 
     assert len(plan["execution_log"]) == 50
-    assert plan["execution_log"][0]["finding_ids"] == ["10"]
+    assert plan["execution_log"][0]["issue_ids"] == ["10"]
 
 
 def test_append_log_entry_with_cluster_and_detail():
@@ -391,7 +391,7 @@ def test_append_log_entry_with_cluster_and_detail():
     append_log_entry(
         plan,
         "cluster_done",
-        finding_ids=["a"],
+        issue_ids=["a"],
         cluster_name="auto/unused",
         actor="agent",
         detail={"method": "bulk"},

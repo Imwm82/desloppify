@@ -1,8 +1,8 @@
-"""Aggregate mechanical detector findings into structured evidence clusters.
+"""Aggregate mechanical detector issues into structured evidence clusters.
 
-Reads ALL state findings and produces signal clusters organized for holistic
+Reads ALL state issues and produces signal clusters organized for holistic
 review context enrichment.  The LLM reviewer gets hotspots and patterns —
-not raw finding dumps — so it can investigate root causes.
+not raw issue dumps — so it can investigate root causes.
 """
 
 from __future__ import annotations
@@ -32,12 +32,12 @@ def gather_mechanical_evidence(
     *,
     allowed_files: set[str] | list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
-    """Aggregate open findings into evidence clusters for holistic review.
+    """Aggregate open issues into evidence clusters for holistic review.
 
-    Returns a dict of named clusters.  Empty dict when no findings exist.
+    Returns a dict of named clusters.  Empty dict when no issues exist.
     """
-    findings = state.get("findings", {})
-    if not findings:
+    issues = state.get("issues", {})
+    if not issues:
         return {}
     allowed_scope = _normalize_allowed_files(allowed_files)
 
@@ -47,12 +47,12 @@ def gather_mechanical_evidence(
     smell_counter: Counter[str] = Counter()
     smell_files: dict[str, list[str]] = defaultdict(list)  # smell_id -> [files]
 
-    for finding in findings.values():
-        if not isinstance(finding, dict):
+    for issue in issues.values():
+        if not isinstance(issue, dict):
             continue
-        if finding.get("status") != "open":
+        if issue.get("status") != "open":
             continue
-        filepath = finding.get("file", "")
+        filepath = issue.get("file", "")
         normalized_file = (
             filepath.strip().replace("\\", "/")
             if isinstance(filepath, str)
@@ -60,14 +60,14 @@ def gather_mechanical_evidence(
         )
         if allowed_scope is not None and normalized_file not in allowed_scope:
             continue
-        det = finding.get("detector", "")
+        det = issue.get("detector", "")
         if det:
-            by_detector[det].append(finding)
+            by_detector[det].append(issue)
         if normalized_file and normalized_file != ".":
-            by_file[normalized_file].append(finding)
+            by_file[normalized_file].append(issue)
         # Track smell subtypes for systemic pattern detection
         if det == "smells":
-            detail = finding.get("detail", {})
+            detail = issue.get("detail", {})
             smell_id = detail.get("smell_id", "") if isinstance(detail, dict) else ""
             if smell_id:
                 smell_counter[smell_id] += 1
@@ -148,21 +148,21 @@ def gather_mechanical_evidence(
 # ── Cluster builders ─────────────────────────────────────────────────
 
 
-def _get_detail(finding: dict, key: str, default: Any = None) -> Any:
-    detail = finding.get("detail", {})
+def _get_detail(issue: dict, key: str, default: Any = None) -> Any:
+    detail = issue.get("detail", {})
     if not isinstance(detail, dict):
         return default
     return detail.get(key, default)
 
 
-def _get_signals(finding: dict) -> dict:
-    """Return the metrics dict for a finding.
+def _get_signals(issue: dict) -> dict:
+    """Return the metrics dict for a issue.
 
-    Structural findings store metrics directly in ``detail`` (e.g. ``loc``,
+    Structural issues store metrics directly in ``detail`` (e.g. ``loc``,
     ``complexity_score``).  Fall back to ``detail`` itself when the nested
     ``signals`` key is absent so hotspot aggregation sees real values.
     """
-    detail = finding.get("detail", {})
+    detail = issue.get("detail", {})
     if not isinstance(detail, dict):
         return {}
     signals = detail.get("signals")
@@ -187,11 +187,11 @@ def _build_complexity_hotspots(
     # Gather per-file structural signals
     file_data: dict[str, dict[str, Any]] = {}
 
-    for finding in by_detector.get("structural", []):
-        filepath = finding.get("file", "")
+    for issue in by_detector.get("structural", []):
+        filepath = issue.get("file", "")
         if not filepath:
             continue
-        signals = _get_signals(finding)
+        signals = _get_signals(issue)
         entry = file_data.setdefault(filepath, {
             "file": filepath, "loc": 0, "complexity_score": 0,
             "signals": [], "component_count": 0, "function_count": 0,
@@ -215,21 +215,21 @@ def _build_complexity_hotspots(
         complexity = _safe_num(signals.get("complexity_score"))
         entry["complexity_score"] = max(entry["complexity_score"], complexity)
 
-    # Enrich with smell findings for the same files
-    for finding in by_detector.get("smells", []):
-        filepath = finding.get("file", "")
-        smell_id = _get_detail(finding, "smell_id", "")
+    # Enrich with smell issues for the same files
+    for issue in by_detector.get("smells", []):
+        filepath = issue.get("file", "")
+        smell_id = _get_detail(issue, "smell_id", "")
         if filepath in file_data:
             if smell_id == "monster_function":
                 file_data[filepath]["monster_functions"] += 1
             elif smell_id in ("cyclomatic_complexity", "high_cyclomatic"):
                 file_data[filepath]["cyclomatic_hotspots"] += 1
 
-    # Also count responsibility_cohesion findings
-    for finding in by_detector.get("responsibility_cohesion", []):
-        filepath = finding.get("file", "")
+    # Also count responsibility_cohesion issues
+    for issue in by_detector.get("responsibility_cohesion", []):
+        filepath = issue.get("file", "")
         if filepath in file_data:
-            clusters = _safe_num(_get_detail(finding, "cluster_count"))
+            clusters = _safe_num(_get_detail(issue, "cluster_count"))
             file_data[filepath]["component_count"] = max(
                 file_data[filepath]["component_count"], clusters
             )
@@ -252,18 +252,18 @@ def _build_complexity_hotspots(
 
 
 def _build_error_hotspots(by_detector: dict[str, list[dict]]) -> list[dict]:
-    """Files with 3+ exception handling findings from smells detector."""
+    """Files with 3+ exception handling issues from smells detector."""
     error_smell_ids = frozenset({
         "broad_except", "silent_except", "empty_except",
         "swallowed_error", "bare_except",
     })
     file_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
-    for finding in by_detector.get("smells", []):
-        smell_id = _get_detail(finding, "smell_id", "")
+    for issue in by_detector.get("smells", []):
+        smell_id = _get_detail(issue, "smell_id", "")
         if smell_id not in error_smell_ids:
             continue
-        filepath = finding.get("file", "")
+        filepath = issue.get("file", "")
         if filepath:
             file_counts[filepath][smell_id] += 1
 
@@ -281,21 +281,21 @@ def _build_error_hotspots(by_detector: dict[str, list[dict]]) -> list[dict]:
 
 
 def _build_mutable_globals(by_detector: dict[str, list[dict]]) -> list[dict]:
-    """All global_mutable_config findings."""
+    """All global_mutable_config issues."""
     results: list[dict] = []
     file_data: dict[str, dict] = {}
 
-    for finding in by_detector.get("global_mutable_config", []):
-        filepath = finding.get("file", "")
+    for issue in by_detector.get("global_mutable_config", []):
+        filepath = issue.get("file", "")
         if not filepath:
             continue
         entry = file_data.setdefault(filepath, {
             "file": filepath, "names": [], "total_mutations": 0,
         })
-        name = _get_detail(finding, "name", "")
+        name = _get_detail(issue, "name", "")
         if name and name not in entry["names"]:
             entry["names"].append(name)
-        mutations = _safe_num(_get_detail(finding, "mutations"))
+        mutations = _safe_num(_get_detail(issue, "mutations"))
         entry["total_mutations"] += int(mutations) if mutations else 1
 
     results = sorted(file_data.values(), key=lambda e: -e["total_mutations"])
@@ -306,9 +306,9 @@ def _build_boundary_violations(by_detector: dict[str, list[dict]]) -> list[dict]
     """From coupling and layer_violation detectors."""
     results: list[dict] = []
     for det_name in ("coupling", "layer_violation"):
-        for finding in by_detector.get(det_name, []):
-            filepath = finding.get("file", "")
-            detail = finding.get("detail", {})
+        for issue in by_detector.get(det_name, []):
+            filepath = issue.get("file", "")
+            detail = issue.get("detail", {})
             if not isinstance(detail, dict):
                 detail = {}
             detail.setdefault("target", "")
@@ -326,14 +326,14 @@ def _build_boundary_violations(by_detector: dict[str, list[dict]]) -> list[dict]
 def _build_dead_code(by_detector: dict[str, list[dict]]) -> list[dict]:
     """Orphaned files + uncalled functions."""
     results: list[dict] = []
-    for finding in by_detector.get("orphaned", []):
-        filepath = finding.get("file", "")
-        signals = _get_signals(finding)
-        loc = _safe_num(signals.get("loc", _get_detail(finding, "loc")))
+    for issue in by_detector.get("orphaned", []):
+        filepath = issue.get("file", "")
+        signals = _get_signals(issue)
+        loc = _safe_num(signals.get("loc", _get_detail(issue, "loc")))
         results.append({"file": filepath, "kind": "orphaned", "loc": int(loc)})
-    for finding in by_detector.get("uncalled_functions", []):
-        filepath = finding.get("file", "")
-        detail = finding.get("detail", {})
+    for issue in by_detector.get("uncalled_functions", []):
+        filepath = issue.get("file", "")
+        detail = issue.get("detail", {})
         loc = _safe_num(detail.get("loc", 0)) if isinstance(detail, dict) else 0
         results.append({"file": filepath, "kind": "uncalled", "loc": int(loc)})
     return results[:30]
@@ -342,9 +342,9 @@ def _build_dead_code(by_detector: dict[str, list[dict]]) -> list[dict]:
 def _build_private_crossings(by_detector: dict[str, list[dict]]) -> list[dict]:
     """From private_imports detector."""
     results: list[dict] = []
-    for finding in by_detector.get("private_imports", []):
-        filepath = finding.get("file", "")
-        detail = finding.get("detail", {})
+    for issue in by_detector.get("private_imports", []):
+        filepath = issue.get("file", "")
+        detail = issue.get("detail", {})
         if not isinstance(detail, dict):
             detail = {}
         detail.setdefault("symbol", "")
@@ -365,10 +365,10 @@ def _build_deferred_import_density(by_file: dict[str, list[dict]]) -> list[dict]
     """Files with 2+ deferred_import smells (proxy for cycle pressure)."""
     file_counts: dict[str, int] = defaultdict(int)
     for filepath, file_findings in by_file.items():
-        for finding in file_findings:
-            if finding.get("detector") != "smells":
+        for issue in file_findings:
+            if issue.get("detector") != "smells":
                 continue
-            if _get_detail(finding, "smell_id") == "deferred_import":
+            if _get_detail(issue, "smell_id") == "deferred_import":
                 file_counts[filepath] += 1
 
     results = [
@@ -384,8 +384,8 @@ def _build_duplicate_clusters(by_detector: dict[str, list[dict]]) -> list[dict]:
     """From dupes and boilerplate_duplication detectors."""
     results: list[dict] = []
     for det_name in ("dupes", "boilerplate_duplication"):
-        for finding in by_detector.get(det_name, []):
-            detail = finding.get("detail", {})
+        for issue in by_detector.get(det_name, []):
+            detail = issue.get("detail", {})
             if not isinstance(detail, dict):
                 detail = {}
             detail.setdefault("kind", det_name)
@@ -393,10 +393,10 @@ def _build_duplicate_clusters(by_detector: dict[str, list[dict]]) -> list[dict]:
             detail.setdefault("function", "")
             detail.setdefault("files", [])
             kind = detail.get("kind", det_name)
-            name = detail.get("name", detail.get("function", finding.get("summary", "")[:60]))
+            name = detail.get("name", detail.get("function", issue.get("summary", "")[:60]))
             files = detail.get("files", [])
             if not isinstance(files, list) or not files:
-                fallback = finding.get("file", "")
+                fallback = issue.get("file", "")
                 files = [fallback] if fallback else []
             results.append({
                 "kind": kind,
@@ -410,9 +410,9 @@ def _build_duplicate_clusters(by_detector: dict[str, list[dict]]) -> list[dict]:
 def _build_naming_drift(by_detector: dict[str, list[dict]]) -> list[dict]:
     """From naming detector."""
     dir_data: dict[str, dict] = {}
-    for finding in by_detector.get("naming", []):
-        filepath = finding.get("file", "")
-        detail = finding.get("detail", {})
+    for issue in by_detector.get("naming", []):
+        filepath = issue.get("file", "")
+        detail = issue.get("detail", {})
         if not isinstance(detail, dict):
             detail = {}
         detail.setdefault("expected_convention", "")
@@ -438,9 +438,9 @@ def _build_naming_drift(by_detector: dict[str, list[dict]]) -> list[dict]:
 def _build_flat_dir_findings(by_detector: dict[str, list[dict]]) -> list[dict]:
     """From flat_dirs detector."""
     results: list[dict] = []
-    for finding in by_detector.get("flat_dirs", []):
-        filepath = finding.get("file", "")
-        detail = finding.get("detail", {})
+    for issue in by_detector.get("flat_dirs", []):
+        filepath = issue.get("file", "")
+        detail = issue.get("detail", {})
         if not isinstance(detail, dict):
             detail = {}
         detail.setdefault("kind", "")
@@ -459,10 +459,10 @@ def _build_flat_dir_findings(by_detector: dict[str, list[dict]]) -> list[dict]:
 
 
 def _build_large_file_distribution(by_detector: dict[str, list[dict]]) -> dict | None:
-    """Distribution stats from structural findings."""
+    """Distribution stats from structural issues."""
     locs: list[float] = []
-    for finding in by_detector.get("structural", []):
-        signals = _get_signals(finding)
+    for issue in by_detector.get("structural", []):
+        signals = _get_signals(issue)
         loc = _safe_num(signals.get("loc"))
         if loc > 0:
             locs.append(loc)
@@ -479,13 +479,13 @@ def _build_large_file_distribution(by_detector: dict[str, list[dict]]) -> dict |
 
 
 def _build_security_hotspots(by_detector: dict[str, list[dict]]) -> list[dict]:
-    """Files with 3+ security findings grouped by severity."""
+    """Files with 3+ security issues grouped by severity."""
     file_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for finding in by_detector.get("security", []):
-        filepath = finding.get("file", "")
+    for issue in by_detector.get("security", []):
+        filepath = issue.get("file", "")
         if not filepath:
             continue
-        detail = finding.get("detail", {})
+        detail = issue.get("detail", {})
         severity = (
             detail.get("severity", "medium")
             if isinstance(detail, dict) else "medium"
@@ -512,18 +512,18 @@ def _build_signal_density(by_file: dict[str, list[dict]]) -> list[dict]:
     results: list[dict] = []
     for filepath, file_findings in by_file.items():
         detectors = set()
-        for finding in file_findings:
-            det = finding.get("detector", "")
+        for issue in file_findings:
+            det = issue.get("detector", "")
             if det:
                 detectors.add(det)
         if len(detectors) >= 2:
             results.append({
                 "file": filepath,
                 "detector_count": len(detectors),
-                "finding_count": len(file_findings),
+                "issue_count": len(file_findings),
                 "detectors": sorted(detectors),
             })
-    results.sort(key=lambda e: (-e["detector_count"], -e["finding_count"]))
+    results.sort(key=lambda e: (-e["detector_count"], -e["issue_count"]))
     return results[:20]
 
 

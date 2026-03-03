@@ -59,18 +59,18 @@ _check_queue_order_guard = _get_guard_fn()
 # ---------------------------------------------------------------------------
 
 def _state_with_findings(*ids: str) -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "id": fid,
             "status": "open",
             "detector": "unused",
             "file": "test.py",
             "tier": 1,
             "confidence": "high",
-            "summary": f"Finding {fid}",
+            "summary": f"Issue {fid}",
         }
-    return {"findings": findings, "scan_count": 5}
+    return {"issues": issues, "scan_count": 5}
 
 
 def _setup_plan(tmp_path, monkeypatch, queue_order: list[str], clusters: dict | None = None):
@@ -133,7 +133,7 @@ def test_guard_allows_cluster_member(tmp_path, monkeypatch):
                 "name": "auto/unused",
                 "auto": True,
                 "cluster_key": "auto::unused",
-                "finding_ids": ["a", "b"],
+                "issue_ids": ["a", "b"],
                 "description": "Fix 2 unused",
                 "action": "desloppify autofix unused --dry-run",
                 "user_modified": False,
@@ -160,7 +160,7 @@ def test_guard_blocks_item_behind_cluster(tmp_path, monkeypatch, capsys):
                 "name": "auto/unused",
                 "auto": True,
                 "cluster_key": "auto::unused",
-                "finding_ids": ["a", "b"],
+                "issue_ids": ["a", "b"],
                 "description": "Fix 2 unused",
                 "action": "desloppify autofix unused --dry-run",
                 "user_modified": False,
@@ -207,12 +207,12 @@ def test_guard_prints_reorganize_commands(tmp_path, monkeypatch, capsys):
 
 
 # ---------------------------------------------------------------------------
-# Stale finding ID tests (issue #182)
+# Stale issue ID tests (issue #182)
 # ---------------------------------------------------------------------------
 
 def test_guard_skips_stale_ids_in_queue_order(tmp_path, monkeypatch):
     """Stale IDs at the front of queue_order should not block live items."""
-    # "stale" is in queue_order but NOT in state findings at all
+    # "stale" is in queue_order but NOT in state issues at all
     state = _state_with_findings("b", "c")
     _setup_plan(tmp_path, monkeypatch, ["stale", "b", "c"])
 
@@ -225,7 +225,7 @@ def test_guard_skips_resolved_ids_in_queue_order(tmp_path, monkeypatch):
     """Resolved (non-open) IDs at the front of queue_order should not block."""
     state = _state_with_findings("a", "b")
     # Mark "a" as fixed — it's still in state but no longer open
-    state["findings"]["a"]["status"] = "fixed"
+    state["issues"]["a"]["status"] = "fixed"
     _setup_plan(tmp_path, monkeypatch, ["a", "b"])
 
     # "b" should be next since "a" is resolved
@@ -245,7 +245,7 @@ def test_guard_cluster_with_stale_members(tmp_path, monkeypatch):
                 "name": "auto/unused",
                 "auto": True,
                 "cluster_key": "auto::unused",
-                "finding_ids": ["a", "stale_member"],
+                "issue_ids": ["a", "stale_member"],
                 "description": "Fix 2 unused",
                 "action": "desloppify autofix unused --dry-run",
                 "user_modified": False,

@@ -11,16 +11,16 @@ from desloppify.intelligence.narrative._constants import (
 )
 
 
-def open_files_by_detector(findings: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
-    """Collect file sets of open findings by detector."""
+def open_files_by_detector(issues: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
+    """Collect file sets of open issues by detector."""
     by_detector: dict[str, set[str]] = {}
-    for finding in findings.values():
-        if finding["status"] != "open" or finding.get("suppressed"):
+    for issue in issues.values():
+        if issue["status"] != "open" or issue.get("suppressed"):
             continue
-        detector = finding.get("detector", "unknown")
+        detector = issue.get("detector", "unknown")
         if detector in STRUCTURAL_MERGE:
             detector = "structural"
-        file_path = finding.get("file", "")
+        file_path = issue.get("file", "")
         if not file_path:
             by_detector.setdefault(detector, set())
             continue
@@ -275,13 +275,13 @@ def compute_strategy_hint(
 
     if recommendation == "strong" and can_parallelize:
         return (
-            f"Run fixers first — they cover {coverage_pct}% of findings. "
+            f"Run fixers first — they cover {coverage_pct}% of issues. "
             f"Then {lane_count} independent workstreams, safe to parallelize. "
             "Rescan after each phase to verify."
         )
     if recommendation == "strong":
         return (
-            f"Run fixers first — they cover {coverage_pct}% of findings. "
+            f"Run fixers first — they cover {coverage_pct}% of issues. "
             "Then rescan to verify."
         )
     if can_parallelize:
@@ -290,21 +290,21 @@ def compute_strategy_hint(
             "Rescan after each phase to verify."
         )
     if phase == "maintenance":
-        return "Maintenance mode — address new findings as they appear."
+        return "Maintenance mode — address new issues as they appear."
     if phase == "stagnation":
         return "Try a different dimension to break the plateau."
     return "Work through actions in priority order. Rescan after each fix to track progress."
 
 
 def compute_strategy(
-    findings: dict[str, dict[str, Any]],
+    issues: dict[str, dict[str, Any]],
     by_detector: dict[str, int],
     actions: list[dict[str, Any]],
     phase: str,
     lang: str | None,
 ) -> dict[str, Any]:
     """Orchestrate strategy computation and annotate actions with lanes."""
-    files_by_detector = open_files_by_detector(findings)
+    files_by_detector = open_files_by_detector(issues)
     fixer_leverage = compute_fixer_leverage(by_detector, actions, phase, lang)
     lanes = compute_lanes(actions, files_by_detector)
 
@@ -327,7 +327,7 @@ def compute_strategy(
         (action for action in actions if action.get("detector") == "review"), None
     )
     if review_action:
-        hint += f" Review: {review_action['count']} finding(s) — `desloppify show review --status open`."
+        hint += f" Review: {review_action['count']} issue(s) — `desloppify show review --status open`."
 
     return {
         "fixer_leverage": fixer_leverage,

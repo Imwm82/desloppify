@@ -165,14 +165,14 @@ class TestBuildTree:
 
     def test_findings_overlay(self):
         files = [self._file("src/foo.ts")]
-        findings = {
+        issues = {
             "src/foo.ts": [
                 {"status": "open", "summary": "unused import React"},
                 {"status": "open", "summary": "console.log"},
                 {"status": "fixed", "summary": "already fixed"},
             ],
         }
-        tree = _build_tree(files, {}, findings)
+        tree = _build_tree(files, {}, issues)
         leaf = tree["children"][0]
         assert leaf["findings_total"] == 3
         assert leaf["findings_open"] == 2
@@ -232,7 +232,7 @@ class TestAggregate:
         agg = _aggregate(leaf)
         assert agg["files"] == 1
         assert agg["loc"] == 100
-        assert agg["findings"] == 3
+        assert agg["issues"] == 3
         assert agg["max_coupling"] == 7  # fan_in + fan_out
 
     def test_directory_sums_children(self):
@@ -258,7 +258,7 @@ class TestAggregate:
         agg = _aggregate(tree)
         assert agg["files"] == 2
         assert agg["loc"] == 80
-        assert agg["findings"] == 3
+        assert agg["issues"] == 3
         assert agg["max_coupling"] == 7  # max of (0, 7)
 
     def test_nested_directory_aggregation(self):
@@ -296,7 +296,7 @@ class TestAggregate:
         agg = _aggregate(tree)
         assert agg["files"] == 3
         assert agg["loc"] == 60
-        assert agg["findings"] == 1
+        assert agg["issues"] == 1
         assert agg["max_coupling"] == 10  # z.ts has fan_in=5 + fan_out=5
 
     def test_empty_directory(self):
@@ -304,7 +304,7 @@ class TestAggregate:
         agg = _aggregate(tree)
         assert agg["files"] == 0
         assert agg["loc"] == 0
-        assert agg["findings"] == 0
+        assert agg["issues"] == 0
 
 
 # ===========================================================================
@@ -394,7 +394,7 @@ class TestPrintTree:
         assert "components/" in lines[0]
         assert "2 files" in lines[0]
         assert "300 LOC" in lines[0]
-        assert "1 findings" in lines[0]
+        assert "1 issues" in lines[0]
 
     def test_depth_limit_stops_recursion(self):
         tree = {
@@ -492,8 +492,8 @@ class TestPrintTree:
             ],
         }
         lines = []
-        _print_tree(tree, 0, 2, 0, "findings", False, lines)
-        # messy.ts has more findings, should come first
+        _print_tree(tree, 0, 2, 0, "issues", False, lines)
+        # messy.ts has more issues, should come first
         child_lines = [
             line for line in lines if "ts" in line and "/" not in line.split("(")[0]
         ]
@@ -608,7 +608,7 @@ class TestConstants:
 
 class TestLoadCmdContext:
     def test_uses_preloaded_state_when_available(self, monkeypatch):
-        sentinel_state = {"findings": {"x": 1}}
+        sentinel_state = {"issues": {"x": 1}}
 
         monkeypatch.setattr(
             "desloppify.app.output._viz_cmd_context.resolve_lang", lambda _a: None

@@ -229,7 +229,7 @@ def test_detect_docs_script_drift(tmp_path):
 
 
 def test_docs_script_drift_not_flagged_when_readme_mentions_scripts(tmp_path):
-    """README command docs should suppress docs drift finding."""
+    """README command docs should suppress docs drift issue."""
 
     _write(
         tmp_path,

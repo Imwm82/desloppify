@@ -86,8 +86,8 @@ def test_external_submit_rejects_missing_session_metadata(tmp_path, monkeypatch)
     }
     session_path = session_dir / "session.json"
     session_path.write_text(json.dumps(session_payload))
-    findings = tmp_path / "findings.json"
-    findings.write_text(json.dumps({"assessments": {"naming_quality": 100}, "findings": []}))
+    issues = tmp_path / "issues.json"
+    issues.write_text(json.dumps({"assessments": {"naming_quality": 100}, "issues": []}))
 
     monkeypatch.setattr(runtime_paths_mod, "EXTERNAL_SESSION_ROOT", tmp_path / "sessions")
     lang = MagicMock()
@@ -95,7 +95,7 @@ def test_external_submit_rejects_missing_session_metadata(tmp_path, monkeypatch)
 
     with pytest.raises(CommandError) as exc_info:
         external_mod.do_external_submit(
-            import_file=str(findings),
+            import_file=str(issues),
             session_id="ext_x",
             state=build_empty_state(),
             lang=lang,
@@ -123,14 +123,14 @@ def test_external_submit_canonicalizes_and_imports(tmp_path, monkeypatch):
     }
     session_path = session_dir / "session.json"
     session_path.write_text(json.dumps(session_payload))
-    findings = tmp_path / "findings.json"
-    findings.write_text(
+    issues = tmp_path / "issues.json"
+    issues.write_text(
         json.dumps(
             {
                 "session": {"id": "ext_x", "token": "secret-token"},
                 "provenance": {"kind": "fake"},
                 "assessments": {"naming_quality": 100},
-                "findings": [],
+                "issues": [],
             }
         )
     )
@@ -148,7 +148,7 @@ def test_external_submit_canonicalizes_and_imports(tmp_path, monkeypatch):
     lang.name = "python"
     state = build_empty_state()
     external_mod.do_external_submit(
-        import_file=str(findings),
+        import_file=str(issues),
         session_id="ext_x",
         state=state,
         lang=lang,
@@ -187,13 +187,13 @@ def test_external_submit_dry_run_uses_validate_import(tmp_path, monkeypatch):
         "packet_sha256": hashlib.sha256(blind.read_bytes()).hexdigest(),
     }
     (session_dir / "session.json").write_text(json.dumps(session_payload))
-    findings = tmp_path / "findings.json"
-    findings.write_text(
+    issues = tmp_path / "issues.json"
+    issues.write_text(
         json.dumps(
             {
                 "session": {"id": "ext_x", "token": "secret-token"},
                 "assessments": {"naming_quality": 100},
-                "findings": [],
+                "issues": [],
             }
         )
     )
@@ -213,7 +213,7 @@ def test_external_submit_dry_run_uses_validate_import(tmp_path, monkeypatch):
     lang = MagicMock()
     lang.name = "python"
     external_mod.do_external_submit(
-        import_file=str(findings),
+        import_file=str(issues),
         session_id="ext_x",
         state=build_empty_state(),
         lang=lang,

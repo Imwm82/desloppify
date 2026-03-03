@@ -34,14 +34,14 @@ workflow:
   plan       Living plan: prioritize, cluster, resolve, skip, annotate
 
 investigate:
-  show       Dig into findings by file/dir/detector/ID
+  show       Dig into issues by file/dir/detector/ID
   tree       Annotated codebase tree (zoom with --focus)
   viz        Interactive HTML treemap
   detect     Run a single detector directly (bypass state)
 
 improve:
   autofix    Auto-fix mechanical issues
-  suppress   Suppress findings matching a pattern
+  suppress   Suppress issues matching a pattern
   exclude    Exclude path pattern from scanning
   move       Move file/dir and update import references
   review     Holistic subjective review (LLM-based)

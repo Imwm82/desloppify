@@ -59,17 +59,17 @@ def _check_queue_order_guard(
         resolved_ids: set[str] = set()
         for pattern in patterns:
             if pattern in clusters:
-                resolved_ids.update(clusters[pattern].get("finding_ids", []))
+                resolved_ids.update(clusters[pattern].get("issue_ids", []))
                 resolved_ids.add(pattern)
             else:
                 resolved_ids.add(pattern)
 
-        findings = state.get("findings", {})
+        issues = state.get("issues", {})
         resolved_ids = {
-            finding_id
-            for finding_id in resolved_ids
-            if finding_id in clusters
-            or (finding_id in findings and findings[finding_id].get("status") == "open")
+            issue_id
+            for issue_id in resolved_ids
+            if issue_id in clusters
+            or (issue_id in issues and issues[issue_id].get("status") == "open")
         }
         if not resolved_ids:
             return False
@@ -78,9 +78,9 @@ def _check_queue_order_guard(
         for cluster_id in list(out_of_order):
             if cluster_id in clusters:
                 alive_members = {
-                    finding_id
-                    for finding_id in clusters[cluster_id].get("finding_ids", [])
-                    if finding_id in findings and findings[finding_id].get("status") == "open"
+                    issue_id
+                    for issue_id in clusters[cluster_id].get("issue_ids", [])
+                    if issue_id in issues and issues[issue_id].get("status") == "open"
                 }
                 if alive_members and alive_members <= front_ids:
                     out_of_order.discard(cluster_id)
@@ -88,8 +88,8 @@ def _check_queue_order_guard(
             return False
 
         print(colorize("\n  Queue order violation: these items are not next in the plan queue:\n", "yellow"))
-        for finding_id in sorted(out_of_order):
-            print(f"    {finding_id}")
+        for issue_id in sorted(out_of_order):
+            print(f"    {issue_id}")
         print(colorize(f"\n  The current next item is: {front_id}", "dim"))
         print(colorize("  Items must be resolved in plan order. If you need to reprioritize:", "dim"))
         print(colorize("    desloppify plan reorder <pattern> top            # move to front", "dim"))

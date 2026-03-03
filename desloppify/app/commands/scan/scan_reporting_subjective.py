@@ -356,11 +356,11 @@ def show_subjective_paths(
     )
     low_assessed = followup.low_assessed
 
-    all_findings = state.get("findings", {})
-    if not isinstance(all_findings, dict):
-        all_findings = {}
+    all_issues = state.get("issues", {})
+    if not isinstance(all_issues, dict):
+        all_issues = {}
     coverage_global, _reason_counts, _holistic_reasons = (
-        subjective_integrity_mod.subjective_review_open_breakdown(all_findings)
+        subjective_integrity_mod.subjective_review_open_breakdown(all_issues)
     )
 
     stale_count = sum(1 for e in subjective_entries if e.get("stale"))

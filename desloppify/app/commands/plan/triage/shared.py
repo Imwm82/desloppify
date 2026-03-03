@@ -10,7 +10,7 @@ from desloppify.app.commands.plan.triage.reflect_dashboard import (
     _print_reflect_dashboard,
 )
 from desloppify.app.commands.plan.triage.stage_helpers import (
-    _manual_clusters_with_findings,
+    _manual_clusters_with_issues,
     _require_triage_pending,
     _triage_coverage,
     _unenriched_clusters,
@@ -22,7 +22,7 @@ from desloppify.app.commands.plan.triage.stage_persistence import (
 )
 
 __all__ = [
-    "_manual_clusters_with_findings",
+    "_manual_clusters_with_issues",
     "_print_progress",
     "_print_reflect_dashboard",
     "_print_stage_progress",

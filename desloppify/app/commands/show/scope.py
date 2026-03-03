@@ -194,7 +194,7 @@ def load_matches(
     status_filter: str,
     chronic: bool,
 ) -> list[dict]:
-    """Load matching findings from the ranked queue."""
+    """Load matching issues from the ranked queue."""
     queue = build_work_queue(
         state,
         options=QueueBuildOptions(
@@ -205,7 +205,7 @@ def load_matches(
             chronic=chronic,
         ),
     )
-    return [item for item in queue.get("items", []) if item.get("kind") == "finding"]
+    return [item for item in queue.get("items", []) if item.get("kind") == "issue"]
 
 
 def resolve_noise(config: dict, matches: list[dict], *, no_budget: bool = False):
@@ -222,9 +222,9 @@ def resolve_noise(config: dict, matches: list[dict], *, no_budget: bool = False)
             None,
         )
     noise_budget, global_noise_budget, budget_warning = (
-        state_mod.resolve_finding_noise_settings(config)
+        state_mod.resolve_issue_noise_settings(config)
     )
-    surfaced_matches, hidden_by_detector = state_mod.apply_finding_noise_budget(
+    surfaced_matches, hidden_by_detector = state_mod.apply_issue_noise_budget(
         matches,
         budget=noise_budget,
         global_budget=global_noise_budget,

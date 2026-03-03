@@ -21,7 +21,7 @@ def generate_remediation_plan(
     *,
     output_path: Path | None = None,
 ) -> str:
-    """Generate remediation markdown for open holistic findings."""
+    """Generate remediation markdown for open holistic issues."""
     from desloppify.intelligence.review._prepare.remediation_engine import (
         generate_remediation_plan as _generate_remediation_plan,
     )

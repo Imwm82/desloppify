@@ -51,7 +51,7 @@ def _append_pattern_evidence(parts: list[str], detail: dict) -> None:
 
 
 def format_detail(detail: dict) -> list[str]:
-    """Build display parts from a finding's detail dict."""
+    """Build display parts from a issue's detail dict."""
     parts: list[str] = []
     for key, label, formatter in DETAIL_DISPLAY:
         value = detail.get(key)

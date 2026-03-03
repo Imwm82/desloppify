@@ -58,7 +58,7 @@ def test_write_query_truncates_oversized_payload(tmp_path, monkeypatch, capsys):
         "items": [
             {
                 "id": f"security::src/f{i}.py::b101",
-                "kind": "finding",
+                "kind": "issue",
                 "summary": "x" * 1200,
                 "detail": {"blob": "y" * 1200},
             }

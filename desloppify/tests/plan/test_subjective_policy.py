@@ -21,9 +21,9 @@ def _finding(fid: str, detector: str = "unused", status: str = "open",
     return f
 
 
-def _state_with_findings(*findings: dict) -> dict:
+def _state_with_findings(*issues: dict) -> dict:
     return {
-        "findings": {f["id"]: f for f in findings},
+        "issues": {f["id"]: f for f in issues},
         "scan_count": 5,
     }
 
@@ -40,7 +40,7 @@ def _unscored_state(*dim_keys: str) -> dict:
         }
         assessments[dk] = {"score": 0.0, "placeholder": True}
     return {
-        "findings": {},
+        "issues": {},
         "scan_count": 1,
         "dimension_scores": dim_scores,
         "subjective_assessments": assessments,
@@ -63,7 +63,7 @@ def _stale_state(*dim_keys: str, score: float = 50.0) -> dict:
             "stale_since": "2025-01-01T00:00:00+00:00",
         }
     return {
-        "findings": {},
+        "issues": {},
         "scan_count": 5,
         "dimension_scores": dim_scores,
         "subjective_assessments": assessments,
@@ -82,7 +82,7 @@ def _under_target_state(*dim_keys: str, score: float = 70.0) -> dict:
         }
         assessments[dk] = {"score": score}
     return {
-        "findings": {},
+        "issues": {},
         "scan_count": 5,
         "dimension_scores": dim_scores,
         "subjective_assessments": assessments,

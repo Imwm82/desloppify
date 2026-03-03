@@ -246,8 +246,8 @@ def _get_items(args, state: dict, config: dict) -> None:
         return
 
     dim_scores = state.get("dimension_scores", {})
-    findings_scoped = state_mod.path_scoped_findings(
-        state.get("findings", {}),
+    findings_scoped = state_mod.path_scoped_issues(
+        state.get("issues", {}),
         state.get("scan_path"),
     )
 

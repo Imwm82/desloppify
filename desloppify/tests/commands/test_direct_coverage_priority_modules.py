@@ -70,7 +70,7 @@ def test_direct_coverage_priority_modules_smoke():
     assert callable(status_render_dimensions_mod.render_subjective_dimensions)
     assert callable(status_render_io_mod.write_status_query)
     assert callable(status_render_structural_mod.render_area_workflow)
-    assert callable(display_mod.short_finding_id)
+    assert callable(display_mod.short_issue_id)
     assert callable(dimension_policy_mod._compose_scorecard_dimensions)
 
     assert callable(compatibility_mod.is_private_module)
@@ -91,7 +91,7 @@ def test_direct_coverage_priority_modules_smoke():
     assert callable(planning_render_sections_mod.render_plan_item)
     assert callable(narrative_signals_mod.compute_risk_flags)
     assert callable(selection_contexts_mod.architecture_context)
-    assert callable(review_selection_cache_mod.get_file_findings)
+    assert callable(review_selection_cache_mod.get_file_issues)
     assert callable(scoped_store_mod.resolve_effective_scope)
     assert callable(csharp_deps_support_mod.map_file_to_project)
     assert callable(py_deps_compat_mod.entries_or_none_on_degradation)
@@ -108,7 +108,7 @@ def test_direct_coverage_priority_modules_smoke():
 
 
 def test_direct_coverage_priority_modules_behavior():
-    assert display_mod.short_finding_id("foo::bar::baz").startswith("foo")
+    assert display_mod.short_issue_id("foo::bar::baz").startswith("foo")
     assert ts_syntax_scan_mod.collapse_blank_lines(["a", "", "", "b"]) == ["a", "", "b"]
     rewritten, removed = ts_import_rewrite_mod.remove_symbols_from_import_stmt(
         "import { A, B } from 'pkg';\n",

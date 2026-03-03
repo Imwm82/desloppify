@@ -1,7 +1,7 @@
-"""Concern generators — mechanical findings → subjective review bridge.
+"""Concern generators — mechanical issues → subjective review bridge.
 
 Concerns are ephemeral: computed on-demand from current state, never persisted.
-Only LLM-confirmed concerns become persistent Finding objects via review import.
+Only LLM-confirmed concerns become persistent Issue objects via review import.
 
 Generators focus on cross-cutting synthesis — bundling all signals per file so
 the LLM gets a complete picture, and surfacing systemic patterns across files
@@ -28,11 +28,11 @@ class Concern:
     evidence: tuple[str, ...]  # supporting data points
     question: str  # specific question for LLM to evaluate
     fingerprint: str  # stable hash for dismissal tracking
-    source_findings: tuple[str, ...]  # finding IDs that triggered this
+    source_issues: tuple[str, ...]  # issue IDs that triggered this
 
 
 class ConcernSignals(TypedDict, total=False):
-    """Typed signal payload extracted from mechanical findings."""
+    """Typed signal payload extracted from mechanical issues."""
 
     max_params: float
     max_nesting: float
@@ -63,7 +63,7 @@ def _fingerprint(concern_type: str, file: str, key_signals: tuple[str, ...]) -> 
 def _is_dismissed(
     dismissals: dict, fingerprint: str, source_finding_ids: tuple[str, ...]
 ) -> bool:
-    """Check if a concern was previously dismissed and source findings unchanged."""
+    """Check if a concern was previously dismissed and source issues unchanged."""
     entry = dismissals.get(fingerprint)
     if not isinstance(entry, dict):
         return False
@@ -71,19 +71,19 @@ def _is_dismissed(
     return prev_sources == set(source_finding_ids)
 
 
-def _open_findings(state: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return all open findings from state."""
-    findings = state.get("findings", {})
+def _open_issues(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return all open issues from state."""
+    issues = state.get("issues", {})
     return [
-        f for f in findings.values()
+        f for f in issues.values()
         if isinstance(f, dict) and f.get("status") == "open"
     ]
 
 
 def _group_by_file(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    """Group open findings by file, excluding holistic (file='.')."""
+    """Group open issues by file, excluding holistic (file='.')."""
     by_file: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for f in _open_findings(state):
+    for f in _open_issues(state):
         file = f.get("file", "")
         if file and file != ".":
             by_file[file].append(f)
@@ -93,12 +93,12 @@ def _group_by_file(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
 # ── Signal extraction ────────────────────────────────────────────────
 
 
-def _extract_signals(findings: list[dict[str, Any]]) -> ConcernSignals:
-    """Extract key quantitative signals from a file's findings."""
+def _extract_signals(issues: list[dict[str, Any]]) -> ConcernSignals:
+    """Extract key quantitative signals from a file's issues."""
     signals: ConcernSignals = {}
     monster_funcs: list[str] = []
 
-    for f in findings:
+    for f in issues:
         det = f.get("detector", "")
         detail_raw = f.get("detail", {})
         detail = detail_raw if isinstance(detail_raw, dict) else {}
@@ -120,9 +120,9 @@ def _extract_signals(findings: list[dict[str, Any]]) -> ConcernSignals:
     return signals
 
 
-def _has_elevated_signals(findings: list[dict[str, Any]]) -> bool:
-    """Does any finding have signals strong enough to flag on its own?"""
-    for f in findings:
+def _has_elevated_signals(issues: list[dict[str, Any]]) -> bool:
+    """Does any issue have signals strong enough to flag on its own?"""
+    for f in issues:
         det = f.get("detector", "")
         detail = f.get("detail", {})
 
@@ -203,13 +203,13 @@ def _build_summary(
 
 
 def _build_evidence(
-    findings: list[dict[str, Any]],
+    issues: list[dict[str, Any]],
     signals: ConcernSignals,
 ) -> tuple[str, ...]:
-    """Build evidence tuple from all findings and extracted signals."""
+    """Build evidence tuple from all issues and extracted signals."""
     evidence: list[str] = []
 
-    detectors = sorted({f.get("detector", "") for f in findings})
+    detectors = sorted({f.get("detector", "") for f in issues})
     evidence.append(f"Flagged by: {', '.join(detectors)}")
 
     loc = signals.get("loc")
@@ -227,8 +227,8 @@ def _build_evidence(
         label = f" ({', '.join(funcs[:3])})" if funcs else ""
         evidence.append(f"Monster function{label}: {int(monster_loc)} lines")
 
-    # Individual finding summaries — give LLM the full picture, capped.
-    for f in findings[:10]:
+    # Individual issue summaries — give LLM the full picture, capped.
+    for f in issues[:10]:
         summary = f.get("summary", "")
         if summary:
             evidence.append(f"[{f.get('detector', '')}] {summary}")
@@ -310,14 +310,14 @@ def _file_concerns(state: dict[str, Any], dismissals: dict[str, Any]) -> list[Co
     Flags a file if it has 2+ judgment-needed detectors OR a single
     detector with elevated signals (monster function, high params,
     deep nesting, duplication, coupling, mixed responsibilities).
-    Bundles ALL findings for that file so the LLM sees the full picture.
+    Bundles ALL issues for that file so the LLM sees the full picture.
     """
     by_file = _group_by_file(state)
     concerns: list[Concern] = []
 
-    for file, all_findings in by_file.items():
+    for file, all_issues in by_file.items():
         judgment = [
-            f for f in all_findings
+            f for f in all_issues
             if f.get("detector", "") in JUDGMENT_DETECTORS
         ]
         if not judgment:
@@ -327,8 +327,8 @@ def _file_concerns(state: dict[str, Any], dismissals: dict[str, Any]) -> list[Co
         elevated = _has_elevated_signals(judgment)
 
         # Flag if 2+ judgment detectors OR 1 with elevated signals
-        # OR 1 judgment detector + 2 mechanical findings from any detector.
-        mechanical_count = len(all_findings)
+        # OR 1 judgment detector + 2 mechanical issues from any detector.
+        mechanical_count = len(all_issues)
         if len(judgment_dets) < 2 and not elevated:
             if not (len(judgment_dets) >= 1 and mechanical_count >= 3):
                 continue
@@ -354,7 +354,7 @@ def _file_concerns(state: dict[str, Any], dismissals: dict[str, Any]) -> list[Co
                 evidence=evidence,
                 question=question,
                 fingerprint=fp,
-                source_findings=all_ids,
+                source_issues=all_ids,
             )
         )
 
@@ -371,9 +371,9 @@ def _cross_file_patterns(state: dict[str, Any], dismissals: dict[str, Any]) -> l
 
     # Group files by their judgment detector profile.
     profile_to_files: dict[frozenset[str], list[str]] = defaultdict(list)
-    for file, findings in by_file.items():
+    for file, issues in by_file.items():
         dets = frozenset(
-            f.get("detector", "") for f in findings
+            f.get("detector", "") for f in issues
             if f.get("detector", "") in JUDGMENT_DETECTORS
         )
         if len(dets) >= 2:
@@ -423,7 +423,7 @@ def _cross_file_patterns(state: dict[str, Any], dismissals: dict[str, Any]) -> l
                     "these independent issues that happen to look similar?"
                 ),
                 fingerprint=fp,
-                source_findings=all_ids,
+                source_issues=all_ids,
             )
         )
 
@@ -439,9 +439,9 @@ def _systemic_smell_patterns(
     This catches pervasive single-smell issues (e.g. broad_except in 12 files).
     """
     smell_files: dict[str, list[str]] = defaultdict(list)
-    smell_ids_map: dict[str, list[str]] = defaultdict(list)  # smell_id -> finding IDs
+    smell_ids_map: dict[str, list[str]] = defaultdict(list)  # smell_id -> issue IDs
 
-    for f in _open_findings(state):
+    for f in _open_issues(state):
         if f.get("detector") != "smells":
             continue
         detail = f.get("detail", {})
@@ -481,7 +481,7 @@ def _systemic_smell_patterns(
                     "or are these independent occurrences?"
                 ),
                 fingerprint=fp,
-                source_findings=all_ids,
+                source_issues=all_ids,
             )
         )
 
@@ -516,7 +516,7 @@ def generate_concerns(
 
 
 def cleanup_stale_dismissals(state: dict[str, Any]) -> int:
-    """Remove dismissals whose source findings all disappeared.
+    """Remove dismissals whose source issues all disappeared.
 
     Returns the number of stale entries removed.  Dismissals without
     ``source_finding_ids`` (legacy) are left untouched.
@@ -524,7 +524,7 @@ def cleanup_stale_dismissals(state: dict[str, Any]) -> int:
     dismissals = state.get("concern_dismissals", {})
     if not dismissals:
         return 0
-    open_ids = {f.get("id", "") for f in _open_findings(state)}
+    open_ids = {f.get("id", "") for f in _open_issues(state)}
     stale_fps = [
         fp
         for fp, entry in dismissals.items()

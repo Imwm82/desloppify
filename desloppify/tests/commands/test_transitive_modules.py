@@ -60,46 +60,46 @@ class TestPrintResolveSummary:
     def test_basic_summary(self, _mock_colorize, capsys):
         _print_resolve_summary(status="fixed", all_resolved=["f1", "f2"])
         out = capsys.readouterr().out
-        assert "Resolved 2 finding(s) as fixed:" in out
+        assert "Resolved 2 issue(s) as fixed:" in out
         assert "f1" in out
         assert "f2" in out
 
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_truncation_over_20(self, _mock_colorize, capsys):
-        ids = [f"finding-{i}" for i in range(25)]
+        ids = [f"issue-{i}" for i in range(25)]
         _print_resolve_summary(status="wontfix", all_resolved=ids)
         out = capsys.readouterr().out
         assert "... and 5 more" in out
         # The 21st item should NOT be individually listed
-        assert "finding-20" not in out
+        assert "issue-20" not in out
 
 
 class TestPrintWontfixBatchWarning:
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_no_warning_for_non_wontfix(self, _mock_colorize, capsys):
         _print_wontfix_batch_warning(
-            {"findings": {}}, status="fixed", resolved_count=20
+            {"issues": {}}, status="fixed", resolved_count=20
         )
         assert capsys.readouterr().out == ""
 
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_no_warning_when_count_low(self, _mock_colorize, capsys):
         _print_wontfix_batch_warning(
-            {"findings": {}}, status="wontfix", resolved_count=5
+            {"issues": {}}, status="wontfix", resolved_count=5
         )
         assert capsys.readouterr().out == ""
 
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_warning_shown_for_large_wontfix_batch(self, _mock_colorize, capsys):
-        findings = {
+        issues = {
             f"f{i}": {"status": "wontfix"} for i in range(15)
         }
-        findings["open1"] = {"status": "open"}
-        state = {"findings": findings}
+        issues["open1"] = {"status": "open"}
+        state = {"issues": issues}
         _print_wontfix_batch_warning(state, status="wontfix", resolved_count=15)
         out = capsys.readouterr().out
         assert "Wontfix debt" in out
-        assert "15 findings" in out
+        assert "15 issues" in out
 
 
 class TestPrintScoreMovement:
@@ -157,11 +157,11 @@ class TestPrintScoreMovement:
             prev_strict=40.0,
             prev_verified=30.0,
             state={},
-            has_review_findings=True,
+            has_review_issues=True,
         )
         out = capsys.readouterr().out
         assert "Scores unchanged" in out
-        assert "review findings" in out
+        assert "review issues" in out
 
     @patch("desloppify.app.commands.resolve.render_support.state_mod")
     @patch("desloppify.app.commands.resolve.render_support.colorize", side_effect=lambda t, _c: t)
@@ -186,7 +186,7 @@ class TestPrintScoreMovement:
 class TestPrintNextCommand:
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_no_open_remaining(self, _mock_colorize, capsys):
-        state = {"findings": {"f1": {"status": "fixed", "detector": "smells"}}}
+        state = {"issues": {"f1": {"status": "fixed", "detector": "smells"}}}
         result = _print_next_command(state)
         out = capsys.readouterr().out
         assert "desloppify scan" in out
@@ -195,31 +195,31 @@ class TestPrintNextCommand:
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_review_remaining(self, _mock_colorize, capsys):
         state = {
-            "findings": {
+            "issues": {
                 "f1": {"status": "open", "detector": "review"},
                 "f2": {"status": "open", "detector": "review"},
             }
         }
         result = _print_next_command(state)
         out = capsys.readouterr().out
-        assert "2 findings remaining" in out
+        assert "2 issues remaining" in out
         assert result == "desloppify next"
 
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_single_review_remaining_no_plural(self, _mock_colorize, capsys):
         state = {
-            "findings": {"f1": {"status": "open", "detector": "review"}}
+            "issues": {"f1": {"status": "open", "detector": "review"}}
         }
         _print_next_command(state)
         out = capsys.readouterr().out
-        assert "1 finding remaining" in out
+        assert "1 issue remaining" in out
 
 
 class TestPrintSubjectiveResetHint:
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_no_hint_when_no_review_findings(self, _mock_colorize, capsys):
         state = {
-            "findings": {"f1": {"detector": "smells", "status": "open"}},
+            "issues": {"f1": {"detector": "smells", "status": "open"}},
             "subjective_assessments": {"Code quality": 5.0},
         }
         args = argparse.Namespace()
@@ -231,7 +231,7 @@ class TestPrintSubjectiveResetHint:
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
     def test_hint_shown_for_resolved_review_findings(self, _mock_colorize, capsys):
         state = {
-            "findings": {
+            "issues": {
                 "f1": {
                     "detector": "review",
                     "status": "fixed",
@@ -452,7 +452,7 @@ class TestCmdReviewEntrypoint:
     def test_prepare_path(self, mock_runtime, mock_resolve_lang, mock_do_prepare):
         """When no import_file and no run_batches, falls through to do_prepare."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -476,7 +476,7 @@ class TestCmdReviewEntrypoint:
     def test_import_path(self, mock_runtime, mock_resolve_lang, mock_do_import):
         """When import_file is set, calls do_import."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -502,7 +502,7 @@ class TestCmdReviewEntrypoint:
     ):
         """When validate_import_file is set, calls do_validate_import."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -526,7 +526,7 @@ class TestCmdReviewEntrypoint:
     def test_run_batches_path(self, mock_runtime, mock_resolve_lang, mock_do_run_batches):
         """When run_batches is set, calls _do_run_batches."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -551,7 +551,7 @@ class TestCmdReviewEntrypoint:
     ):
         """--run-batches cannot be mixed with import/validation flags."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -574,7 +574,7 @@ class TestCmdReviewEntrypoint:
     def test_import_and_validate_reject_together(self, mock_runtime, mock_resolve_lang):
         """--import and --validate-import are mutually exclusive."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -597,7 +597,7 @@ class TestCmdReviewEntrypoint:
     @patch("desloppify.app.commands.review.entrypoint.command_runtime")
     def test_external_start_path(self, mock_runtime, mock_resolve_lang, mock_external_start):
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -620,7 +620,7 @@ class TestCmdReviewEntrypoint:
     @patch("desloppify.app.commands.review.entrypoint.command_runtime")
     def test_external_submit_path(self, mock_runtime, mock_resolve_lang, mock_external_submit):
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -648,7 +648,7 @@ class TestCmdReviewEntrypoint:
         self, mock_runtime, mock_resolve_lang
     ):
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt
@@ -671,7 +671,7 @@ class TestCmdReviewEntrypoint:
     def test_exits_when_no_lang(self, mock_runtime, mock_resolve_lang):
         """When resolve_lang returns None, raises CommandError."""
         rt = MagicMock()
-        rt.state = {"findings": {}}
+        rt.state = {"issues": {}}
         rt.state_path = "/tmp/state.json"
         rt.config = {}
         mock_runtime.return_value = rt

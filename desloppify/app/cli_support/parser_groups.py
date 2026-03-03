@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 
-from desloppify.core.enums import finding_status_tokens
+from desloppify.core.enums import issue_status_tokens
 
-_STATUS_CHOICES = sorted(finding_status_tokens(include_all=True))
+_STATUS_CHOICES = sorted(issue_status_tokens(include_all=True))
 
 from desloppify.app.cli_support.parser_groups_admin import (  # noqa: F401 (re-exports)
     _add_config_parser,
@@ -131,18 +131,18 @@ def _add_tree_parser(sub) -> None:
         "--min-loc", type=int, default=0, help="Hide items below this LOC"
     )
     p_tree.add_argument(
-        "--sort", choices=["loc", "findings", "coupling"], default="loc",
+        "--sort", choices=["loc", "issues", "coupling"], default="loc",
         help="Sort order (default: loc)",
     )
     p_tree.add_argument(
-        "--detail", action="store_true", help="Show finding summaries per file"
+        "--detail", action="store_true", help="Show issue summaries per file"
     )
 
 
 def _add_show_parser(sub) -> None:
     p_show = sub.add_parser(
         "show",
-        help="Dig into findings by file, directory, detector, or ID",
+        help="Dig into issues by file, directory, detector, or ID",
         epilog="""\
 examples:
   desloppify show src/components/Modal.tsx
@@ -155,7 +155,7 @@ examples:
         "pattern",
         nargs="?",
         default=None,
-        help="File path, directory, detector name, finding ID, or glob",
+        help="File path, directory, detector name, issue ID, or glob",
     )
     p_show.add_argument("--state", type=str, default=None, help="Path to state file")
     p_show.add_argument(
@@ -176,30 +176,30 @@ examples:
     p_show.add_argument(
         "--chronic",
         action="store_true",
-        help="Show findings that have been reopened 2+ times (chronic reopeners)",
+        help="Show issues that have been reopened 2+ times (chronic reopeners)",
     )
     p_show.add_argument(
-        "--code", action="store_true", help="Show inline code snippets for each finding"
+        "--code", action="store_true", help="Show inline code snippets for each issue"
     )
     p_show.add_argument(
         "--notes",
         type=str,
         default=None,
         metavar="FILE",
-        help="Path to investigation notes file to attach to a finding",
+        help="Path to investigation notes file to attach to a issue",
     )
     p_show.add_argument(
         "--no-budget",
         action="store_true",
         dest="no_budget",
-        help="Bypass per-detector noise budget (show all matching findings)",
+        help="Bypass per-detector noise budget (show all matching issues)",
     )
 
 
 def _add_next_parser(sub) -> None:
     p_next = sub.add_parser(
         "next",
-        help="Show next highest-priority open finding",
+        help="Show next highest-priority open issue",
         epilog="""\
 examples:
   desloppify next                       # single highest-priority item
@@ -263,7 +263,7 @@ examples:
 
 def _add_suppress_parser(sub) -> None:
     p_suppress = sub.add_parser(
-        "suppress", help="Suppress findings matching a pattern"
+        "suppress", help="Suppress issues matching a pattern"
     )
     p_suppress.add_argument("pattern", help="File path, glob, or detector::prefix")
     p_suppress.add_argument(

@@ -14,18 +14,18 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_IDS, TRIAGE_STAGE_ID
 # ---------------------------------------------------------------------------
 
 def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
-    findings = {}
+    issues = {}
     for fid in ids:
-        findings[fid] = {
+        issues[fid] = {
             "status": "open",
             "detector": "review",
             "file": "test.py",
-            "summary": f"Review finding {fid}",
+            "summary": f"Review issue {fid}",
             "confidence": "medium",
             "tier": 2,
             "detail": {"dimension": dimension},
         }
-    return {"findings": findings, "scan_count": 5, "dimension_scores": {}}
+    return {"issues": issues, "scan_count": 5, "dimension_scores": {}}
 
 
 def _fake_runtime(state: dict):
@@ -70,7 +70,7 @@ class TestAutoStartTriage:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p: None)
 
         long_report = (
-            "This is a thorough analysis of the naming and architecture findings. "
+            "This is a thorough analysis of the naming and architecture issues. "
             "The main themes are inconsistent naming conventions across modules, "
             "and some architectural coupling between components."
         )
@@ -93,7 +93,7 @@ class TestAutoStartTriage:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p: None)
 
         long_report = (
-            "This is a thorough analysis of the naming and architecture findings. "
+            "This is a thorough analysis of the naming and architecture issues. "
             "The main themes are inconsistent naming conventions across modules, "
             "and some architectural coupling between components."
         )
@@ -115,7 +115,7 @@ class TestAutoStartTriage:
         monkeypatch.setattr(triage_mod, "save_plan", lambda p: None)
 
         long_report = (
-            "This is a thorough analysis of the naming and architecture findings. "
+            "This is a thorough analysis of the naming and architecture issues. "
             "The main themes are inconsistent naming conventions across modules, "
             "and some architectural coupling between components."
         )

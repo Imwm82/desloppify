@@ -52,7 +52,7 @@ def test_assessment_mode_label_mappings():
         "manual override (provisional scores)"
     )
     assert assessment_mode_label({"mode": "findings_only"}) == (
-        "findings-only (assessments skipped)"
+        "issues-only (assessments skipped)"
     )
 
 
@@ -62,18 +62,18 @@ def test_print_assessment_mode_banner_for_findings_only(capsys):
         colorize_fn=_colorize,
     )
     out = capsys.readouterr().out
-    assert "Assessment import mode: findings-only (assessments skipped)" in out
+    assert "Assessment import mode: issues-only (assessments skipped)" in out
 
 
 def test_import_untrusted_assessments_are_dropped_by_default(tmp_path):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {
             "naming_quality": 95,
             "logic_clarity": {"score": 92},
         },
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(str(findings_path), colorize_fn=_colorize)
@@ -85,10 +85,10 @@ def test_import_untrusted_assessments_are_dropped_by_default(tmp_path):
 
 def test_import_manual_override_requires_attestation(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -103,10 +103,10 @@ def test_import_manual_override_requires_attestation(tmp_path, capsys):
 
 def test_import_manual_override_allows_untrusted_assessments(tmp_path):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(
@@ -122,10 +122,10 @@ def test_import_manual_override_allows_untrusted_assessments(tmp_path):
 
 def test_import_manual_override_rejects_allow_partial_combo(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -142,10 +142,10 @@ def test_import_manual_override_rejects_allow_partial_combo(tmp_path, capsys):
 
 def test_import_attested_external_requires_attest_phrases(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -163,10 +163,10 @@ def test_import_attested_external_requires_attest_phrases(tmp_path, capsys):
 
 def test_import_attested_external_rejects_untrusted_provenance(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -182,7 +182,7 @@ def test_import_attested_external_rejects_untrusted_provenance(tmp_path, capsys)
     err = _render_import_load_error(exc.value, import_file=findings_path, capsys=capsys)
     assert "--attested-external requires valid blind packet provenance" in err
     assert "Hint: if provenance is valid, rerun with" in err
-    assert "Findings-only fallback" in err
+    assert "Issues-only fallback" in err
 
 
 def test_import_attested_external_accepts_claude_blind_provenance(tmp_path):
@@ -191,7 +191,7 @@ def test_import_attested_external_accepts_claude_blind_provenance(tmp_path):
     packet_hash = hashlib.sha256(blind_packet.read_bytes()).hexdigest()
 
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
         "provenance": {
             "kind": "blind_review_batch_import",
@@ -201,7 +201,7 @@ def test_import_attested_external_accepts_claude_blind_provenance(tmp_path):
             "packet_sha256": packet_hash,
         },
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(
@@ -225,7 +225,7 @@ def test_import_attested_external_rejects_non_claude_runner(tmp_path, capsys):
     packet_hash = hashlib.sha256(blind_packet.read_bytes()).hexdigest()
 
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
         "provenance": {
             "kind": "blind_review_batch_import",
@@ -235,7 +235,7 @@ def test_import_attested_external_rejects_non_claude_runner(tmp_path, capsys):
             "packet_sha256": packet_hash,
         },
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -255,10 +255,10 @@ def test_import_attested_external_rejects_non_claude_runner(tmp_path, capsys):
 
 def test_import_attested_external_rejects_allow_partial_combo(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -282,7 +282,7 @@ def test_import_external_trusted_provenance_still_defaults_to_findings_only(tmp_
     packet_hash = hashlib.sha256(blind_packet.read_bytes()).hexdigest()
 
     payload = {
-        "findings": [
+        "issues": [
             {
                 "dimension": "naming_quality",
                 "identifier": "process_data",
@@ -302,7 +302,7 @@ def test_import_external_trusted_provenance_still_defaults_to_findings_only(tmp_
             "packet_sha256": packet_hash,
         },
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(str(findings_path), colorize_fn=_colorize)
@@ -315,10 +315,10 @@ def test_import_external_trusted_provenance_still_defaults_to_findings_only(tmp_
 
 def test_import_trusted_internal_source_applies_assessments(tmp_path):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(
@@ -340,7 +340,7 @@ def test_import_hash_mismatch_falls_back_to_findings_only(tmp_path):
     wrong_hash = "0" * 64
 
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 95},
         "provenance": {
             "kind": "blind_review_batch_import",
@@ -350,7 +350,7 @@ def test_import_hash_mismatch_falls_back_to_findings_only(tmp_path):
             "packet_sha256": wrong_hash,
         },
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(str(findings_path), colorize_fn=_colorize)
@@ -365,7 +365,7 @@ def test_import_dimension_feedback_without_trusted_provenance_still_drops_assess
     tmp_path,
 ):
     payload = {
-        "findings": [
+        "issues": [
             {
                 "dimension": "naming_quality",
                 "identifier": "processData",
@@ -378,7 +378,7 @@ def test_import_dimension_feedback_without_trusted_provenance_still_drops_assess
         ],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(str(findings_path), colorize_fn=_colorize)
@@ -388,7 +388,7 @@ def test_import_dimension_feedback_without_trusted_provenance_still_drops_assess
 
 def test_import_rejects_findings_missing_schema_fields(tmp_path, capsys):
     payload = {
-        "findings": [
+        "issues": [
             {
                 "dimension": "naming_quality",
                 "identifier": "processData",
@@ -399,7 +399,7 @@ def test_import_rejects_findings_missing_schema_fields(tmp_path, capsys):
         ],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -416,10 +416,10 @@ def test_import_rejects_findings_missing_schema_fields(tmp_path, capsys):
 
 def test_import_rejects_invalid_assessments_shape(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": ["naming_quality", 95],
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -430,10 +430,10 @@ def test_import_rejects_invalid_assessments_shape(tmp_path, capsys):
 
 def test_import_rejects_invalid_reviewed_files_shape(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "reviewed_files": "src/a.py",
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -444,7 +444,7 @@ def test_import_rejects_invalid_reviewed_files_shape(tmp_path, capsys):
 
 def test_import_allow_partial_bypasses_schema_gate(tmp_path):
     payload = {
-        "findings": [
+        "issues": [
             {
                 "dimension": "naming_quality",
                 "identifier": "processData",
@@ -455,7 +455,7 @@ def test_import_allow_partial_bypasses_schema_gate(tmp_path):
         ],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(
@@ -470,10 +470,10 @@ def test_import_allow_partial_bypasses_schema_gate(tmp_path):
 
 def test_import_accepts_perfect_assessment_without_feedback(tmp_path):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 100},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(str(findings_path), colorize_fn=_colorize)
@@ -483,7 +483,7 @@ def test_import_accepts_perfect_assessment_without_feedback(tmp_path):
 
 def test_import_trusted_internal_accepts_dimension_notes_feedback(tmp_path):
     payload = {
-        "findings": [],
+        "issues": [],
         "dimension_notes": {
             "naming_quality": {
                 "evidence": ["Names in payment flow are generic and overloaded."],
@@ -494,7 +494,7 @@ def test_import_trusted_internal_accepts_dimension_notes_feedback(tmp_path):
         },
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(
@@ -510,10 +510,10 @@ def test_import_trusted_internal_accepts_dimension_notes_feedback(tmp_path):
 
 def test_import_trusted_internal_rejects_sub100_without_feedback(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "assessments": {"naming_quality": 95},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -529,7 +529,7 @@ def test_import_trusted_internal_rejects_sub100_without_feedback(tmp_path, capsy
 
 def test_import_trusted_internal_rejects_low_score_without_finding(tmp_path, capsys):
     payload = {
-        "findings": [],
+        "issues": [],
         "dimension_notes": {
             "naming_quality": {
                 "evidence": ["Naming drifts in key workflows."],
@@ -540,7 +540,7 @@ def test_import_trusted_internal_rejects_low_score_without_finding(tmp_path, cap
         },
         "assessments": {"naming_quality": 80},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
@@ -551,12 +551,12 @@ def test_import_trusted_internal_rejects_low_score_without_finding(tmp_path, cap
             trusted_assessment_label="internal batch import test",
         )
     err = _render_import_load_error(exc.value, import_file=findings_path, capsys=capsys)
-    assert "assessments below 85.0 must include at least one finding" in err
+    assert "assessments below 85.0 must include at least one issue" in err
 
 
 def test_import_trusted_internal_accepts_low_score_with_finding(tmp_path):
     payload = {
-        "findings": [
+        "issues": [
             {
                 "dimension": "naming_quality",
                 "identifier": "payment_flow_names",
@@ -569,7 +569,7 @@ def test_import_trusted_internal_accepts_low_score_with_finding(tmp_path):
         ],
         "assessments": {"naming_quality": 80},
     }
-    findings_path = tmp_path / "findings.json"
+    findings_path = tmp_path / "issues.json"
     findings_path.write_text(json.dumps(payload))
 
     parsed = load_import_findings_data(

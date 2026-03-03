@@ -76,7 +76,7 @@ def _print_import_error_hints(
         )
         print(
             colorize_fn(
-                f"  Findings-only fallback: `{findings_only_cmd}`",
+                f"  Issues-only fallback: `{findings_only_cmd}`",
                 "dim",
             ),
             file=sys.stderr,
@@ -135,7 +135,7 @@ def print_assessment_policy_notice(
             policy_model,
             colorize_fn=colorize_fn,
         ),
-        "findings_only": lambda: _print_findings_only_policy_notice(
+        "findings_only": lambda: _print_issues_only_policy_notice(
             policy_model,
             import_file=import_file,
             colorize_fn=colorize_fn,
@@ -208,7 +208,7 @@ def _print_attested_external_policy_notice(
     _print_reason_line(policy_model.reason.strip(), colorize_fn=colorize_fn)
 
 
-def _print_findings_only_policy_notice(
+def _print_issues_only_policy_notice(
     policy_model: AssessmentImportPolicyModel,
     *,
     import_file: str,
@@ -219,7 +219,7 @@ def _print_findings_only_policy_notice(
     print(
         colorize_fn(
             "  WARNING: untrusted assessment source detected. "
-            f"Imported findings only; skipped {count} assessment score update(s).",
+            f"Imported issues only; skipped {count} assessment score update(s).",
             "yellow",
         )
     )
@@ -254,13 +254,13 @@ def _print_findings_only_policy_notice(
 
 
 def print_skipped_validation_details(diff: dict[str, Any], *, colorize_fn) -> None:
-    """Print validation warnings for skipped imported findings."""
+    """Print validation warnings for skipped imported issues."""
     n_skipped = diff.get("skipped", 0)
     if n_skipped <= 0:
         return
     print(
         colorize_fn(
-            f"\n  ⚠ {n_skipped} finding(s) skipped (validation errors):",
+            f"\n  ⚠ {n_skipped} issue(s) skipped (validation errors):",
             "yellow",
         )
     )
@@ -293,18 +293,18 @@ def print_assessments_summary(state: dict[str, Any], *, colorize_fn) -> None:
 
 
 def print_open_review_summary(state: dict[str, Any], *, colorize_fn) -> str:
-    """Print current open review finding count and return next command."""
+    """Print current open review issue count and return next command."""
     open_review = [
-        finding
-        for finding in state["findings"].values()
-        if finding["status"] == "open" and finding.get("detector") == "review"
+        issue
+        for issue in state["issues"].values()
+        if issue["status"] == "open" and issue.get("detector") == "review"
     ]
     if not open_review:
         return "desloppify scan"
     print(
         colorize_fn(
             f"\n  {len(open_review)} review issue{'s' if len(open_review) != 1 else ''} open total "
-            f"({len(open_review)} review finding{'s' if len(open_review) != 1 else ''} open total)",
+            f"({len(open_review)} review issue{'s' if len(open_review) != 1 else ''} open total)",
             "bold",
         )
     )

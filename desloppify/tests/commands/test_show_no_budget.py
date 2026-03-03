@@ -11,7 +11,7 @@ class TestNoBudgetFlag:
     def test_no_budget_returns_all_findings(self):
         """When no_budget=True, all matches are surfaced and nothing is hidden."""
         matches = [
-            {"id": f"f{i}", "detector": "review", "summary": f"finding {i}"}
+            {"id": f"f{i}", "detector": "review", "summary": f"issue {i}"}
             for i in range(50)
         ]
         surfaced, hidden, budget, global_budget, warning = resolve_noise(
@@ -39,7 +39,7 @@ class TestNoBudgetFlag:
     def test_default_budget_still_applies(self):
         """Without no_budget, the normal budget logic runs."""
         matches = [
-            {"id": f"f{i}", "detector": "review", "summary": f"finding {i}"}
+            {"id": f"f{i}", "detector": "review", "summary": f"issue {i}"}
             for i in range(50)
         ]
         # With default no_budget=False, budget is applied
@@ -48,6 +48,6 @@ class TestNoBudgetFlag:
             matches,
         )
         # Normal path: budget may reduce the surfaced count
-        # (exact behaviour depends on defaults in resolve_finding_noise_settings)
+        # (exact behaviour depends on defaults in resolve_issue_noise_settings)
         assert isinstance(surfaced, list)
         assert isinstance(hidden, dict)

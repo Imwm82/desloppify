@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from desloppify.intelligence.integrity import (
-    is_holistic_subjective_finding,
+    is_holistic_subjective_issue,
     is_subjective_review_open,
     subjective_review_open_breakdown,
     unassessed_subjective_dimensions,
@@ -20,21 +20,21 @@ def test_is_subjective_review_open_checks_detector_and_status():
     assert not is_subjective_review_open({"detector": "review", "status": "open"})
 
 
-def test_is_holistic_subjective_finding_accepts_id_summary_or_detail_markers():
-    assert is_holistic_subjective_finding(
+def test_is_holistic_subjective_issue_accepts_id_summary_or_detail_markers():
+    assert is_holistic_subjective_issue(
         {"id": "subjective_review::.::holistic_stale"}
     )
-    assert is_holistic_subjective_finding(
+    assert is_holistic_subjective_issue(
         {"summary": "No holistic codebase review on record"}
     )
-    assert is_holistic_subjective_finding({"detail": {"holistic": True}})
-    assert not is_holistic_subjective_finding(
+    assert is_holistic_subjective_issue({"detail": {"holistic": True}})
+    assert not is_holistic_subjective_issue(
         {"id": "subjective_review::src/a.py::changed"}
     )
 
 
 def test_subjective_review_open_breakdown_counts_reasons_and_holistic_reasons():
-    findings = {
+    issues = {
         "subjective_review::.::holistic_unreviewed": {
             "detector": "subjective_review",
             "status": "open",
@@ -52,7 +52,7 @@ def test_subjective_review_open_breakdown_counts_reasons_and_holistic_reasons():
         },
     }
 
-    total, reasons, holistic_reasons = subjective_review_open_breakdown(findings)
+    total, reasons, holistic_reasons = subjective_review_open_breakdown(issues)
     assert total == 2
     assert reasons == {"unreviewed": 1, "changed": 1}
     assert holistic_reasons == {"unreviewed": 1}

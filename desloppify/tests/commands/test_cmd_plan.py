@@ -43,7 +43,7 @@ class TestCmdPlanOutput:
             plan_cmd,
             "command_runtime",
             lambda args: type("Ctx", (), {"state": {
-                "findings": {},
+                "issues": {},
                 "last_scan": None,
             }})(),
         )
@@ -66,7 +66,7 @@ class TestCmdPlanOutput:
             plan_cmd,
             "command_runtime",
             lambda args: type("Ctx", (), {"state": {
-                "findings": {},
+                "issues": {},
                 "last_scan": "2025-01-01",
             }, "config": {}})(),
         )
@@ -94,7 +94,7 @@ class TestCmdPlanOutput:
             plan_cmd,
             "command_runtime",
             lambda args: type("Ctx", (), {"state": {
-                "findings": {},
+                "issues": {},
                 "last_scan": "2025-01-01",
             }, "config": {}})(),
         )

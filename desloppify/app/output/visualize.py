@@ -144,7 +144,7 @@ def _collect_file_data(path: Path, lang=None) -> list[dict]:
     return files
 
 
-def _build_tree(files: list[dict], dep_graph: dict, findings_by_file: dict) -> dict:
+def _build_tree(files: list[dict], dep_graph: dict, issues_by_file: dict) -> dict:
     """Build nested tree structure for D3 treemap."""
     root: dict = {"name": "src", "children": {}}
 
@@ -162,8 +162,8 @@ def _build_tree(files: list[dict], dep_graph: dict, findings_by_file: dict) -> d
         filename = parts[-1]
         resolved = f["abs_path"]
         dep_entry = dep_graph.get(resolved, {"import_count": 0, "importer_count": 0})
-        file_findings = findings_by_file.get(f["path"], [])
-        open_findings = [ff for ff in file_findings if ff.get("status") == "open"]
+        file_findings = issues_by_file.get(f["path"], [])
+        open_issues = [ff for ff in file_findings if ff.get("status") == "open"]
 
         node["children"][filename] = {
             "name": filename,
@@ -172,8 +172,8 @@ def _build_tree(files: list[dict], dep_graph: dict, findings_by_file: dict) -> d
             "fan_in": dep_entry.get("importer_count", 0),
             "fan_out": dep_entry.get("import_count", 0),
             "findings_total": len(file_findings),
-            "findings_open": len(open_findings),
-            "finding_summaries": [ff.get("summary", "") for ff in open_findings[:20]],
+            "findings_open": len(open_issues),
+            "finding_summaries": [ff.get("summary", "") for ff in open_issues[:20]],
         }
 
     # Convert children dicts to arrays (D3 format)
@@ -214,11 +214,11 @@ def _build_dep_graph_for_path(path: Path, lang) -> dict:
     return {}
 
 
-def _findings_by_file(state: dict | None) -> dict[str, list]:
-    """Group findings from state by file path."""
+def _issues_by_file(state: dict | None) -> dict[str, list]:
+    """Group issues from state by file path."""
     result: dict[str, list] = defaultdict(list)
-    if state and state.get("findings"):
-        for f in state["findings"].values():
+    if state and state.get("issues"):
+        for f in state["issues"].values():
             result[f["file"]].append(f)
     return result
 
@@ -244,17 +244,17 @@ def generate_visualization(
     try:
         files = _collect_file_data(path, lang)
         dep_graph = _build_dep_graph_for_path(path, lang)
-        findings_by_file = _findings_by_file(state)
-        tree = _build_tree(files, dep_graph, findings_by_file)
+        issues_by_file = _issues_by_file(state)
+        tree = _build_tree(files, dep_graph, issues_by_file)
         # Escape </ to prevent </script> in filenames from breaking HTML
         tree_json = json.dumps(tree).replace("</", r"<\/")
 
         # Stats for header
         total_files = len(files)
         total_loc = sum(f["loc"] for f in files)
-        total_findings = sum(len(v) for v in findings_by_file.values())
-        open_findings = sum(
-            1 for fs in findings_by_file.values() for f in fs if f.get("status") == "open"
+        total_findings = sum(len(v) for v in issues_by_file.values())
+        open_issues = sum(
+            1 for fs in issues_by_file.values() for f in fs if f.get("status") == "open"
         )
         if state:
             overall_score = get_overall_score(state)
@@ -272,7 +272,7 @@ def generate_visualization(
             "__TOTAL_FILES__": str(total_files),
             "__TOTAL_LOC__": f"{total_loc:,}",
             "__TOTAL_FINDINGS__": str(total_findings),
-            "__OPEN_FINDINGS__": str(open_findings),
+            "__OPEN_FINDINGS__": str(open_issues),
             "__OVERALL_SCORE__": fmt_score(overall_score),
             "__OBJECTIVE_SCORE__": fmt_score(objective_score),
             "__STRICT_SCORE__": fmt_score(strict_score),
@@ -343,7 +343,7 @@ def generate_tree_text(
     resolved_options = options or TreeTextOptions()
     files = _collect_file_data(path, lang)
     dep_graph = _build_dep_graph_for_path(path, lang)
-    tree = _build_tree(files, dep_graph, _findings_by_file(state))
+    tree = _build_tree(files, dep_graph, _issues_by_file(state))
 
     root = tree
     if resolved_options.focus:

@@ -85,6 +85,6 @@ def _detect_milestone(
             return "All T1 items cleared!"
 
     if stats.get("open", 0) == 0 and stats.get("total", 0) > 0:
-        return "Zero open findings!"
+        return "Zero open issues!"
 
     return None

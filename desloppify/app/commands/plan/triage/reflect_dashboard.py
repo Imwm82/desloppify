@@ -7,14 +7,14 @@ from desloppify.engine.planning.triage import detect_recurring_patterns
 
 
 def _print_reflect_dashboard(si: object, plan: dict) -> None:
-    """Show completed clusters, resolved findings, and recurring patterns."""
+    """Show completed clusters, resolved issues, and recurring patterns."""
     completed = getattr(si, "completed_clusters", [])
-    resolved = getattr(si, "resolved_findings", {})
-    open_findings = getattr(si, "open_findings", {})
+    resolved = getattr(si, "resolved_issues", {})
+    open_issues = getattr(si, "open_issues", {})
 
     _print_completed_clusters(completed)
-    _print_resolved_findings(resolved)
-    recurring = _print_recurring_patterns(open_findings, resolved)
+    _print_resolved_issues(resolved)
+    recurring = _print_recurring_patterns(open_issues, resolved)
     if not recurring and not completed and not resolved:
         print(colorize("\n  First triage — no prior work to compare against.", "dim"))
         print(colorize("  Focus your reflect report on your strategy:", "yellow"))
@@ -24,7 +24,7 @@ def _print_reflect_dashboard(si: object, plan: dict) -> None:
                 "dim",
             )
         )
-        print(colorize("  - Which findings will you cluster together vs defer?", "dim"))
+        print(colorize("  - Which issues will you cluster together vs defer?", "dim"))
         print(colorize("  - What's the overall arc of work and why?", "dim"))
 
 
@@ -35,9 +35,9 @@ def _print_completed_clusters(completed: list[dict]) -> None:
     print(colorize("\n  Previously completed clusters:", "cyan"))
     for cluster in completed[:10]:
         name = cluster.get("name", "?")
-        count = len(cluster.get("finding_ids", []))
+        count = len(cluster.get("issue_ids", []))
         thesis = cluster.get("thesis", "")
-        print(f"    {name}: {count} findings")
+        print(f"    {name}: {count} issues")
         if thesis:
             print(colorize(f"      {thesis}", "dim"))
         for step in cluster.get("action_steps", [])[:3]:
@@ -46,25 +46,25 @@ def _print_completed_clusters(completed: list[dict]) -> None:
         print(colorize(f"    ... and {len(completed) - 10} more", "dim"))
 
 
-def _print_resolved_findings(resolved: dict[str, dict]) -> None:
-    """Print resolved findings delta since last triage."""
+def _print_resolved_issues(resolved: dict[str, dict]) -> None:
+    """Print resolved issues delta since last triage."""
     if not resolved:
         return
-    print(colorize(f"\n  Resolved findings since last triage: {len(resolved)}", "cyan"))
-    for finding_id, finding in sorted(resolved.items())[:10]:
-        status = finding.get("status", "")
-        summary = finding.get("summary", "")
-        detail = finding.get("detail", {}) if isinstance(finding.get("detail"), dict) else {}
+    print(colorize(f"\n  Resolved issues since last triage: {len(resolved)}", "cyan"))
+    for issue_id, issue in sorted(resolved.items())[:10]:
+        status = issue.get("status", "")
+        summary = issue.get("summary", "")
+        detail = issue.get("detail", {}) if isinstance(issue.get("detail"), dict) else {}
         dim = detail.get("dimension", "")
         print(f"    [{status}] [{dim}] {summary}")
-        print(colorize(f"      {finding_id}", "dim"))
+        print(colorize(f"      {issue_id}", "dim"))
     if len(resolved) > 10:
         print(colorize(f"    ... and {len(resolved) - 10} more", "dim"))
 
 
-def _print_recurring_patterns(open_findings: dict, resolved: dict[str, dict]) -> bool:
+def _print_recurring_patterns(open_issues: dict, resolved: dict[str, dict]) -> bool:
     """Print recurring pattern diagnostics for reflect stage."""
-    recurring = detect_recurring_patterns(open_findings, resolved)
+    recurring = detect_recurring_patterns(open_issues, resolved)
     if not recurring:
         return False
     print(colorize("\n  Recurring patterns detected:", "yellow"))

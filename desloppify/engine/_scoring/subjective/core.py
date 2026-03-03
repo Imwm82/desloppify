@@ -42,12 +42,12 @@ def _normalize_dimension_key(dim_name: object) -> str:
     return "_".join(dim_name.strip().lower().replace("-", "_").split())
 
 
-def _primary_lang_from_findings(findings: dict) -> str | None:
+def _primary_lang_from_findings(issues: dict) -> str | None:
     counts: dict[str, int] = {}
-    for finding in findings.values():
-        if not isinstance(finding, dict):
+    for issue in issues.values():
+        if not isinstance(issue, dict):
             continue
-        raw_lang = finding.get("lang")
+        raw_lang = issue.get("lang")
         if not isinstance(raw_lang, str) or not raw_lang.strip():
             continue
         key = raw_lang.strip().lower()
@@ -146,14 +146,14 @@ def _extract_components(assessment: dict) -> tuple[list[str], dict[str, float]]:
 
 def append_subjective_dimensions(
     results: dict,
-    findings: dict,
+    issues: dict,
     assessments: dict | None,
     failure_set: frozenset[str],
     allowed_dimensions: set[str] | None = None,
 ) -> None:
     """Append subjective review dimensions to results dict (mutates results).
 
-    Subjective scoring is evidence-first: open review findings for a dimension
+    Subjective scoring is evidence-first: open review issues for a dimension
     determine pass-rate, while imported assessment scores are retained as
     metadata for transparency.
     """
@@ -195,7 +195,7 @@ def append_subjective_dimensions(
             continue
         assessed[dim] = payload
     existing_lower = {k.lower() for k in results}
-    lang_name = _primary_lang_from_findings(findings)
+    lang_name = _primary_lang_from_findings(issues)
 
     all_dims = list(default_dimensions)
     for dim_name in assessed:
@@ -213,15 +213,15 @@ def append_subjective_dimensions(
         if display.lower() in existing_lower:
             display = f"{display} (subjective)"
 
-        # Count open review/concern findings for display (work queue), but
+        # Count open review/concern issues for display (work queue), but
         # these do NOT drive the dimension score — only assessment scores do.
         issue_count = sum(
             1
-            for finding in findings.values()
-            if finding.get("detector") in ("review", "concerns")
-            and finding.get("status") in failure_set
+            for issue in issues.values()
+            if issue.get("detector") in ("review", "concerns")
+            and issue.get("status") in failure_set
             and _normalize_dimension_key(
-                finding.get("detail", {}).get("dimension")
+                issue.get("detail", {}).get("dimension")
             )
             == dim_name
         )

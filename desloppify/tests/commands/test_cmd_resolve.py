@@ -108,12 +108,12 @@ class TestCmdResolve:
         assert "'not gaming'" in err
 
     def test_resolve_no_matches(self, monkeypatch, capsys):
-        """When no findings match, should print a warning."""
+        """When no issues match, should print a warning."""
         monkeypatch.setattr(resolve_mod, "state_path", lambda a: "/tmp/fake.json")
         monkeypatch.setattr(resolve_mod, "require_triage_current_or_exit", lambda **kwargs: None)
 
         fake_state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 50,
             "objective_score": 48,
             "strict_score": 40,
@@ -124,7 +124,7 @@ class TestCmdResolve:
         monkeypatch.setattr(state_mod, "load_state", lambda sp: fake_state)
         monkeypatch.setattr(
             state_mod,
-            "resolve_findings",
+            "resolve_issues",
             lambda state, pattern, status, note, **kwargs: [],
         )
 
@@ -138,16 +138,16 @@ class TestCmdResolve:
 
         cmd_resolve(FakeArgs())
         out = capsys.readouterr().out
-        assert "No open findings" in out
+        assert "No open issues" in out
 
     def test_resolve_successful(self, monkeypatch, capsys):
-        """Resolving findings should print a success message."""
+        """Resolving issues should print a success message."""
         monkeypatch.setattr(resolve_mod, "state_path", lambda a: "/tmp/fake.json")
         monkeypatch.setattr(resolve_mod, "require_triage_current_or_exit", lambda **kwargs: None)
         monkeypatch.setattr(resolve_apply_mod, "write_query", lambda payload: None)
 
         fake_state = {
-            "findings": {"f1": {"status": "fixed"}},
+            "issues": {"f1": {"status": "fixed"}},
             "overall_score": 60,
             "objective_score": 58,
             "strict_score": 50,
@@ -160,7 +160,7 @@ class TestCmdResolve:
         monkeypatch.setattr(state_mod, "save_state", lambda state, sp: None)
         monkeypatch.setattr(
             state_mod,
-            "resolve_findings",
+            "resolve_issues",
             lambda state, pattern, status, note, **kwargs: ["f1"],
         )
         monkeypatch.setattr(
@@ -191,7 +191,7 @@ class TestCmdResolve:
         monkeypatch.setattr(resolve_apply_mod, "write_query", lambda payload: None)
 
         fake_state = {
-            "findings": {"f1": {"status": "wontfix", "detector": "smells"}},
+            "issues": {"f1": {"status": "wontfix", "detector": "smells"}},
             "overall_score": 90,
             "objective_score": 88,
             "strict_score": 80,
@@ -204,7 +204,7 @@ class TestCmdResolve:
         monkeypatch.setattr(state_mod, "save_state", lambda state, sp: None)
         monkeypatch.setattr(
             state_mod,
-            "resolve_findings",
+            "resolve_issues",
             lambda state, pattern, status, note, **kwargs: ["f1"],
         )
         monkeypatch.setattr(
@@ -233,7 +233,7 @@ class TestCmdResolve:
         monkeypatch.setattr(resolve_apply_mod, "write_query", lambda payload: None)
 
         fake_state = {
-            "findings": {"f1": {"status": "open"}},
+            "issues": {"f1": {"status": "open"}},
             "overall_score": 60,
             "objective_score": 58,
             "strict_score": 50,
@@ -246,7 +246,7 @@ class TestCmdResolve:
         monkeypatch.setattr(state_mod, "save_state", lambda state, sp: None)
         monkeypatch.setattr(
             state_mod,
-            "resolve_findings",
+            "resolve_issues",
             lambda state, pattern, status, note, **kwargs: ["f1"],
         )
         monkeypatch.setattr(
@@ -273,7 +273,7 @@ class TestCmdResolve:
         monkeypatch.setattr(resolve_mod, "require_triage_current_or_exit", lambda **kwargs: None)
 
         fake_state = {
-            "findings": {"f1": {"status": "fixed"}},
+            "issues": {"f1": {"status": "fixed"}},
             "overall_score": 60,
             "objective_score": 58,
             "strict_score": 50,
@@ -285,7 +285,7 @@ class TestCmdResolve:
         monkeypatch.setattr(state_mod, "load_state", lambda sp: fake_state)
         monkeypatch.setattr(
             state_mod,
-            "resolve_findings",
+            "resolve_issues",
             lambda state, pattern, status, note, **kwargs: ["f1"],
         )
         monkeypatch.setattr(
@@ -311,7 +311,7 @@ class TestCmdResolve:
         monkeypatch.setattr(resolve_mod, "state_path", lambda a: "/tmp/fake.json")
 
         fake_state = {
-            "findings": {},
+            "issues": {},
             "overall_score": 90,
             "objective_score": 88,
             "strict_score": 84,
@@ -368,13 +368,13 @@ class TestCmdSuppress:
 
     def test_suppress_save_state_error_exits(self, monkeypatch, capsys):
         monkeypatch.setattr(resolve_mod, "state_path", lambda a: "/tmp/fake.json")
-        monkeypatch.setattr(state_mod, "load_state", lambda sp: {"findings": {}})
+        monkeypatch.setattr(state_mod, "load_state", lambda sp: {"issues": {}})
         monkeypatch.setattr(
             state_mod,
             "save_state",
             lambda state, sp: (_ for _ in ()).throw(OSError("readonly")),
         )
-        monkeypatch.setattr(state_mod, "remove_ignored_findings", lambda state, pattern: 0)
+        monkeypatch.setattr(state_mod, "remove_ignored_issues", lambda state, pattern: 0)
         monkeypatch.setattr(
             resolve_mod.config_mod, "save_config", lambda config: None
         )
