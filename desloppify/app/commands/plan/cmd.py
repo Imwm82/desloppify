@@ -30,11 +30,9 @@ from desloppify.engine import planning as planning_mod
 from desloppify.engine._plan.annotations import annotation_counts
 from desloppify.engine._plan.skip_policy import USER_SKIP_KINDS
 from desloppify.engine.plan import (
-    WORKFLOW_CREATE_PLAN_ID,
     append_log_entry,
     commit_tracking_summary,
     load_plan,
-    purge_ids,
     reset_plan,
     save_plan,
 )

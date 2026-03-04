@@ -7,7 +7,7 @@ from desloppify.engine._plan.epic_triage_apply import (
     apply_triage_to_plan,
 )
 from desloppify.engine._plan.epic_triage_prompt import DismissedIssue, TriageResult
-from desloppify.engine._plan.schema import EPIC_PREFIX, empty_plan
+from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.stale_dimensions import review_issue_snapshot_hash
 
 # ---------------------------------------------------------------------------

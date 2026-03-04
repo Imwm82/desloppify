@@ -5,10 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
-
-if TYPE_CHECKING:
-    from desloppify.engine.policy.zones import FileZoneMap
+from typing import Literal, TypedDict
 
 
 CoverageStatus = Literal["full", "reduced"]

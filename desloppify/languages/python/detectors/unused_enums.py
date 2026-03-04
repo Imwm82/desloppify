@@ -30,11 +30,13 @@ def detect_unused_enums(path: Path) -> tuple[list[dict], int]:
         try:
             p = Path(filepath) if Path(filepath).is_absolute() else path / filepath
             content = p.read_text()
-        except (OSError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError) as exc:
+            logger.debug("Skipping unreadable python source %s: %s", filepath, exc)
             continue
         try:
             tree = ast.parse(content, filename=filepath)
-        except SyntaxError:
+        except SyntaxError as exc:
+            logger.debug("Skipping unparsable python source %s: %s", filepath, exc)
             continue
 
         # Collect enum definitions in this file.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from desloppify.base.registry import DETECTORS
@@ -31,6 +32,8 @@ from desloppify.engine._work_queue.types import WorkQueueItem
 from desloppify.engine.planning.helpers import CONFIDENCE_ORDER
 from desloppify.state import path_scoped_issues
 
+logger = logging.getLogger(__name__)
+
 # Plan-aware sort tiers (item_sort_key)
 _TIER_PLANNED = 0   # Items with explicit plan position
 _TIER_EXISTING = 1  # Known items, natural ranking
@@ -56,8 +59,8 @@ def _workflow_stage_index(item: WorkQueueItem) -> int:
     if raw_index is not None:
         try:
             return int(raw_index)
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            logger.debug("Invalid workflow stage index %r: %s", raw_index, exc)
     return _TRIAGE_STAGE_ORDER.get(workflow_stage_name(item).lower(), 0)
 
 

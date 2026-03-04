@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from desloppify.languages import get_lang
-from .parser_groups_admin_review import _add_review_parser
+from .parser_groups_admin_review import _add_review_parser  # noqa: F401 (re-export)
 
 
 def _add_detect_parser(sub, detector_names: list[str]) -> None:

@@ -436,7 +436,7 @@ class TestFixUnusedVars:
         original = "const { a, unused } = obj;\n"
         ts_file.write_text(original)
         entries = [{"file": str(ts_file), "name": "unused", "line": 1}]
-        result = fix_unused_vars(entries, dry_run=True)
+        fix_unused_vars(entries, dry_run=True)
         assert ts_file.read_text() == original
 
 

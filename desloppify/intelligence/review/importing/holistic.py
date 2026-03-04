@@ -14,7 +14,6 @@ from desloppify.intelligence.review.importing.assessments import store_assessmen
 from desloppify.intelligence.review.importing.contracts import (
     ReviewImportPayload,
     ReviewIssuePayload,
-    ReviewScopePayload,
 )
 from desloppify.intelligence.review.importing.holistic_cache import (
     resolve_holistic_coverage_issues,

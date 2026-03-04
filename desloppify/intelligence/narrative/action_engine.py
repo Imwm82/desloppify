@@ -14,8 +14,6 @@ from desloppify.intelligence.narrative.action_engine_routing import (
     _append_refactor_actions,
     _append_reorganize_actions,
     _assign_priorities,
-    _build_refactor_entry,
-    _cluster_detector,
     _dimension_name,
 )
 from desloppify.intelligence.narrative.action_models import ActionContext, ActionItem

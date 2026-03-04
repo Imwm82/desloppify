@@ -10,12 +10,10 @@ from __future__ import annotations
 
 import json
 import threading
-import time
 from concurrent.futures import Future
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 
 from desloppify.app.commands.review._runner_parallel_execution import (
     _complete_parallel_future,

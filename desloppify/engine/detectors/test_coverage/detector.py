@@ -17,11 +17,6 @@ from .discovery import (
 )
 from .issues import (
     _generate_issues,
-    _quality_issue_item,
-    _quality_issue_rank,
-    _select_direct_test_quality_issue,
-    _transitive_coverage_gap_issue,
-    _untested_module_issue,
 )
 
 

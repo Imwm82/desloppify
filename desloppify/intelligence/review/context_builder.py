@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any
 
 from desloppify.engine._state.schema import StateModel
 from desloppify.intelligence.review._context.models import ReviewContext

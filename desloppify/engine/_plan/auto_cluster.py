@@ -9,12 +9,6 @@ from desloppify.engine._plan.auto_cluster_sync import (
     sync_issue_clusters as _sync_issue_clusters,
     sync_subjective_clusters as _sync_subjective_clusters,
 )
-from desloppify.engine._plan.cluster_strategy import (
-    cluster_name_from_key as _cluster_name_from_key,
-    generate_action as _generate_action,
-    grouping_key as _grouping_key,
-    strip_guidance_examples as _strip_guidance_examples,
-)
 from desloppify.engine._plan.schema import PlanModel, ensure_plan_defaults
 from desloppify.engine._plan.subjective_policy import SubjectiveVisibility
 from desloppify.engine._state.schema import StateModel, utc_now

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from desloppify.engine._plan.auto_cluster import (
-    _cluster_name_from_key,
-    _grouping_key,
     _repair_ghost_cluster_refs,
     auto_cluster_issues,
+)
+from desloppify.engine._plan.cluster_strategy import (
+    cluster_name_from_key,
+    grouping_key,
 )
 from desloppify.engine._plan.operations_cluster import (
     add_to_cluster,
@@ -56,7 +58,7 @@ def test_grouping_key_auto_fix():
     from desloppify.base.registry import DETECTORS
     f = _issue("a", "unused")
     meta = DETECTORS.get("unused")
-    key = _grouping_key(f, meta)
+    key = grouping_key(f, meta)
     assert key == "auto::unused"
 
 
@@ -64,7 +66,7 @@ def test_grouping_key_review():
     from desloppify.base.registry import DETECTORS
     f = _issue("a", "review", detail={"dimension": "abstraction_fitness"})
     meta = DETECTORS.get("review")
-    key = _grouping_key(f, meta)
+    key = grouping_key(f, meta)
     assert key == "review::abstraction_fitness"
 
 
@@ -72,7 +74,7 @@ def test_grouping_key_needs_judgment_with_kind():
     from desloppify.base.registry import DETECTORS
     f = _issue("a", "dict_keys", detail={"kind": "phantom_read"})
     meta = DETECTORS.get("dict_keys")
-    key = _grouping_key(f, meta)
+    key = grouping_key(f, meta)
     assert key == "typed::dict_keys::phantom_read"
 
 
@@ -80,13 +82,13 @@ def test_grouping_key_structural():
     from desloppify.base.registry import DETECTORS
     f = _issue("a", "structural", file="src/big_file.py")
     meta = DETECTORS.get("structural")
-    key = _grouping_key(f, meta)
+    key = grouping_key(f, meta)
     assert key == "file::structural::big_file.py"
 
 
 def test_grouping_key_unknown_detector():
     f = _issue("a", "totally_unknown")
-    key = _grouping_key(f, None)
+    key = grouping_key(f, None)
     assert key == "detector::totally_unknown"
 
 
@@ -95,19 +97,19 @@ def test_grouping_key_unknown_detector():
 # ---------------------------------------------------------------------------
 
 def test_cluster_name_auto():
-    assert _cluster_name_from_key("auto::unused") == "auto/unused"
+    assert cluster_name_from_key("auto::unused") == "auto/unused"
 
 
 def test_cluster_name_typed():
-    assert _cluster_name_from_key("typed::dict_keys::phantom_read") == "auto/dict_keys-phantom_read"
+    assert cluster_name_from_key("typed::dict_keys::phantom_read") == "auto/dict_keys-phantom_read"
 
 
 def test_cluster_name_file():
-    assert _cluster_name_from_key("file::structural::big.py") == "auto/structural-big.py"
+    assert cluster_name_from_key("file::structural::big.py") == "auto/structural-big.py"
 
 
 def test_cluster_name_review():
-    assert _cluster_name_from_key("review::abstraction_fitness") == "auto/review-abstraction_fitness"
+    assert cluster_name_from_key("review::abstraction_fitness") == "auto/review-abstraction_fitness"
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +424,7 @@ def test_build_work_queue_no_collapse_when_drilling():
 def test_generate_action_always_returns_something():
     """Every detector/subtype combination must produce a non-None action."""
     from desloppify.base.registry import DETECTORS
-    from desloppify.engine._plan.auto_cluster import _generate_action
+    from desloppify.engine._plan.cluster_strategy import generate_action as _generate_action
 
     # No metadata → fallback
     assert _generate_action(None, None) == "review and fix each issue"
@@ -438,7 +440,7 @@ def test_generate_action_always_returns_something():
 
 def test_generate_action_strips_subtype_examples():
     """Guidance with ' — ' should be stripped to the core verb for subtypes."""
-    from desloppify.engine._plan.auto_cluster import _strip_guidance_examples
+    from desloppify.engine._plan.cluster_strategy import strip_guidance_examples as _strip_guidance_examples
 
     assert _strip_guidance_examples("fix code smells — dead useEffect, empty if chains") == "fix code smells"
     assert _strip_guidance_examples("fix dict key mismatches — dead writes are likely dead code") == "fix dict key mismatches"

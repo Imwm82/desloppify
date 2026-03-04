@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -10,22 +11,13 @@ from pathlib import Path
 from desloppify.base.discovery.file_paths import safe_write_text
 
 from ._runner_parallel_execution import (
-    _complete_parallel_future,
     _drain_parallel_completions,
     _execute_serial,
-    _heartbeat,
     _queue_parallel_tasks,
     _resolve_parallel_runtime,
-    _run_parallel_task,
 )
 from ._runner_parallel_progress import (
-    _RUNNER_CALLBACK_EXCEPTIONS,
-    _RUNNER_TASK_EXCEPTIONS,
     _coerce_batch_execution_options,
-    _emit_progress,
-    _progress_contract,
-    _record_execution_error,
-    _record_progress_error,
 )
 from ._runner_parallel_types import (
     BatchExecutionOptions,
@@ -34,6 +26,8 @@ from ._runner_parallel_types import (
     BatchTask,
 )
 from .runner_process import _extract_payload_from_log
+
+logger = logging.getLogger(__name__)
 
 
 def execute_batches(
@@ -122,7 +116,8 @@ def collect_batch_results(
         if raw_path.exists():
             try:
                 payload = extract_payload_fn(raw_path.read_text())
-            except OSError:
+            except OSError as exc:
+                logger.debug("Failed reading batch payload %s: %s", raw_path, exc)
                 payload = None
         if payload is None:
             payload = _extract_payload_from_log(idx, raw_path, extract_payload_fn)
@@ -133,14 +128,15 @@ def collect_batch_results(
         if parsed_from_log:
             try:
                 safe_write_text(raw_path, json.dumps(payload, indent=2) + "\n")
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("Failed writing normalized batch payload %s: %s", raw_path, exc)
         try:
             assessments, issues, dimension_notes, quality = normalize_result_fn(
                 payload,
                 allowed_dims,
             )
-        except ValueError:
+        except ValueError as exc:
+            logger.debug("Invalid batch payload at index %s (%s): %s", idx, raw_path, exc)
             failure_set.add(idx)
             continue
         if had_execution_failure:

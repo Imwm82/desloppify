@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from desloppify.intelligence.review._prepare.issue_history import (
 )
 
 _NON_PRODUCTION_ZONES = frozenset({"test", "config", "generated", "vendor"})
+logger = logging.getLogger(__name__)
 
 
 def collect_allowed_review_files(
@@ -34,20 +36,25 @@ def collect_allowed_review_files(
         if not normalized:
             continue
         if zone_map is not None:
-            try:
-                zone = zone_map.get(filepath)
-                zone_value = getattr(zone, "value", str(zone))
-            except (AttributeError, KeyError, TypeError, ValueError):
+            zone_get = getattr(zone_map, "get", None)
+            zone = zone_get(filepath) if callable(zone_get) else None
+            zone_value = getattr(zone, "value", zone)
+            if zone_value is None:
                 zone_value = "production"
+            if not isinstance(zone_value, str):
+                zone_value = str(zone_value)
             if zone_value in _NON_PRODUCTION_ZONES:
                 continue
         allowed.add(normalized)
         allowed.add(rel(filepath))
         if resolved_base is not None:
             try:
-                allowed.add(Path(filepath).resolve().relative_to(resolved_base).as_posix())
-            except ValueError:
-                pass
+                resolved_path = Path(filepath).resolve()
+            except OSError as exc:
+                logger.debug("Skipping invalid review file path %s: %s", filepath, exc)
+                continue
+            if resolved_path.is_relative_to(resolved_base):
+                allowed.add(resolved_path.relative_to(resolved_base).as_posix())
     return allowed
 
 
