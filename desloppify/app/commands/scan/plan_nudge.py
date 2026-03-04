@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import logging
 
-from desloppify.app.commands.helpers.queue_progress import plan_aware_queue_breakdown
+from desloppify.app.commands.helpers.queue_progress import (
+    ScoreDisplayMode,
+    get_plan_start_strict,
+    plan_aware_queue_breakdown,
+    score_display_mode,
+)
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan import load_plan
@@ -20,16 +25,18 @@ def print_plan_workflow_nudge(state: dict) -> None:
     """Print a queue-count reminder when plan-start scores exist."""
     try:
         plan = load_plan()
-        if not plan.get("plan_start_scores"):
+        plan_start_strict = get_plan_start_strict(plan)
+        if plan_start_strict is None:
             return
         breakdown = plan_aware_queue_breakdown(state, plan)
-        queue_total = breakdown.objective_actionable
+        mode = score_display_mode(breakdown, plan_start_strict)
     except PLAN_LOAD_EXCEPTIONS:
         _logger.debug("plan workflow nudge skipped", exc_info=True)
         return
 
-    if queue_total <= 0:
+    if mode is not ScoreDisplayMode.FROZEN:
         return
+    queue_total = breakdown.objective_actionable
     print(
         colorize(
             f"  Workflow: {queue_total} queue item{'s' if queue_total != 1 else ''}."

@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from desloppify.app.commands.helpers.queue_progress import (
     QueueBreakdown,
-    format_plan_delta,
+    ScoreDisplayMode,
     format_queue_block,
+    print_frozen_score_with_queue_context,
+    score_display_mode,
 )
 from desloppify.app.commands.scan.reporting.subjective import (
     build_subjective_followup,
 )
 from desloppify.base.config import load_config
 from desloppify.base.output.terminal import colorize, log
+from desloppify.base.output.user_message import print_user_message
 from desloppify.engine._scoring.results.core import compute_health_breakdown
 from desloppify.engine._work_queue.core import ATTEST_EXAMPLE
 from desloppify.intelligence.integrity import (
@@ -67,6 +70,15 @@ def render_single_item_resolution_hint(items: list[dict]) -> None:
         print(f"    {primary}")
         if is_holistic_subjective_issue(item):
             print("    desloppify review --prepare")
+            print_user_message(
+                "Hey — this is a subjective review item. Run"
+                " `desloppify review --run-batches --dry-run`"
+                " to generate prompt files (one per batch)."
+                " Launch one subagent per prompt, all in"
+                " parallel. Then import with `--import-run"
+                " <run-dir> --scan-after-import`. Batches are"
+                " pre-defined — do NOT regroup them yourself."
+            )
         return
 
     primary = item.get("primary_command", "")
@@ -89,42 +101,17 @@ def render_single_item_resolution_hint(items: list[dict]) -> None:
 def _render_frozen_queue_status(
     *,
     strict_score: float | None,
-    queue_total: int,
     plan_start_strict: float | None,
     breakdown: QueueBreakdown | None,
 ) -> bool:
-    if queue_total <= 0 or plan_start_strict is None:
+    """Render frozen-score status. Returns True if score was rendered as frozen."""
+    mode = score_display_mode(breakdown, plan_start_strict)
+    if mode is not ScoreDisplayMode.FROZEN:
         return False
-    if breakdown is not None:
-        block = format_queue_block(
-            breakdown, frozen_score=plan_start_strict, live_score=strict_score
-        )
-        print()
-        for text, style in block:
-            print(colorize(text, style))
-        print(colorize(
-            "  Score will not update until the queue is clear and you run `desloppify scan`.",
-            "dim",
-        ))
-        return True
-
-    delta_str = ""
-    if strict_score is not None:
-        delta_str = format_plan_delta(strict_score, plan_start_strict)
-    if delta_str:
-        score_line = (
-            f"\n  Score: strict {strict_score:.1f}/100 "
-            f"(plan start: {plan_start_strict:.1f}, {delta_str})"
-        )
-    else:
-        score_line = f"\n  Score (frozen at plan start): strict {plan_start_strict:.1f}/100"
-    print(colorize(score_line, "cyan"))
-    print(
-        colorize(
-            f"  Queue: {queue_total} item{'s' if queue_total != 1 else ''}"
-            " remaining. Score will not update until the queue is clear and you run `desloppify scan`.",
-            "dim",
-        )
+    print_frozen_score_with_queue_context(
+        breakdown,
+        frozen_strict=plan_start_strict,
+        live_score=strict_score,
     )
     return True
 
@@ -156,23 +143,19 @@ def _render_north_star(
 def _render_live_queue_block(
     *,
     breakdown: QueueBreakdown | None,
-    queue_total: int,
     plan_start_strict: float | None,
 ) -> None:
-    if breakdown is None or queue_total <= 0 or plan_start_strict is not None:
+    """Show queue block when score is not frozen (LIVE or PHASE_TRANSITION)."""
+    if breakdown is None or breakdown.queue_total <= 0:
         return
+    mode = score_display_mode(breakdown, plan_start_strict)
+    if mode is ScoreDisplayMode.FROZEN:
+        return  # frozen path renders its own block
     block = format_queue_block(breakdown)
     for text, style in block:
         print(colorize(text, style))
 
 
-def _objective_remaining(
-    queue_total: int,
-    breakdown: QueueBreakdown | None,
-) -> int:
-    if breakdown is None:
-        return max(0, queue_total)
-    return max(0, breakdown.queue_total - breakdown.subjective)
 
 
 def _render_subjective_bottleneck(dim_scores: dict) -> None:
@@ -197,8 +180,8 @@ def _render_subjective_bottleneck(dim_scores: dict) -> None:
         ))
         print(colorize(
             "  Code fixes alone won't close the gap — run "
-            "`desloppify review --run-batches --runner codex --parallel --scan-after-import` "
-            "to re-score.",
+            "`desloppify review --prepare` and follow your "
+            "skill doc's review workflow to re-score.",
             "yellow",
         ))
     except (ImportError, TypeError, ValueError, KeyError) as exc:
@@ -260,7 +243,6 @@ def render_followup_nudges(
     unassessed_subjective = unassessed_subjective_dimensions(dim_scores)
     rendered_frozen = _render_frozen_queue_status(
         strict_score=strict_score,
-        queue_total=queue_total,
         plan_start_strict=plan_start_strict,
         breakdown=breakdown,
     )
@@ -271,14 +253,13 @@ def render_followup_nudges(
         )
     _render_live_queue_block(
         breakdown=breakdown,
-        queue_total=queue_total,
         plan_start_strict=plan_start_strict,
     )
 
     # Subjective bottleneck banner — only shown when the objective queue is
     # clear.  While objective items remain, the queue is the single authority
     # on what to work on next; no need to distract with subjective advice.
-    objective_remaining = _objective_remaining(queue_total, breakdown)
+    objective_remaining = breakdown.objective_actionable if breakdown else queue_total
     if strict_score is not None and dim_scores and objective_remaining <= 0:
         _render_subjective_bottleneck(dim_scores)
 

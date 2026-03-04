@@ -483,9 +483,9 @@ class TestCreateParser:
         assert args.no_badge is True
         assert args.badge_path == "custom.png"
 
-    def test_missing_command_raises(self, parser):
-        with pytest.raises(SystemExit):
-            parser.parse_args([])
+    def test_missing_command_defaults_to_none(self, parser):
+        args = parser.parse_args([])
+        assert args.command is None
 
     def test_invalid_resolve_status_raises(self, parser):
         with pytest.raises(SystemExit):

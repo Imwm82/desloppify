@@ -266,7 +266,24 @@ def _append_concerns_batch(
             active_dimensions=dims,
         )
         if concerns_batch:
-            batches.append(concerns_batch)
+            # Merge concern signals into existing batch for the same dimension
+            # rather than creating a duplicate batch.
+            concern_dim = concerns_batch["dimensions"][0]
+            merged = False
+            for existing in batches:
+                if existing.get("dimensions") == [concern_dim]:
+                    # Merge seed files and concern signals
+                    existing_files = set(existing.get("files_to_read", []))
+                    for f in concerns_batch.get("files_to_read", []):
+                        if f not in existing_files:
+                            existing["files_to_read"].append(f)
+                            existing_files.add(f)
+                    existing["concern_signals"] = concerns_batch.get("concern_signals", [])
+                    existing["concern_signal_count"] = concerns_batch.get("concern_signal_count", 0)
+                    merged = True
+                    break
+            if not merged:
+                batches.append(concerns_batch)
     except (ImportError, AttributeError, TypeError, ValueError) as exc:
         log_best_effort_failure_fn(log, "generate review concern batch", exc)
 

@@ -362,7 +362,7 @@ class TestSyncPlanStartScoresAndLog:
         # Mock the queue breakdown to report empty
         monkeypatch.setattr(
             "desloppify.app.commands.helpers.queue_progress.plan_aware_queue_breakdown",
-            lambda s, p: SimpleNamespace(objective_actionable=0),
+            lambda s, p: SimpleNamespace(objective_actionable=0, queue_total=0),
         )
         changed = reconcile_mod._sync_plan_start_scores_and_log(plan, state)
         assert changed is True
@@ -393,7 +393,7 @@ class TestClearPlanStartScoresIfQueueEmpty:
 
         monkeypatch.setattr(
             "desloppify.app.commands.helpers.queue_progress.plan_aware_queue_breakdown",
-            lambda s, p: SimpleNamespace(objective_actionable=0),
+            lambda s, p: SimpleNamespace(objective_actionable=0, queue_total=0),
         )
         result = reconcile_mod._clear_plan_start_scores_if_queue_empty(state, plan)
         assert result is True
@@ -410,14 +410,18 @@ class TestClearPlanStartScoresIfQueueEmpty:
 
         monkeypatch.setattr(
             "desloppify.app.commands.helpers.queue_progress.plan_aware_queue_breakdown",
-            lambda s, p: SimpleNamespace(objective_actionable=3),
+            lambda s, p: SimpleNamespace(objective_actionable=3, queue_total=5),
         )
         result = reconcile_mod._clear_plan_start_scores_if_queue_empty(state, plan)
         assert result is False
         assert plan["plan_start_scores"]["strict"] == 80.0
 
     def test_clears_when_only_subjective_items_remain(self, monkeypatch):
-        """Plan-start scores clear when only subjective items remain (objective_actionable=0)."""
+        """Plan-start scores clear when only subjective items remain.
+
+        score_display_mode sees objective_actionable=0 + queue_total=3 →
+        PHASE_TRANSITION (not FROZEN), so the cycle clears.
+        """
         plan = empty_plan()
         plan["plan_start_scores"] = {
             "strict": 80.0, "overall": 85.0,
@@ -427,7 +431,7 @@ class TestClearPlanStartScoresIfQueueEmpty:
 
         monkeypatch.setattr(
             "desloppify.app.commands.helpers.queue_progress.plan_aware_queue_breakdown",
-            lambda s, p: SimpleNamespace(objective_actionable=0),
+            lambda s, p: SimpleNamespace(objective_actionable=0, queue_total=3),
         )
         result = reconcile_mod._clear_plan_start_scores_if_queue_empty(state, plan)
         assert result is True

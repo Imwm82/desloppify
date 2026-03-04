@@ -492,7 +492,7 @@ def _print_import_results(
             colorize(
                 "  WARNING: manual override assessments are provisional and will "
                 "reset on the next scan unless replaced by "
-                "`review --run-batches --runner codex --parallel --scan-after-import`.",
+                "a trusted review path (see skill doc for options).",
                 "yellow",
             )
         )

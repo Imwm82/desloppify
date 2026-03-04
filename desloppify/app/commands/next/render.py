@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from desloppify.base.output.terminal import colorize, log
+from desloppify.base.output.user_message import print_user_message
 from desloppify.base.discovery.paths import read_code_snippet
 from desloppify.engine._scoring.results.core import (
     compute_health_breakdown,
@@ -76,6 +77,15 @@ def _render_subjective_dimension(item: dict, *, explain: bool) -> None:
         "  Note: re-review scores what it finds — scores can go down if issues are discovered.",
         "dim",
     ))
+    print_user_message(
+        "Hey — this is a subjective review item. Run"
+        " `desloppify review --run-batches --dry-run`"
+        " to generate prompt files (one per batch)."
+        " Launch one subagent per prompt, all in"
+        " parallel. Then import with `--import-run"
+        " <run-dir> --scan-after-import`. Batches are"
+        " pre-defined — do NOT regroup them yourself."
+    )
     if explain:
         reason = item.get("explain", {}).get(
             "policy",

@@ -578,7 +578,7 @@ def test_show_scorecard_dimensions_and_dimension_hints(monkeypatch, capsys):
     hint_out = capsys.readouterr().out
     assert "Needs attention:" in hint_out
     assert "run `desloppify show structural`" in hint_out
-    assert "run `desloppify review --run-batches --runner codex --parallel --scan-after-import`" in hint_out
+    assert "run `desloppify review --prepare`" in hint_out
 
     monkeypatch.setattr(
         state_mod,
@@ -749,7 +749,7 @@ def test_subjective_rerun_command_builds_dimension_and_holistic_variants():
         max_items=5,
     )
     assert (
-        "review --run-batches --runner codex --parallel --scan-after-import --force-review-rerun --dimensions naming_quality,logic_clarity"
+        "review --prepare --force-review-rerun --dimensions naming_quality,logic_clarity"
         in command_dims
     )
     assert command_dims.endswith("naming_quality,logic_clarity`")
@@ -760,7 +760,7 @@ def test_subjective_rerun_command_builds_dimension_and_holistic_variants():
     )
     assert (
         command_holistic
-        == "`desloppify review --run-batches --runner codex --parallel --scan-after-import --force-review-rerun`"
+        == "`desloppify review --prepare --force-review-rerun`"
     )
 
 
@@ -918,7 +918,7 @@ def test_show_subjective_paths_shows_target_match_reset_warning(monkeypatch, cap
     assert "were reset to 0.0 this scan" in out
     assert "Anti-gaming safeguard applied" in out
     assert (
-        "review --run-batches --runner codex --parallel --scan-after-import --force-review-rerun --dimensions naming_quality,logic_clarity"
+        "review --prepare --force-review-rerun --dimensions naming_quality,logic_clarity"
         in out
     )
 

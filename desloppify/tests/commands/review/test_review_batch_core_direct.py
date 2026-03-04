@@ -98,7 +98,7 @@ def test_batch_prompt_requires_score_and_issue_consistency():
         packet_path=Path("/repo/.desloppify/review_packets/p.json"),
         batch_index=0,
         batch={
-            "name": "Architecture & Coupling",
+            "name": "high_level_elegance",
             "dimensions": ["high_level_elegance"],
             "why": "test",
             "files_to_read": ["core.py", "scan.py"],

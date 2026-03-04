@@ -154,7 +154,7 @@ def _load_or_prepare_packet(
     )
     packet["config"] = redacted_review_config(config)
     packet["narrative"] = narrative
-    next_command = "desloppify review --run-batches --runner codex --parallel"
+    next_command = "desloppify review --prepare"
     if retrospective:
         next_command += (
             " --retrospective"

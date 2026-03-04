@@ -247,7 +247,7 @@ def show_low_dimension_hints(
             hint = (
                 mechanical_hints.get(name, "run `desloppify show` for details")
                 if name in static_names
-                else "run `desloppify review --run-batches --runner codex --parallel --scan-after-import` to assess"
+                else "run `desloppify review --prepare` to assess (see skill doc for review workflow)"
             )
             low.append((name, strict, hint))
 

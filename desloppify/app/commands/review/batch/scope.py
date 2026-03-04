@@ -43,7 +43,7 @@ def require_batches(
         )
     print(
         colorize_fn(
-            "  Happy path: `desloppify review --run-batches --runner codex --parallel --scan-after-import`.",
+            "  Happy path: `desloppify review --prepare` then follow your runner's review workflow.",
             "dim",
         ),
         file=sys.stderr,
@@ -154,7 +154,7 @@ def missing_scored_dimensions(
 
 def missing_dimensions_command(*, missing_dims: list[str], scan_path: str) -> str:
     """Return rerun command for missing subjective dimensions."""
-    base = "desloppify review --run-batches --runner codex --parallel --scan-after-import"
+    base = "desloppify review --prepare --scan-after-import"
     if scan_path and scan_path != ".":
         base += f" --path {shlex.quote(scan_path)}"
     if missing_dims:

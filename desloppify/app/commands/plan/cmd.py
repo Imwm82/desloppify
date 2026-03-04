@@ -27,6 +27,11 @@ from desloppify.base.output.fallbacks import warn_best_effort
 from desloppify.base.output.terminal import colorize
 from desloppify.base.tooling import check_config_staleness
 from desloppify.engine import planning as planning_mod
+from desloppify.app.commands.helpers.queue_progress import (
+    format_queue_headline,
+    plan_aware_queue_breakdown,
+)
+from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.engine._plan.annotations import annotation_counts
 from desloppify.engine._plan.skip_policy import USER_SKIP_KINDS
 from desloppify.engine.plan import (
@@ -81,7 +86,17 @@ def _cmd_plan_generate(args: argparse.Namespace) -> None:
 def _cmd_plan_show(args: argparse.Namespace) -> None:
     """Show plan metadata summary."""
     plan = load_plan()
-    ordered = len(plan.get("queue_order", []))
+    runtime = command_runtime(args)
+
+    # Dynamic queue count — matches what `next` and `plan queue` show.
+    try:
+        breakdown = plan_aware_queue_breakdown(runtime.state, plan)
+        queue_line = format_queue_headline(breakdown)
+    except PLAN_LOAD_EXCEPTIONS:
+        # Fallback to raw plan data if queue build fails
+        ordered = len(plan.get("queue_order", []))
+        queue_line = f"Queue: {ordered} items prioritized"
+
     skipped = plan.get("skipped", {})
     total_skipped = len(skipped)
     kind_counts = {
@@ -99,7 +114,7 @@ def _cmd_plan_show(args: argparse.Namespace) -> None:
 
     print(colorize("  Living Plan Status", "bold"))
     print(colorize("  " + "─" * 40, "dim"))
-    print(f"  Queue:            {ordered} items prioritized")
+    print(f"  {queue_line}")
     if total_skipped:
         print(f"  Skipped:          {total_skipped} (temp: {temp_count}, wontfix: {perm_count}, fp: {fp_count})")
     else:

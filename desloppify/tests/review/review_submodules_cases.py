@@ -301,7 +301,7 @@ class TestBuildInvestigationBatches:
         }
         result = _build_investigation_batches(ctx, mock_lang)
         assert len(result) >= 1
-        assert result[0]["name"] == "Architecture & Coupling"
+        assert result[0]["name"] == "cross_module_architecture"
         assert "src/big.ts" in result[0]["files_to_read"]
 
 

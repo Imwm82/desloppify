@@ -10,11 +10,13 @@ from desloppify import state as state_mod
 from desloppify.app.commands.helpers.guardrails import print_triage_guardrail_info
 from desloppify.app.commands.helpers.lang import resolve_lang
 from desloppify.app.commands.helpers.queue_progress import (
-    _print_objective_drained_banner,
+    ScoreDisplayMode,
     format_queue_block,
     get_plan_start_strict,
     plan_aware_queue_breakdown,
     print_frozen_score_with_queue_context,
+    print_objective_drained_banner,
+    score_display_mode,
 )
 from desloppify.app.commands.helpers.runtime import command_runtime
 from desloppify.base.config import target_strict_score_from_config
@@ -193,22 +195,24 @@ def cmd_status(args: argparse.Namespace) -> None:
 def _print_score_section(state, scores, plan, target_strict_score, ctx=None):
     """Print score header: frozen plan-start or live score with queue breakdown."""
     plan_start_strict = get_plan_start_strict(plan)
+
+    # Build breakdown — needed for both display mode decision and rendering.
     breakdown = None
-    queue_remaining = 0
-    if plan_start_strict is not None:
-        try:
-            breakdown = plan_aware_queue_breakdown(state, plan, context=ctx)
-            queue_remaining = breakdown.queue_total
-        except PLAN_LOAD_EXCEPTIONS as exc:
-            _logger.debug("Plan-aware queue count failed: %s", exc)
-            queue_remaining = 0
-    objective_remaining = queue_remaining - breakdown.subjective - breakdown.workflow if breakdown else queue_remaining
-    if plan_start_strict is not None and objective_remaining > 0:
+    try:
+        breakdown = plan_aware_queue_breakdown(state, plan, context=ctx)
+    except PLAN_LOAD_EXCEPTIONS as exc:
+        _logger.debug("Plan-aware queue count failed: %s", exc)
+
+    mode = score_display_mode(breakdown, plan_start_strict)
+
+    if mode is ScoreDisplayMode.FROZEN:
         print_frozen_score_with_queue_context(
-            plan, queue_remaining, breakdown=breakdown,
+            breakdown,
+            frozen_strict=plan_start_strict,
             live_score=scores.strict,
         )
     else:
+        # LIVE or PHASE_TRANSITION: show current live scores
         for line, style in score_summary_lines(
             overall_score=scores.overall,
             objective_score=scores.objective,
@@ -217,24 +221,13 @@ def _print_score_section(state, scores, plan, target_strict_score, ctx=None):
             target_strict=target_strict_score,
         ):
             print(colorize(line, style))
-        # Show queue breakdown even without frozen score
-        if breakdown is None:
-            try:
-                breakdown = plan_aware_queue_breakdown(state, plan, context=ctx)
-            except PLAN_LOAD_EXCEPTIONS:
-                breakdown = None
         if breakdown is not None and breakdown.queue_total > 0:
             block = format_queue_block(breakdown)
             for text, style in block:
                 print(colorize(text, style))
-        # Phase transition: objective drained but subjective/workflow remains
-        if (
-            plan_start_strict is not None
-            and breakdown is not None
-            and queue_remaining > 0
-            and objective_remaining == 0
-        ):
-            _print_objective_drained_banner(plan_start_strict, queue_remaining, breakdown)
+        if mode is ScoreDisplayMode.PHASE_TRANSITION:
+            print_objective_drained_banner(plan_start_strict, breakdown.queue_total, breakdown)
+
     return breakdown
 
 

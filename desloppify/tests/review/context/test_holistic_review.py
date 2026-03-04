@@ -94,7 +94,7 @@ def _call_prepare_holistic_review(
     *,
     dimensions=None,
     files=None,
-    include_full_sweep=True,
+    include_full_sweep=False,
 ):
     return _prepare_holistic_review_impl(
         path,
@@ -362,8 +362,8 @@ class TestPrepareHolisticReview:
         batch = _batch_concerns(concerns, max_files=3)
 
         assert batch is not None
-        assert batch["name"] == "Design coherence — Mechanical Concern Signals"
-        assert batch["dimensions"] == ["design_coherence", "initialization_coupling"]
+        assert batch["name"] == "design_coherence"
+        assert batch["dimensions"] == ["design_coherence"]
         assert batch["files_to_read"] == [
             "src/file_0.ts",
             "src/file_1.ts",
@@ -374,7 +374,6 @@ class TestPrepareHolisticReview:
         assert len(batch["concern_signals"]) == 6
         assert batch["concern_signals"][0]["summary"] == "concern 0"
         assert batch["concern_signals"][0]["question"] == "is this intentional?"
-        assert batch["mapped_to_active_dimensions"] is False
         assert "truncated to 3 files from 6 candidates" in batch["why"]
 
     def test_prepare_holistic_review_applies_max_files_to_concern_batch(
@@ -412,16 +411,17 @@ class TestPrepareHolisticReview:
         concern_batches = [
             batch
             for batch in data["investigation_batches"]
-            if batch.get("name") == "Design coherence — Mechanical Concern Signals"
+            if batch.get("dimensions") == ["design_coherence"]
         ]
         assert len(concern_batches) == 1
         concern_batch = concern_batches[0]
-        assert concern_batch["files_to_read"] == ["src/file_0.ts", "src/file_1.ts"]
-        assert concern_batch["total_candidate_files"] == 6
+        # Concern signals are merged into the design_coherence batch
+        assert concern_batch.get("concern_signal_count", 0) == 6
 
-    def test_prepare_holistic_review_maps_concerns_to_active_dimensions(
+    def test_prepare_holistic_review_concerns_filtered_when_dim_inactive(
         self, tmp_path, monkeypatch
     ):
+        """Concern batch (design_coherence) is filtered out when not in active dims."""
         tracked_files = [
             _make_file(str(tmp_path), f"src/file_{idx}.ts", lines=20)
             for idx in range(3)
@@ -462,23 +462,13 @@ class TestPrepareHolisticReview:
             ),
         )
 
+        # design_coherence is not in active_dims, so concern batch should be filtered out
         concern_batches = [
             batch
             for batch in data["investigation_batches"]
-            if batch.get("name") == "Design coherence — Mechanical Concern Signals"
+            if batch.get("dimensions") == ["design_coherence"]
         ]
-        assert len(concern_batches) == 1
-        concern_batch = concern_batches[0]
-        assert concern_batch["dimensions"] == active_dims
-        assert concern_batch["files_to_read"] == [
-            "src/file_0.ts",
-            "src/file_1.ts",
-            "src/file_2.ts",
-        ]
-        assert concern_batch["concern_signal_count"] == 3
-        assert len(concern_batch["concern_signals"]) == 3
-        assert concern_batch["mapped_to_active_dimensions"] is True
-        assert "mapped to active dimensions" in concern_batch["why"]
+        assert len(concern_batches) == 0
 
     def test_prepare_holistic_review_filters_out_of_scope_batch_files(
         self, tmp_path, monkeypatch
@@ -1327,14 +1317,15 @@ class TestBuildInvestigationBatches:
 
         assert len(batches) >= 1
         names = [b["name"] for b in batches]
-        assert "Architecture & Coupling" in names
-        assert "Conventions & Errors" in names
+        # Each batch is named by its single dimension
+        assert "cross_module_architecture" in names
+        assert "convention_outlier" in names
 
         # Check that files are populated
-        arch_batch = next(b for b in batches if b["name"] == "Architecture & Coupling")
+        arch_batch = next(b for b in batches if b["name"] == "cross_module_architecture")
         assert "core.py" in arch_batch["files_to_read"]
 
-        conv_batch = next(b for b in batches if b["name"] == "Conventions & Errors")
+        conv_batch = next(b for b in batches if b["name"] == "convention_outlier")
         assert "commands/review/cmd.py" in conv_batch["files_to_read"]
 
     def test_abstraction_batch_includes_hotspot_files(self):
@@ -1375,7 +1366,7 @@ class TestBuildInvestigationBatches:
 
         batches = _build_investigation_batches(ctx, lang)
         abstraction_batch = next(
-            b for b in batches if b["name"] == "Abstractions & Dependencies"
+            b for b in batches if b["name"] == "abstraction_fitness"
         )
 
         assert "core/wrappers.py" in abstraction_batch["files_to_read"]
@@ -1425,7 +1416,7 @@ class TestBuildInvestigationBatches:
 
         batches = _build_investigation_batches(ctx, lang)
 
-        arch_batch = next(b for b in batches if b["name"] == "Architecture & Coupling")
+        arch_batch = next(b for b in batches if b["name"] == "cross_module_architecture")
         assert len(arch_batch["files_to_read"]) == 20
 
     def test_batch_has_required_fields(self):
@@ -1494,7 +1485,7 @@ class TestBuildInvestigationBatches:
         lang = _mock_lang()
 
         batches = _build_investigation_batches(ctx, lang)
-        conv_batch = next(b for b in batches if b["name"] == "Conventions & Errors")
+        conv_batch = next(b for b in batches if b["name"] == "convention_outlier")
 
         assert "commands/review/cmd.py" in conv_batch["files_to_read"]
         assert "commands/scan/cmd.py" in conv_batch["files_to_read"]
@@ -1568,7 +1559,7 @@ class TestFilterBatchesToDimensions:
     def test_fallback_batch_added_when_selected_dimension_unmapped(self):
         batches = [
             {
-                "name": "Architecture & Coupling",
+                "name": "cross_module_architecture",
                 "dimensions": ["cross_module_architecture"],
                 "files_to_read": ["core.py", "utils.py"],
                 "why": "god modules",
@@ -1578,14 +1569,14 @@ class TestFilterBatchesToDimensions:
         filtered = filter_batches_to_dimensions(batches, ["high_level_elegance"])
 
         assert len(filtered) == 1
-        assert filtered[0]["name"] == "Cross-cutting Sweep"
+        assert filtered[0]["name"] == "high_level_elegance"
         assert filtered[0]["dimensions"] == ["high_level_elegance"]
         assert filtered[0]["files_to_read"] == ["core.py", "utils.py"]
 
     def test_fallback_only_covers_missing_dimensions(self):
         batches = [
             {
-                "name": "Architecture & Coupling",
+                "name": "high_level_elegance",
                 "dimensions": ["high_level_elegance"],
                 "files_to_read": ["core.py"],
                 "why": "god modules",
@@ -1598,15 +1589,15 @@ class TestFilterBatchesToDimensions:
         )
 
         assert len(filtered) == 2
-        assert filtered[0]["name"] == "Architecture & Coupling"
+        assert filtered[0]["name"] == "high_level_elegance"
         assert filtered[0]["dimensions"] == ["high_level_elegance"]
-        assert filtered[1]["name"] == "Cross-cutting Sweep"
+        assert filtered[1]["name"] == "low_level_elegance"
         assert filtered[1]["dimensions"] == ["low_level_elegance"]
 
     def test_fallback_filters_invalid_non_file_tokens(self):
         batches = [
             {
-                "name": "Architecture & Coupling",
+                "name": "high_level_elegance",
                 "dimensions": ["high_level_elegance"],
                 "files_to_read": ["core.py", "commands/", "services"],
                 "why": "god modules",
@@ -1616,7 +1607,7 @@ class TestFilterBatchesToDimensions:
         filtered = filter_batches_to_dimensions(batches, ["low_level_elegance"])
 
         assert len(filtered) == 1
-        assert filtered[0]["name"] == "Cross-cutting Sweep"
+        assert filtered[0]["name"] == "low_level_elegance"
         assert filtered[0]["files_to_read"] == ["core.py"]
 
 
@@ -1648,7 +1639,7 @@ class TestPrepareHolisticReviewEnriched:
         assert "investigation_batches" in data
         assert isinstance(data["investigation_batches"], list)
 
-    def test_full_codebase_sweep_added_by_default(self, tmp_path):
+    def test_full_codebase_sweep_not_present(self, tmp_path):
         f1 = _make_file(str(tmp_path), "module_a.py", lines=50)
         f2 = _make_file(str(tmp_path), "module_b.py", lines=50)
         lang = _mock_lang([f1, f2])
@@ -1656,14 +1647,12 @@ class TestPrepareHolisticReviewEnriched:
 
         data = _call_prepare_holistic_review(tmp_path, lang, state, files=[f1, f2])
 
-        full_sweep = next(
+        full_sweep_batches = [
             b
             for b in data["investigation_batches"]
             if b["name"] == "Full Codebase Sweep"
-        )
-        assert len(full_sweep["files_to_read"]) == 2
-        assert any(path.endswith("module_a.py") for path in full_sweep["files_to_read"])
-        assert any(path.endswith("module_b.py") for path in full_sweep["files_to_read"])
+        ]
+        assert len(full_sweep_batches) == 0
 
 
 # ===================================================================
@@ -1999,8 +1988,8 @@ class TestNewInvestigationBatches:
         batches = _build_investigation_batches(ctx, lang)
 
         names = [b["name"] for b in batches]
-        assert "Authorization" in names
-        auth_batch = next(b for b in batches if b["name"] == "Authorization")
+        assert "authorization_consistency" in names
+        auth_batch = next(b for b in batches if b["name"] == "authorization_consistency")
         assert "routes/admin.py" in auth_batch["files_to_read"]
         assert "lib/supabase.ts" in auth_batch["files_to_read"]
         assert "authorization_consistency" in auth_batch["dimensions"]
@@ -2035,13 +2024,12 @@ class TestNewInvestigationBatches:
         batches = _build_investigation_batches(ctx, lang)
 
         names = [b["name"] for b in batches]
-        assert "AI Debt & Migrations" in names
-        debt_batch = next(b for b in batches if b["name"] == "AI Debt & Migrations")
+        assert "ai_generated_debt" in names
+        debt_batch = next(b for b in batches if b["name"] == "ai_generated_debt")
         assert "bloated.py" in debt_batch["files_to_read"]
         assert "old_api.py" in debt_batch["files_to_read"]
         assert "service.py" in debt_batch["files_to_read"]
         assert "ai_generated_debt" in debt_batch["dimensions"]
-        assert "incomplete_migration" in debt_batch["dimensions"]
 
     def test_no_auth_batch_when_no_gaps(self):
         """No Authorization batch when auth coverage has no gaps."""
@@ -2070,7 +2058,7 @@ class TestNewInvestigationBatches:
         batches = _build_investigation_batches(ctx, lang)
 
         names = [b["name"] for b in batches]
-        assert "Authorization" not in names
+        assert "authorization_consistency" not in names
 
     def test_no_debt_batch_when_no_signals(self):
         """No AI Debt batch when no signals exist."""
@@ -2090,10 +2078,10 @@ class TestNewInvestigationBatches:
         batches = _build_investigation_batches(ctx, lang)
 
         names = [b["name"] for b in batches]
-        assert "AI Debt & Migrations" not in names
+        assert "ai_generated_debt" not in names
 
-    def test_up_to_seven_batches_possible(self):
-        """With full context, up to 7 batches can be generated."""
+    def test_one_batch_per_dimension(self):
+        """With full context, one batch per dimension with seed files."""
         ctx = {
             "architecture": {
                 "god_modules": [{"file": "core.py", "importers": 10, "excerpt": ""}],
@@ -2169,31 +2157,26 @@ class TestNewInvestigationBatches:
 
         batches = _build_investigation_batches(ctx, lang)
 
-        assert len(batches) == 7
+        # Each dimension with seed files gets its own batch
         names = [b["name"] for b in batches]
-        assert "Architecture & Coupling" in names
-        assert "Conventions & Errors" in names
-        assert "Abstractions & Dependencies" in names
-        assert "Testing & API" in names
-        assert "Authorization" in names
-        assert "AI Debt & Migrations" in names
-        assert "Package Organization" in names
+        # Each batch has exactly one dimension
+        for batch in batches:
+            assert len(batch["dimensions"]) == 1
+            assert batch["name"] == batch["dimensions"][0]
+        # Key dimensions should be present
+        assert "cross_module_architecture" in names
+        assert "convention_outlier" in names
+        assert "abstraction_fitness" in names
+        assert "test_strategy" in names
+        assert "authorization_consistency" in names
+        assert "ai_generated_debt" in names
+        assert "package_organization" in names
 
-    def test_governance_batch_generated_when_reference_files_exist(self, tmp_path):
-        for relpath in (
-            "README.md",
-            "DEVELOPMENT_PHILOSOPHY.md",
-            "desloppify/README.md",
-            "pyproject.toml",
-        ):
-            full_path = tmp_path / relpath
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            full_path.write_text("reference")
-
+    def test_each_batch_has_single_dimension(self):
+        """Every batch has exactly one dimension matching its name."""
         ctx = {
             "architecture": {
                 "god_modules": [{"file": "core.py", "importers": 10, "excerpt": "..."}],
-                "top_imported": {"core.py": 10},
             },
             "coupling": {},
             "conventions": {},
@@ -2206,18 +2189,11 @@ class TestNewInvestigationBatches:
         }
         lang = _mock_lang()
 
-        batches = _build_investigation_batches(ctx, lang, repo_root=tmp_path)
+        batches = _build_investigation_batches(ctx, lang)
 
-        names = [b["name"] for b in batches]
-        assert "Governance & Contracts" in names
-        governance = next(b for b in batches if b["name"] == "Governance & Contracts")
-        assert "README.md" in governance["files_to_read"]
-        assert "DEVELOPMENT_PHILOSOPHY.md" in governance["files_to_read"]
-        assert "desloppify/README.md" in governance["files_to_read"]
-        assert "pyproject.toml" in governance["files_to_read"]
-        assert "core.py" in governance["files_to_read"]
-        assert "high_level_elegance" in governance["dimensions"]
-        assert "test_strategy" in governance["dimensions"]
+        for batch in batches:
+            assert len(batch["dimensions"]) == 1
+            assert batch["name"] == batch["dimensions"][0]
 
 
 # ===================================================================
@@ -2367,8 +2343,8 @@ class TestPackageOrganizationDimension:
         batches = _build_investigation_batches(ctx, lang)
 
         names = [b["name"] for b in batches]
-        assert "Package Organization" in names
-        pkg_batch = next(b for b in batches if b["name"] == "Package Organization")
+        assert "package_organization" in names
+        pkg_batch = next(b for b in batches if b["name"] == "package_organization")
         assert "visualize.py" in pkg_batch["files_to_read"]
         assert "scorecard.py" in pkg_batch["files_to_read"]
         assert "package_organization" in pkg_batch["dimensions"]
@@ -2391,4 +2367,4 @@ class TestPackageOrganizationDimension:
         batches = _build_investigation_batches(ctx, lang)
 
         names = [b["name"] for b in batches]
-        assert "Package Organization" not in names
+        assert "package_organization" not in names

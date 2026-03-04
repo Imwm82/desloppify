@@ -717,7 +717,7 @@ class TestCmdReviewPrepare:
             "system_prompt": "prompt",
             "investigation_batches": [
                 {
-                    "name": "Architecture & Coupling",
+                    "name": "high_level_elegance",
                     "dimensions": ["high_level_elegance"],
                     "files_to_read": ["src/foo.ts"],
                     "why": "test",
@@ -752,7 +752,7 @@ class TestCmdReviewPrepare:
                     },
                 },
                 {
-                    "name": "Conventions & Errors",
+                    "name": "mid_level_elegance",
                     "dimensions": ["mid_level_elegance"],
                     "files_to_read": ["src/bar.ts"],
                     "why": "test",
@@ -1032,7 +1032,7 @@ class TestCmdReviewPrepare:
         assert payload["reviewed_files"] == ["src/a.ts", "src/b.ts", "src/c.ts", "src/d.ts"]
         assert "dimension_notes" in payload
         assert "review_quality" in payload
-        assert payload["review_quality"]["dimension_coverage"] == 0.333
+        assert payload["review_quality"]["dimension_coverage"] == 1.0
         assert len(payload["issues"]) == 3
         provenance = payload.get("provenance", {})
         assert provenance.get("kind") == "blind_review_batch_import"

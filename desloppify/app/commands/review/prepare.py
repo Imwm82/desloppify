@@ -59,7 +59,7 @@ def do_prepare(
         ),
     )
     next_command = (
-        "desloppify review --run-batches --runner codex --parallel --scan-after-import"
+        "desloppify review --prepare"
     )
     if retrospective:
         next_command += (
@@ -117,22 +117,27 @@ def _print_prepare_summary(
     print(colorize("\n  Workflow:", "bold"))
     for step_i, step in enumerate(data.get("workflow", []), 1):
         print(colorize(f"    {step_i}. {step}", "dim"))
-    print(colorize("\n  AGENT PLAN:", "yellow"))
+    n_batches = len(data.get("investigation_batches", []))
+    print(colorize("\n  AGENT PLAN — pick the path matching your runner:", "yellow"))
     print(
         colorize(
-            f"  1. Preferred: `{next_command}`",
+            "  1. Codex: `desloppify review --run-batches --runner codex --parallel --scan-after-import`",
             "dim",
         )
     )
     print(
         colorize(
-            "  2. Cloud/manual fallback: run external reviewers, merge to issues.json, then import",
+            f"  2. Claude / other agent: `desloppify review --run-batches --dry-run`"
+            f" → generates {n_batches} prompt files in .desloppify/subagent_runs/<run>/prompts/."
+            f" Launch {n_batches} subagents in parallel (one per prompt),"
+            " write output to the matching results/ file,"
+            " then `desloppify review --import-run <run-dir> --scan-after-import`",
             "dim",
         )
     )
     print(
         colorize(
-            "  3. Claude cloud durable path: `desloppify review --external-start --external-runner claude` then run the printed `--external-submit` command",
+            "  3. Cloud/external: `desloppify review --external-start --external-runner claude` → follow template → `--external-submit`",
             "dim",
         )
     )
@@ -150,15 +155,7 @@ def _print_prepare_summary(
     )
     print(
         colorize(
-            "  Next command to improve subjective scores: "
-            f"`{next_command}`",
-            "dim",
-        )
-    )
-    print(
-        colorize(
-            "\n  → query.json updated. "
-            f"Preferred next step: {next_command}",
+            "\n  → query.json updated. Batches are pre-defined — do NOT regroup dimensions yourself.",
             "cyan",
         )
     )

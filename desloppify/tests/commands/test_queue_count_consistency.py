@@ -423,8 +423,8 @@ class TestWorkflowRunScanItem:
         assert result["total"] == 0
 
     def test_run_scan_does_not_block_scan_preflight(self):
-        """The scan preflight gate uses breakdown.actionable which excludes
-        workflow items, so workflow::run-scan doesn't create a circular block."""
+        """The scan preflight gate uses score_display_mode which sees
+        objective_actionable=0, so workflow::run-scan doesn't create a circular block."""
         from desloppify.app.commands.helpers.queue_progress import (
             plan_aware_queue_breakdown,
         )
@@ -438,7 +438,7 @@ class TestWorkflowRunScanItem:
         breakdown = plan_aware_queue_breakdown(state, plan=plan)
         assert breakdown.queue_total == 1
         assert breakdown.workflow == 1
-        assert breakdown.actionable == 0  # gate passes
+        assert breakdown.objective_actionable == 0  # gate passes
 
 
 # ---------------------------------------------------------------------------

@@ -23,8 +23,8 @@ def build_workflow_guide(attest_example: str) -> str:
            Think about sequencing: what unblocks the most? What cascades? What can be batched?
         4. **Run auto-fixers** (if available): `desloppify autofix <fixer> --dry-run` to preview, then apply.
         5. **Rescan**: `desloppify scan --path <path>` — verify improvements, catch cascading effects.
-        6. **Subjective review**: `desloppify review --run-batches --runner codex --parallel --scan-after-import`
-           (or `review --prepare` → review → import for manual path).
+        6. **Subjective review**: `desloppify review --prepare` then follow your runner's review workflow
+           (see skill doc for Codex, Claude, or external paths).
         7. **Triage** (after review): `desloppify plan triage` — staged workflow to analyze
            issues before fixing. Complete all 4 stages (observe → reflect → organize → commit).
         8. **Check progress**: `desloppify status` — dimension scores dashboard.

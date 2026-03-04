@@ -41,8 +41,8 @@ _TIER_NEW = 2       # Newly discovered items
 
 # Natural ranking groups (_natural_sort_key)
 _RANK_INITIAL_REVIEW = -3  # Unassessed subjective dimensions
-_RANK_TRIAGE_STAGE = -2    # Epic triage workflow stages
-_RANK_WORKFLOW = -1         # Score checkpoints, create-plan
+_RANK_WORKFLOW = -2         # Score checkpoints, create-plan
+_RANK_TRIAGE_STAGE = -1     # Epic triage workflow stages
 _RANK_CLUSTER = 0           # Auto-clustered issues
 _RANK_ISSUE = 1           # Individual issues + assessed subjective
 
@@ -256,7 +256,7 @@ def item_sort_key(item: WorkQueueItem) -> tuple:
         if kind == "workflow_stage":
             blocked = 1 if item.get("is_blocked") else 0
             stage_idx = _workflow_stage_index(item)
-            return (_TIER_PLANNED, blocked, stage_idx, item.get("id", ""))
+            return (_TIER_PLANNED, plan_pos, blocked, stage_idx, item.get("id", ""))
         return (_TIER_PLANNED, 0, plan_pos, item.get("id", ""))
 
     is_new = item.get("_is_new", False)

@@ -262,8 +262,7 @@ def explode_to_single_dimension(
         if not isinstance(dims, list):
             result.append(batch)
             continue
-        effective_dims = dims if len(dims) > 1 else dims
-        for dim in effective_dims:
+        for dim in dims:
             exploded: dict[str, object] = {**batch, "dimensions": [dim]}
             dim_prompt = prompts.get(dim)
             if isinstance(dim_prompt, dict):

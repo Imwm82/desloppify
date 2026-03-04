@@ -39,7 +39,7 @@ def item_explain(item: WorkQueueItem) -> dict[str, Any]:
     if kind == "workflow_action":
         return {
             "kind": "workflow_action",
-            "policy": "Workflow items sort after triage stages, before issues.",
+            "policy": "Workflow items sort before triage stages, after initial reviews.",
             "ranking_factors": ["id asc"],
         }
 

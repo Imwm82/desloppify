@@ -393,7 +393,7 @@ class TestCmdNextOutput:
         assert "were reset to 0.0 this scan" in out
         assert "Anti-gaming safeguard applied" in out
         assert (
-            "review --run-batches --runner codex --parallel --scan-after-import --force-review-rerun --dimensions"
+            "review --prepare --force-review-rerun --dimensions"
             in out
         )
         assert "naming_quality" in out

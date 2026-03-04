@@ -5,7 +5,12 @@ from __future__ import annotations
 import logging
 
 from desloppify import state as state_mod
-from desloppify.app.commands.helpers.queue_progress import plan_aware_queue_breakdown
+from desloppify.app.commands.helpers.queue_progress import (
+    ScoreDisplayMode,
+    plan_aware_queue_breakdown,
+    score_display_mode,
+)
+from desloppify.app.commands.helpers.queue_progress import get_plan_start_strict
 from desloppify.app.commands.helpers.state import state_path
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.base.output.fallbacks import log_best_effort_failure
@@ -56,21 +61,24 @@ def scan_queue_preflight(args: object) -> None:
     if not plan.get("plan_start_scores"):
         return  # No active cycle
 
-    # Count plan-aware remaining items, excluding workflow actions (e.g.
-    # "run scan") which would otherwise create a circular gate.
+    # Count plan-aware remaining items.  Only gate on objective work —
+    # subjective reviews don't block rescanning (the rescan is what
+    # reveals the updated score after reviews are done).
     try:
         state = state_mod.load_state(state_path(args))
         breakdown = plan_aware_queue_breakdown(state, plan)
-        remaining = breakdown.actionable
+        plan_start_strict = get_plan_start_strict(plan)
+        mode = score_display_mode(breakdown, plan_start_strict)
     except PLAN_LOAD_EXCEPTIONS:
         _logger.debug("scan preflight queue breakdown skipped", exc_info=True)
         return
-    if remaining <= 0:
-        return  # Queue clear, scan allowed
+    if mode is not ScoreDisplayMode.FROZEN:
+        return  # No objective work remains, scan allowed
 
+    remaining = breakdown.objective_actionable
     # GATE
     raise CommandError(
-        f"{remaining} item{'s' if remaining != 1 else ''}"
+        f"{remaining} objective item{'s' if remaining != 1 else ''}"
         " remaining in your queue.\n"
         "  The intended workflow is to complete the queue before scanning.\n"
         "  Work through items with `desloppify next`, then scan when clear.\n\n"

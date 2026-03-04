@@ -114,7 +114,6 @@ def create_parser(*, langs: list[str], detector_names: list[str]) -> argparse.Ar
     )
     sub = parser.add_subparsers(
         dest="command",
-        required=True,
         parser_class=_NoAbbrevArgumentParser,
     )
     # workflow

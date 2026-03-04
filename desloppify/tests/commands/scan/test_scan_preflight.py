@@ -98,18 +98,47 @@ def test_queue_remaining_blocks_scan():
     ):
         mock_state_mod.load_state.return_value = {"issues": {}}
         scan_queue_preflight(args)
-    assert exc_info.value.exit_code == 1
+    assert "objective" in str(exc_info.value)
+
+
+def test_queue_with_only_subjective_items_allows_scan():
+    """When queue contains only subjective items, gate passes — subjective
+    reviews don't block rescanning (the rescan reveals the updated score)."""
+    from desloppify.app.commands.helpers.queue_progress import QueueBreakdown
+
+    args = SimpleNamespace(profile=None, force_rescan=False, state=None, lang="python")
+    plan = {"plan_start_scores": {"strict": 80.0}}
+    breakdown = QueueBreakdown(queue_total=20, subjective=20, workflow=0)
+    assert breakdown.objective_actionable == 0  # precondition
+    with (
+        patch(
+            "desloppify.app.commands.scan.preflight.load_plan",
+            return_value=plan,
+        ),
+        patch(
+            "desloppify.app.commands.scan.preflight.state_path",
+            return_value="/tmp/test-state.json",
+        ),
+        patch("desloppify.app.commands.scan.preflight.state_mod") as mock_state_mod,
+        patch(
+            "desloppify.app.commands.scan.preflight.plan_aware_queue_breakdown",
+            return_value=breakdown,
+        ),
+    ):
+        mock_state_mod.load_state.return_value = {"issues": {}}
+        # Should NOT raise — subjective items don't block scanning
+        scan_queue_preflight(args)
 
 
 def test_queue_with_only_workflow_items_allows_scan():
     """When queue contains only workflow items (e.g. run-scan), gate passes
-    because breakdown.actionable == 0."""
+    because score_display_mode sees no objective work."""
     from desloppify.app.commands.helpers.queue_progress import QueueBreakdown
 
     args = SimpleNamespace(profile=None, force_rescan=False, state=None, lang="python")
     plan = {"plan_start_scores": {"strict": 80.0}}
     breakdown = QueueBreakdown(queue_total=1, workflow=1)
-    assert breakdown.actionable == 0  # precondition
+    assert breakdown.objective_actionable == 0  # precondition
     with (
         patch(
             "desloppify.app.commands.scan.preflight.load_plan",

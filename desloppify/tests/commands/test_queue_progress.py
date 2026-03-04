@@ -8,12 +8,14 @@ import pytest
 
 from desloppify.app.commands.helpers.queue_progress import (
     QueueBreakdown,
+    ScoreDisplayMode,
     format_queue_block,
     format_queue_headline,
     get_plan_start_strict,
     plan_aware_queue_breakdown,
     print_execution_or_reveal,
     print_frozen_score_with_queue_context,
+    score_display_mode,
     show_score_with_plan_context,
 )
 from desloppify.engine._work_queue.helpers import is_subjective_queue_item
@@ -83,20 +85,10 @@ def test_queue_breakdown_defaults():
     assert b.skipped == 0
     assert b.subjective == 0
     assert b.workflow == 0
-    assert b.actionable == 0
+    assert b.objective_actionable == 0
     assert b.focus_cluster is None
     assert b.focus_cluster_count == 0
     assert b.focus_cluster_total == 0
-
-
-def test_queue_breakdown_actionable_excludes_workflow():
-    b = QueueBreakdown(queue_total=5, workflow=2)
-    assert b.actionable == 3
-
-
-def test_queue_breakdown_actionable_floors_at_zero():
-    b = QueueBreakdown(queue_total=1, workflow=1)
-    assert b.actionable == 0
 
 
 def test_queue_breakdown_objective_actionable_excludes_subjective_and_workflow():
@@ -113,13 +105,44 @@ def test_queue_breakdown_objective_actionable_with_only_subjective():
     """When only subjective items remain, objective_actionable is 0."""
     b = QueueBreakdown(queue_total=5, subjective=5, workflow=0)
     assert b.objective_actionable == 0
-    assert b.actionable == 5  # actionable still counts subjective
 
 
 def test_queue_breakdown_frozen():
     b = QueueBreakdown(queue_total=10, plan_ordered=5)
     with pytest.raises(AttributeError):
         b.queue_total = 20  # type: ignore[misc]
+
+
+# ── score_display_mode ──────────────────────────────────────
+
+
+def test_score_display_mode_live_when_no_plan_start():
+    b = QueueBreakdown(queue_total=10)
+    assert score_display_mode(b, None) is ScoreDisplayMode.LIVE
+
+
+def test_score_display_mode_live_when_no_breakdown():
+    assert score_display_mode(None, 80.0) is ScoreDisplayMode.LIVE
+
+
+def test_score_display_mode_frozen_when_objective_work_remains():
+    b = QueueBreakdown(queue_total=5, subjective=2, workflow=0)
+    assert score_display_mode(b, 80.0) is ScoreDisplayMode.FROZEN
+
+
+def test_score_display_mode_phase_transition_when_only_subjective():
+    b = QueueBreakdown(queue_total=3, subjective=3, workflow=0)
+    assert score_display_mode(b, 80.0) is ScoreDisplayMode.PHASE_TRANSITION
+
+
+def test_score_display_mode_phase_transition_when_only_workflow():
+    b = QueueBreakdown(queue_total=1, subjective=0, workflow=1)
+    assert score_display_mode(b, 80.0) is ScoreDisplayMode.PHASE_TRANSITION
+
+
+def test_score_display_mode_live_when_queue_empty():
+    b = QueueBreakdown(queue_total=0)
+    assert score_display_mode(b, 80.0) is ScoreDisplayMode.LIVE
 
 
 # ── format_queue_headline ────────────────────────────────────
@@ -322,29 +345,17 @@ def test_plan_aware_queue_breakdown_with_focus():
 
 
 def test_frozen_score_prints_score_and_queue(capsys):
-    plan = {"plan_start_scores": {"strict": 74.4}}
     breakdown = QueueBreakdown(queue_total=10)
-    print_frozen_score_with_queue_context(plan, queue_remaining=10, breakdown=breakdown)
+    print_frozen_score_with_queue_context(breakdown, frozen_strict=74.4)
     output = capsys.readouterr().out
     assert "74.4" in output
     assert "10" in output
-
-
-def test_frozen_score_skips_when_no_strict(capsys):
-    plan = {"plan_start_scores": {}}
-    breakdown = QueueBreakdown(queue_total=5)
-    print_frozen_score_with_queue_context(plan, queue_remaining=5, breakdown=breakdown)
-    output = capsys.readouterr().out
-    assert output == ""
+    assert "will not update" in output
 
 
 def test_frozen_score_with_breakdown(capsys):
-    plan = {"plan_start_scores": {"strict": 80.0}}
-    b = QueueBreakdown(
-        queue_total=100,
-        plan_ordered=50,
-    )
-    print_frozen_score_with_queue_context(plan, queue_remaining=100, breakdown=b)
+    b = QueueBreakdown(queue_total=100, plan_ordered=50)
+    print_frozen_score_with_queue_context(b, frozen_strict=80.0)
     output = capsys.readouterr().out
     assert "80.0" in output
     assert "Queue:" in output

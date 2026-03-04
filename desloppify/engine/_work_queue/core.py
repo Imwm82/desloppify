@@ -279,6 +279,15 @@ def _has_objective_items(items: list[WorkQueueItem]) -> bool:
     )
 
 
+def _has_initial_reviews(items: list[WorkQueueItem]) -> bool:
+    """True if any unassessed subjective dimensions need initial review."""
+    return any(
+        i.get("kind") == "subjective_dimension"
+        and i.get("initial_review")
+        for i in items
+    )
+
+
 def _is_endgame_only(item: WorkQueueItem) -> bool:
     """True if this item should only appear when the objective queue is drained."""
     return (
@@ -290,10 +299,21 @@ def _is_endgame_only(item: WorkQueueItem) -> bool:
 def _apply_lifecycle_filter(items: list[WorkQueueItem]) -> list[WorkQueueItem]:
     """Enforce lifecycle visibility rules.
 
-    Endgame-only items (subjective reassessment) are filtered out when
-    objective mechanical work remains. Initial review items always survive
-    — they're onboarding priority, not endgame work.
+    The queue enforces a phase order: scan → initial review → objective work.
+
+    1. **Initial reviews pending** → only show initial-review subjective items.
+       The user must complete first-time reviews before working objective items.
+    2. **Objective work remains** → show objective items, hide endgame-only
+       subjective reassessments (stale re-reviews).
+    3. **Objective drained** → everything visible (endgame).
     """
+    if _has_initial_reviews(items):
+        # Phase 1: only initial reviews visible — triage and workflow
+        # items stay hidden until initial reviews are complete.
+        return [
+            i for i in items
+            if i.get("kind") == "subjective_dimension" and i.get("initial_review")
+        ]
     if not _has_objective_items(items):
         return items  # endgame: everything visible
     return [i for i in items if not _is_endgame_only(i)]

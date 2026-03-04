@@ -29,6 +29,7 @@ from desloppify.engine._work_queue.core import (
     QueueBuildOptions,
     build_work_queue,
 )
+from desloppify.engine._work_queue.plan_order import collapse_clusters
 from desloppify.engine.plan import load_plan
 from desloppify.engine.planning.scorecard_projection import (
     scorecard_dimensions_payload,
@@ -237,7 +238,7 @@ def _build_and_render_queue(args: argparse.Namespace, state: dict, config: dict)
     queue = build_work_queue(
         state,
         options=QueueBuildOptions(
-            count=opts.count,
+            count=None,
             scope=opts.scope,
             status=opts.status,
             include_subjective=True,
@@ -249,6 +250,16 @@ def _build_and_render_queue(args: argparse.Namespace, state: dict, config: dict)
         ),
     )
     items = queue.get("items", [])
+
+    # Collapse auto-clusters into display meta-items
+    if plan_data and not effective_cluster and not plan_data.get("active_cluster"):
+        items = collapse_clusters(items, plan_data)
+
+    # Apply count truncation after collapsing
+    if opts.count:
+        items = items[: opts.count]
+        queue["items"] = items
+        queue["total"] = len(items)
 
     lang = resolve_lang(args)
     lang_name = lang.name if lang else None

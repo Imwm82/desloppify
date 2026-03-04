@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import importlib
 import logging
 from dataclasses import dataclass
@@ -39,19 +40,52 @@ class QueueBreakdown:
     focus_cluster_total: int = 0
 
     @property
-    def actionable(self) -> int:
-        """Items that represent real work — excludes workflow navigation steps.
-
-        Use this instead of ``queue_total`` when gating on "is there work left?"
-        (e.g. scan preflight).  Workflow items like ``workflow::run-scan`` guide
-        the user but are not work to complete.
-        """
-        return max(0, self.queue_total - self.workflow)
-
-    @property
     def objective_actionable(self) -> int:
-        """Objective items only — excludes subjective and workflow."""
+        """Objective items only — excludes subjective and workflow.
+
+        This is the count used by :func:`score_display_mode` to decide
+        frozen vs live display.  Do not use it directly for gating —
+        use ``score_display_mode()`` instead.
+        """
         return max(0, self.queue_total - self.subjective - self.workflow)
+
+
+# ---------------------------------------------------------------------------
+# ScoreDisplayMode — single decision point for frozen vs live score display
+# ---------------------------------------------------------------------------
+
+class ScoreDisplayMode(enum.Enum):
+    """How to display the score given the current plan cycle and queue state.
+
+    - ``FROZEN``: objective work remains → show frozen plan-start score.
+    - ``PHASE_TRANSITION``: objective drained, subjective/workflow remain
+      → show live scores + transition banner.
+    - ``LIVE``: no active plan cycle or queue fully clear → show live scores.
+    """
+    FROZEN = "frozen"
+    PHASE_TRANSITION = "phase_transition"
+    LIVE = "live"
+
+
+def score_display_mode(
+    breakdown: QueueBreakdown | None,
+    plan_start_strict: float | None,
+) -> ScoreDisplayMode:
+    """Determine the score display mode from breakdown + plan-start score.
+
+    This is the **single source of truth** for the frozen-vs-live decision.
+    Every call site (status, scan reveal, next nudges, plan reconcile, plan
+    nudge) must use this instead of ad-hoc count checks.
+    """
+    if plan_start_strict is None:
+        return ScoreDisplayMode.LIVE
+    if breakdown is None:
+        return ScoreDisplayMode.LIVE
+    if breakdown.objective_actionable > 0:
+        return ScoreDisplayMode.FROZEN
+    if breakdown.queue_total > 0:
+        return ScoreDisplayMode.PHASE_TRANSITION
+    return ScoreDisplayMode.LIVE
 
 
 def plan_aware_queue_breakdown(
@@ -245,30 +279,27 @@ def get_plan_start_strict(plan: dict | None) -> float | None:
 
 
 def print_frozen_score_with_queue_context(
-    plan: dict,
-    queue_remaining: int,
-    *,
     breakdown: QueueBreakdown,
+    *,
+    frozen_strict: float,
     live_score: float | None = None,
 ) -> None:
-    """Show frozen plan-start score + queue progress."""
-    scores = plan.get("plan_start_scores", {})
-    strict = scores.get("strict")
-    if strict is None:
-        return
+    """Show frozen plan-start score + queue progress.
 
-    block = format_queue_block(breakdown, frozen_score=strict, live_score=live_score)
+    Only call from a ``ScoreDisplayMode.FROZEN`` path — assumes objective
+    work remains in the queue.
+    """
+    block = format_queue_block(breakdown, frozen_score=frozen_strict, live_score=live_score)
     print()
     for text, style in block:
         print(colorize(text, style))
-    if queue_remaining > 0:
-        print(colorize(
-            "  Score will not update until the queue is clear and you run `desloppify scan`.",
-            "dim",
-        ))
+    print(colorize(
+        "  Score will not update until the queue is clear and you run `desloppify scan`.",
+        "dim",
+    ))
 
 
-def _print_objective_drained_banner(
+def print_objective_drained_banner(
     frozen_strict: float,
     remaining: int,
     breakdown: QueueBreakdown,
@@ -297,47 +328,34 @@ def print_execution_or_reveal(
     prev,
     plan: dict | None,
 ) -> None:
-    """Context-aware score display: frozen plan-start score or live scores.
-
-    Three display modes:
-
-    1. **Frozen** — objective queue items remain → show frozen plan-start score.
-    2. **Phase transition** — objective drained, subjective/workflow remains
-       → show live scores + transition banner.
-    3. **Live** — no active plan cycle or queue is clear → show live scores.
-    """
-    frozen_strict: float | None = None
+    """Context-aware score display using :func:`score_display_mode`."""
+    frozen_strict = get_plan_start_strict(plan)
     breakdown: QueueBreakdown | None = None
 
-    if plan and plan.get("plan_start_scores", {}).get("strict") is not None:
-        frozen_strict = plan["plan_start_scores"]["strict"]
+    if frozen_strict is not None:
         try:
             breakdown = plan_aware_queue_breakdown(state, plan)
         except PLAN_LOAD_EXCEPTIONS:
             _logger.debug("queue breakdown computation skipped", exc_info=True)
 
-    remaining = breakdown.queue_total if breakdown else 0
+    mode = score_display_mode(breakdown, frozen_strict)
 
-    # Frozen: objective work remains — show frozen plan-start score and return
-    if remaining > 0 and frozen_strict is not None:
-        objective_remaining = remaining - breakdown.subjective - breakdown.workflow
-        if objective_remaining > 0:
-            # Compute live score for delta display alongside frozen
-            print_frozen_score_with_queue_context(
-                plan, remaining, breakdown=breakdown,
-                live_score=state_mod.score_snapshot(state).strict,
-            )
-            return
+    if mode is ScoreDisplayMode.FROZEN:
+        print_frozen_score_with_queue_context(
+            breakdown,
+            frozen_strict=frozen_strict,
+            live_score=state_mod.score_snapshot(state).strict,
+        )
+        return
 
-    # Live scores (or phase transition): show current scores
+    # LIVE or PHASE_TRANSITION: show current scores
     score_update_mod = importlib.import_module(
         "desloppify.app.commands.helpers.score_update"
     )
     score_update_mod.print_score_update(state, prev)
 
-    # Phase transition: objective drained but subjective/workflow remains
-    if remaining > 0 and frozen_strict is not None:
-        _print_objective_drained_banner(frozen_strict, remaining, breakdown)
+    if mode is ScoreDisplayMode.PHASE_TRANSITION:
+        print_objective_drained_banner(frozen_strict, breakdown.queue_total, breakdown)
 
 
 def show_score_with_plan_context(state: dict, prev) -> None:
@@ -355,12 +373,15 @@ def show_score_with_plan_context(state: dict, prev) -> None:
 
 __all__ = [
     "QueueBreakdown",
+    "ScoreDisplayMode",
     "format_plan_delta",
     "format_queue_block",
     "format_queue_headline",
     "get_plan_start_strict",
     "plan_aware_queue_breakdown",
     "print_execution_or_reveal",
+    "print_objective_drained_banner",
     "print_frozen_score_with_queue_context",
+    "score_display_mode",
     "show_score_with_plan_context",
 ]

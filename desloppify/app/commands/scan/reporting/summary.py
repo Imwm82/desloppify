@@ -171,8 +171,8 @@ def _print_subjective_integrity_warning(
     print(
         colorize(
             "    This warning has repeated. Prefer "
-            "`desloppify review --run-batches --runner codex --parallel --scan-after-import` "
-            "or run a blind reviewer pass before import.",
+            "`desloppify review --prepare` and run a trusted review "
+            "(see skill doc for options).",
             "yellow",
         )
     )

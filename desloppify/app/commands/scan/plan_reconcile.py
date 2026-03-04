@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from desloppify.app.commands.scan.workflow import ScanRuntime
 
 from desloppify import state as state_mod
 from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE
@@ -130,11 +133,14 @@ def _clear_plan_start_scores_if_queue_empty(
 
     try:
         from desloppify.app.commands.helpers.queue_progress import (
+            ScoreDisplayMode,
             plan_aware_queue_breakdown,
+            score_display_mode,
         )
 
         breakdown = plan_aware_queue_breakdown(state, plan)
-        queue_empty = breakdown.objective_actionable == 0
+        frozen_strict = plan.get("plan_start_scores", {}).get("strict")
+        queue_empty = score_display_mode(breakdown, frozen_strict) is not ScoreDisplayMode.FROZEN
     except PLAN_LOAD_EXCEPTIONS as exc:
         log_best_effort_failure(logger, "run post-scan plan reconciliation", exc)
         return False
@@ -323,11 +329,11 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
     ):
         dirty = True
 
-    if _sync_triage_and_log(plan, runtime.state):
-        dirty = True
     if _sync_communicate_score_and_log(plan, runtime.state, policy=policy):
         dirty = True
     if _sync_create_plan_and_log(plan, runtime.state, policy=policy):
+        dirty = True
+    if _sync_triage_and_log(plan, runtime.state):
         dirty = True
     if _sync_plan_start_scores_and_log(plan, runtime.state):
         dirty = True

@@ -598,10 +598,10 @@ def test_stale_subjective_appear_when_no_objective_backlog():
 
 
 def test_unassessed_subjective_visible_with_objective_backlog():
-    """Unassessed (initial_review) subjective items appear even with objective backlog.
+    """When initial reviews exist, only they are shown — objective items hidden.
 
-    Initial reviews are onboarding priority — they let users assess dimensions
-    from the start, not just at endgame.
+    Initial reviews are the first phase: scan → review → score → plan.
+    Objective work becomes visible only after initial reviews are done.
     """
     objective_issues = [
         _issue(f"smells::src/{c}.py::x", detector="smells", tier=3)
@@ -634,10 +634,10 @@ def test_unassessed_subjective_visible_with_objective_backlog():
     ids = [item["id"] for item in queue["items"]]
     subj_ids = [i for i in ids if i.startswith("subjective::")]
 
-    # Initial review items survive lifecycle filter — always visible
+    # Initial reviews gate: only subjective items visible, objective hidden
     assert len(subj_ids) == 1
     assert "subjective::naming_quality" in ids
-    assert len(ids) == 5  # 4 objective + 1 initial review
+    assert len(ids) == 1  # only initial review — objective items hidden
 
 
 # ── Impact-based ordering ──────────────────────────────────
@@ -1053,3 +1053,77 @@ def test_wontfixed_issues_excluded_with_plan():
     assert "d" in ids
     assert "b" not in ids
     assert "c" not in ids
+
+
+# ── Triage lifecycle ordering ────────────────────────────────
+
+
+def test_triage_stages_hidden_during_initial_reviews():
+    """Phase 1 hides triage stages and workflow actions — only initial reviews visible."""
+    objective_issues = [
+        _issue(f"smells::src/{c}.py::x", detector="smells", tier=3)
+        for c in "ab"
+    ]
+    state = _state(
+        objective_issues,
+        dimension_scores={
+            "Naming quality": {
+                "score": 0.0,
+                "strict": 0.0,
+                "failing": 0,
+                "detectors": {
+                    "subjective_assessment": {
+                        "dimension_key": "naming_quality",
+                        "placeholder": True,
+                    },
+                },
+            },
+        },
+    )
+    state["subjective_assessments"] = {
+        "naming_quality": {"score": 0.0, "placeholder": True}
+    }
+
+    # Inject a triage stage and a workflow action into queue_order so they
+    # would appear if the lifecycle filter didn't hide them.
+    plan = {
+        "queue_order": [
+            "triage::observe",
+            "workflow::communicate-score",
+            "subjective::naming_quality",
+        ],
+        "queue_skipped": {},
+    }
+    queue = build_work_queue(state, count=None, include_subjective=True, plan=plan)
+    ids = [item["id"] for item in queue["items"]]
+
+    # Only initial review visible — triage and workflow hidden
+    assert ids == ["subjective::naming_quality"]
+
+
+def test_triage_stages_sort_after_workflow_in_natural_ranking():
+    """In natural ranking (no plan), workflow actions sort before triage stages."""
+    from desloppify.engine._work_queue.ranking import item_sort_key
+
+    workflow_item = {
+        "id": "workflow::communicate-score",
+        "kind": "workflow_action",
+        "tier": 1,
+        "confidence": "high",
+        "detector": "workflow",
+        "file": ".",
+    }
+    triage_item = {
+        "id": "triage::observe",
+        "kind": "workflow_stage",
+        "tier": 1,
+        "confidence": "high",
+        "detector": "triage",
+        "file": ".",
+        "detail": {"stage": "observe"},
+        "is_blocked": False,
+    }
+
+    wf_key = item_sort_key(workflow_item)
+    tr_key = item_sort_key(triage_item)
+    assert wf_key < tr_key, "workflow actions should sort before triage stages"

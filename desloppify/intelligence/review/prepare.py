@@ -76,7 +76,7 @@ class HolisticReviewPrepareOptions:
 
     dimensions: list[str] | None = None
     files: list[str] | None = None
-    include_full_sweep: bool = True
+    include_full_sweep: bool = False
     max_files_per_batch: int | None = None
     include_issue_history: bool = False
     issue_history_max_issues: int = 30

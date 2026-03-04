@@ -81,6 +81,54 @@ def _queue_display_items(items: list[dict], *, top: int) -> list[dict]:
     return items
 
 
+_CLUSTER_TYPE_LABELS = {
+    "auto/initial-review": "Initial subjective review",
+    "auto/stale-review": "Stale subjective review",
+    "auto/under-target-review": "Optional re-review",
+}
+
+_ACTION_TYPE_LABELS = {
+    "auto_fix": "Auto-fixable batch",
+    "reorganize": "Reorganize batch",
+    "refactor": "Refactor batch",
+    "manual_fix": "Grouped task",
+}
+
+
+def _cluster_type_label(cluster_name: str, action_type: str) -> str:
+    if cluster_name in _CLUSTER_TYPE_LABELS:
+        return _CLUSTER_TYPE_LABELS[cluster_name]
+    return _ACTION_TYPE_LABELS.get(action_type, "Grouped task")
+
+
+def _render_cluster_banner(item: dict, position: int, new_ids: set[str]) -> None:
+    """Render a collapsed cluster as a visually distinct banner."""
+    name = item.get("cluster_name", item.get("id", ""))
+    member_count = item.get("member_count", 0)
+    action_type = item.get("action_type", "manual_fix")
+    type_label = _cluster_type_label(name, action_type)
+    new_in_cluster = sum(
+        1 for m in item.get("members", [])
+        if m.get("id") in new_ids
+    )
+    new_tag = f"  (+{new_in_cluster} new)" if new_in_cluster else ""
+    summary = item.get("summary", "")
+    command = item.get("primary_command", "")
+
+    label = f"{position}. {type_label} — {member_count} items{new_tag}"
+    width = max(len(label) + 4, 50)
+    bar = "─" * width
+    print(colorize(f"  {bar}", "dim"))
+    print(colorize(f"  {label}", "bold"))
+    print(colorize(f"     Cluster: {name}", "dim"))
+    if summary:
+        print(colorize(f"     {summary}", "dim"))
+    if command:
+        print(colorize(f"     Run:      {command}", "cyan"))
+    print(colorize(f"     Drill in: desloppify plan queue --cluster {name}", "dim"))
+    print(colorize(f"  {bar}", "dim"))
+
+
 def _build_rows(display_items: list[dict], new_ids: set[str] | None = None) -> list[list[str]]:
     rows: list[list[str]] = []
     _new = new_ids or set()
@@ -101,16 +149,8 @@ def _build_rows(display_items: list[dict], new_ids: set[str] | None = None) -> l
             summary = item.get("summary", "")
             cluster_name = ""
         elif kind == "cluster":
-            conf_str = item.get("confidence", "high")
-            member_count = item.get("member_count", 0)
-            detector = item.get("detector", "cluster")
-            new_in_cluster = sum(
-                1 for m in item.get("members", [])
-                if m.get("id") in _new
-            )
-            new_tag = f" (+{new_in_cluster} new)" if new_in_cluster else ""
-            summary = f"[{member_count} items{new_tag}] {item.get('summary', '')}"
-            cluster_name = item.get("cluster_name", item.get("id", ""))
+            # Clusters are rendered as banners, not table rows
+            continue
         else:
             conf_str = item.get("confidence", "medium")
             detector = item.get("detector", "")
@@ -185,12 +225,18 @@ def cmd_plan_queue(args: argparse.Namespace) -> None:
 
     # Determine which items to show
     display_items = _queue_display_items(items, top=top)
-    headers = ["#", "Confidence", "Detector", "Summary", "Cluster"]
-    rows = _build_rows(display_items, new_ids=new_ids)
 
+    # Render cluster banners first, then remaining items in the table
     print()
-    widths = [4, 4, 12, 50, 16]
-    print_table(headers, rows, widths=widths)
+    for idx, item in enumerate(display_items, 1):
+        if item.get("kind") == "cluster":
+            _render_cluster_banner(item, idx, new_ids)
+
+    rows = _build_rows(display_items, new_ids=new_ids)
+    if rows:
+        headers = ["#", "Confidence", "Detector", "Summary", "Cluster"]
+        widths = [4, 4, 12, 50, 16]
+        print_table(headers, rows, widths=widths)
 
     if top > 0 and len(items) > top:
         remaining = len(items) - top

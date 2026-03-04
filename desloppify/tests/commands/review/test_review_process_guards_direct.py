@@ -691,4 +691,4 @@ def test_require_batches_guides_rebuild_when_packet_has_no_batches(capsys):
     err = capsys.readouterr().err
     assert "no investigation_batches" in exc.value.message
     assert "Regenerate review context first" in err
-    assert "review --run-batches --runner codex --parallel --scan-after-import" in err
+    assert "follow your runner's review workflow" in err

@@ -160,6 +160,9 @@ def main() -> None:
 
     parser = create_parser()
     args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        return
     if args.command == "help":
         _handle_help_command(args, parser)
         return

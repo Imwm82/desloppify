@@ -144,7 +144,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
             colorize(
                 "  * Expired provisional manual-override assessments: "
                 f"{runtime.expired_manual_override_count} dimension(s) reset to 0. "
-                "Use trusted `review --run-batches --runner codex --parallel --scan-after-import` to replace them.",
+                "Run a trusted review to replace them (see skill doc for options).",
                 "yellow",
             )
         )
