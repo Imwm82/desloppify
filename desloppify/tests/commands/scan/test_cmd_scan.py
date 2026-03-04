@@ -27,6 +27,7 @@ from desloppify.app.commands.scan.cmd import (
     show_post_scan_analysis,
     show_score_delta,
 )
+from desloppify.base.exception_sets import CommandError
 from desloppify.engine._scoring.policy.core import DIMENSIONS
 
 # ---------------------------------------------------------------------------
@@ -236,11 +237,10 @@ class TestCmdScanExecution:
         )
         monkeypatch.setattr(scan_cmd_mod, "colorize", lambda text, _style: text)
 
-        with pytest.raises(SystemExit) as exc:
+        with pytest.raises(CommandError) as exc:
             cmd_scan(args)
-        assert exc.value.code == 2
-        out = capsys.readouterr().out
-        assert "state.issues must be an object" in out
+        assert exc.value.exit_code == 2
+        assert "state.issues must be an object" in str(exc.value)
 
 
 class TestScorecardBadgeContract:

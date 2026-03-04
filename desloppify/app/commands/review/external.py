@@ -553,7 +553,7 @@ def do_external_submit(
             ),
         )
         if code != 0:
-            raise SystemExit(code)
+            raise CommandError(f"External review exited with code {code}", exit_code=code)
 
 
 __all__ = ["do_external_start", "do_external_submit", "EXTERNAL_ATTEST_TEXT"]

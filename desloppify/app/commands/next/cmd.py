@@ -18,7 +18,7 @@ from desloppify.app.commands.helpers.runtime import command_runtime
 from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE, target_strict_score_from_config
 from desloppify.app.commands.helpers.state import require_completed_scan
 from desloppify.base.discovery.file_paths import safe_write_text
-from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
+from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.base.output.terminal import colorize
 from desloppify.base.output.user_message import print_user_message
 from desloppify.app.skill_docs import check_skill_version
@@ -177,7 +177,7 @@ def _emit_requested_output(
             colorize_fn=colorize,
         ):
             return True
-        raise SystemExit(1)
+        raise CommandError("Failed to write output file")
 
     if next_output_mod.emit_non_terminal_output(opts.output_format, payload, items):
         return True

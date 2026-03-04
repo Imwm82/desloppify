@@ -118,7 +118,7 @@ def _score_delta_line(plan: dict[str, Any], state: StateModel) -> str:
     try:
         from desloppify.engine._scoring.results.core import compute_health_score
 
-        current_strict = compute_health_score(current_dim, score_key="strict_score")
+        current_strict = compute_health_score(current_dim, score_key="strict")
     except (ImportError, TypeError, ValueError, KeyError):
         return ""
 

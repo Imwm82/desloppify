@@ -116,7 +116,6 @@ class StateStats(TypedDict, total=False):
 class DimensionScore(TypedDict, total=False):
     score: float
     strict: float
-    strict_score: float
     verified_strict_score: float
     checks: int
     failing: int

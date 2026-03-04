@@ -139,7 +139,7 @@ def _aggregate_scores(dim_scores: dict) -> dict[str, float]:
     }
     return {
         "overall_score": compute_health_score(dim_scores),
-        "strict_score": compute_health_score(dim_scores, score_key="strict_score"),
+        "strict_score": compute_health_score(dim_scores, score_key="strict"),
         "objective_score": compute_health_score(mechanical),
         "verified_strict_score": compute_health_score(
             mechanical,
@@ -200,7 +200,7 @@ def _materialize_dimension_scores(
     state["dimension_scores"] = {
         name: dict(
             score=lenient_scores[name]["score"],
-            strict_score=strict_scores[name]["score"],
+            strict=strict_scores[name]["score"],
             verified_strict_score=verified_strict_scores[name]["score"],
             checks=lenient_scores[name]["checks"],
             failing=lenient_scores[name]["failing"],
@@ -209,8 +209,6 @@ def _materialize_dimension_scores(
         )
         for name in lenient_scores
     }
-    for data in state["dimension_scores"].values():
-        data["strict"] = data["strict_score"]
 
     for dim_name, prev_data in prev_dim_scores.items():
         if dim_name in state["dimension_scores"]:
@@ -223,15 +221,8 @@ def _materialize_dimension_scores(
         carried.setdefault("score", 0.0)
         carried.setdefault("strict", carried.get("score", 0.0))
         carried.setdefault(
-            "strict_score",
-            carried.get("strict", carried.get("score", 0.0)),
-        )
-        carried.setdefault(
             "verified_strict_score",
-            carried.get(
-                "strict_score",
-                carried.get("strict", carried.get("score", 0.0)),
-            ),
+            carried.get("strict", carried.get("score", 0.0)),
         )
         state["dimension_scores"][dim_name] = carried
 

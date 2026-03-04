@@ -29,7 +29,7 @@ def cmd_zone(args: argparse.Namespace) -> None:
         raise CommandError("Usage: desloppify zone {show|set|clear}")
 
 
-def _zone_show(args):
+def _zone_show(args: argparse.Namespace):
     """Show zone classifications for all scanned files."""
     state_file = state_path(args)
     if not state_file.exists():
@@ -77,7 +77,7 @@ def _zone_show(args):
     )
 
 
-def _zone_set(args):
+def _zone_set(args: argparse.Namespace):
     """Set a zone override for a file."""
     filepath = args.zone_path
     zone_value = args.zone_value
@@ -101,7 +101,7 @@ def _zone_set(args):
     print(colorize("  Next command: `desloppify scan`", "dim"))
 
 
-def _zone_clear(args):
+def _zone_clear(args: argparse.Namespace):
     """Clear a zone override for a file."""
     filepath = args.zone_path
 

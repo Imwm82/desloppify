@@ -44,7 +44,7 @@ def detect_lang_from_dir(source_dir: str) -> str | None:
     return None
 
 
-def resolve_lang_for_file_move(source_abs: str, args) -> str | None:
+def resolve_lang_for_file_move(source_abs: str, args: object) -> str | None:
     """Resolve language for a single-file move operation.
 
     Explicit ``--lang`` takes priority. Otherwise, infer from file extension and

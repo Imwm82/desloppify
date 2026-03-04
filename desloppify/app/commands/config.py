@@ -26,7 +26,7 @@ def cmd_config(args: argparse.Namespace) -> None:
         _config_show(args)
 
 
-def _config_show(args):
+def _config_show(args: argparse.Namespace):
     """Print all config keys with current values and descriptions."""
     config = command_runtime(args).config
 
@@ -51,7 +51,7 @@ def _config_show(args):
     print()
 
 
-def _config_set(args):
+def _config_set(args: argparse.Namespace):
     """Set a config key to a value."""
     config = command_runtime(args).config
     key = args.config_key
@@ -72,7 +72,7 @@ def _config_set(args):
     print(colorize(f"  Set {key} = {display}", "green"))
 
 
-def _config_unset(args):
+def _config_unset(args: argparse.Namespace):
     """Reset a config key to its default."""
     config = command_runtime(args).config
     key = args.config_key

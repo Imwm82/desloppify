@@ -43,6 +43,7 @@ from desloppify.app.commands.scan.workflow import (
     resolve_noise_snapshot,
     run_scan_generation,
 )
+from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
 from desloppify.base.search.query import write_query
 
@@ -119,10 +120,9 @@ def cmd_scan(args: argparse.Namespace) -> None:
         lang_cfg = resolve_lang(args)
         lang_name = lang_cfg.name if lang_cfg else "selected"
         print_lang_runtime_options_error(exc, lang_name=lang_name)
-        raise SystemExit(2) from exc
+        raise CommandError(str(exc), exit_code=2) from exc
     except ScanStateContractError as exc:
-        print(colorize(f"  {exc}", "red"))
-        raise SystemExit(2) from exc
+        raise CommandError(str(exc), exit_code=2) from exc
     orchestrator = ScanOrchestrator(
         runtime,
         run_scan_generation_fn=run_scan_generation,

@@ -55,7 +55,7 @@ def test_generate_pr_body_includes_score_delta(monkeypatch) -> None:
     monkeypatch.setattr(
         scoring_core,
         "compute_health_score",
-        lambda _dim, score_key="strict_score": 95.0,
+        lambda _dim, score_key="strict": 95.0,
     )
     plan = {
         "commit_log": [
@@ -70,7 +70,7 @@ def test_generate_pr_body_includes_score_delta(monkeypatch) -> None:
     }
     state = {
         "issues": {"issue::a": {"summary": "Remove dead code"}},
-        "dimension_scores": {"code_quality": {"strict_score": 95.0}},
+        "dimension_scores": {"code_quality": {"strict": 95.0}},
     }
 
     body = commit_tracking_mod.generate_pr_body(plan, state)

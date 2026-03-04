@@ -12,7 +12,7 @@ from desloppify.app.commands.helpers.runtime import command_runtime
 from desloppify.app.commands.helpers.state import require_completed_scan
 from desloppify.app.skill_docs import check_skill_version
 from desloppify.base.config import target_strict_score_from_config
-from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
+from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.base.output.terminal import colorize
 from desloppify.base.tooling import check_config_staleness
 from desloppify.engine.plan import load_plan
@@ -192,7 +192,7 @@ def cmd_show(args: argparse.Namespace) -> None:
     if opts.output_file:
         if write_show_output_file(opts.output_file, payload, len(surfaced_matches)):
             return
-        raise SystemExit(1)
+        raise CommandError("Failed to write output file")
 
     render_issues(
         surfaced_matches,
