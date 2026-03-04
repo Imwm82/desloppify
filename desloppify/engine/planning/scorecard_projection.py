@@ -110,7 +110,7 @@ def all_subjective_entries(
             )
         )
         dim_key = assessment_meta.get("dimension_key", "")
-        stale = bool(
+        stale = bool(data.get("stale")) or bool(
             dim_key
             and isinstance(assessments.get(dim_key), dict)
             and assessments[dim_key].get("needs_review_refresh")

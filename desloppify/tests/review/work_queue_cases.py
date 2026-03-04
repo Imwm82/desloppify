@@ -117,11 +117,11 @@ def test_review_items_sort_by_issue_weight_within_tier():
 
 
 def test_queue_contains_mechanical_and_synthetic_subjective_items():
-    # When no objective backlog exists, subjective items appear alongside mechanical.
+    # When no objective backlog exists, stale subjective items appear alongside mechanical.
     state = _state(
         [],
         dimension_scores={
-            "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2},
+            "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2, "stale": True},
             "Logic clarity": {"score": 100.0, "strict": 100.0, "failing": 0},
         },
     )
@@ -199,8 +199,8 @@ def test_subjective_items_respect_target_threshold():
     state = _state(
         [],
         dimension_scores={
-            "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2},
-            "AI generated debt": {"score": 96.0, "strict": 96.0, "failing": 1},
+            "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2, "stale": True},
+            "AI generated debt": {"score": 96.0, "strict": 96.0, "failing": 1, "stale": True},
         },
     )
 
@@ -383,7 +383,7 @@ def test_subjective_threshold_clamped_to_valid_range():
     state = _state(
         [],
         dimension_scores={
-            "Naming quality": {"score": 50.0, "strict": 50.0, "failing": 1},
+            "Naming quality": {"score": 50.0, "strict": 50.0, "failing": 1, "stale": True},
         },
     )
     # threshold=-10 clamps to 0.0 -> score 50 >= 0 -> item excluded
@@ -777,7 +777,7 @@ def test_evidence_only_reduces_objective_count():
     state = _state(
         issues,
         dimension_scores={
-            "Naming quality": {"score": 70.0, "strict": 70.0, "failing": 1},
+            "Naming quality": {"score": 70.0, "strict": 70.0, "failing": 1, "stale": True},
         },
     )
 

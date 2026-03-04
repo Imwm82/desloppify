@@ -310,7 +310,7 @@ class TestPlanItemSections:
         state = {
             "issues": issues,
             "dimension_scores": {
-                "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2}
+                "Naming quality": {"score": 94.0, "strict": 94.0, "failing": 2, "stale": True}
             },
         }
         lines = _plan_item_sections(issues, state=state)

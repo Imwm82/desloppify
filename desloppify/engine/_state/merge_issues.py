@@ -94,6 +94,13 @@ def auto_resolve_disappeared(
             skipped_other_lang += 1
             continue
 
+        # Suspect detectors (e.g. 'review') are import-only and must never
+        # be auto-resolved by a scan — check this BEFORE the scope filter
+        # so that review issues with file="." aren't wrongly resolved as
+        # "out of current scan scope".
+        if previous.get("detector", "unknown") in suspect_detectors:
+            continue
+
         if scan_path and scan_path != ".":
             prefix = scan_path.rstrip("/") + "/"
             if (
@@ -109,9 +116,6 @@ def auto_resolve_disappeared(
                 continue
 
         if exclude and any(matches_exclusion(previous["file"], ex) for ex in exclude):
-            continue
-
-        if previous.get("detector", "unknown") in suspect_detectors:
             continue
 
         previous_status = previous["status"]

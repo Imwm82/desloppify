@@ -20,7 +20,7 @@ from ..batches_runtime import (
 from ..batches_runtime import (
     write_run_summary as _write_run_summary_impl,
 )
-from ..runner_parallel import BatchExecutionOptions
+from ..runner_parallel import BatchExecutionOptions, BatchProgressEvent
 from ..runtime.policy import resolve_batch_run_policy
 from .scope import (
     collect_reviewed_files_from_batches,
@@ -196,11 +196,12 @@ def do_run_batches(
         )
 
     def _report_progress(
-        batch_index: int,
-        event: str,
-        code: int | None = None,
-        **details,
+        progress_event: BatchProgressEvent,
     ) -> None:
+        batch_index = progress_event.batch_index
+        event = progress_event.event
+        code = progress_event.code
+        details = progress_event.details
         if event == "heartbeat":
             active = details.get("active_batches")
             queued = details.get("queued_batches", [])
