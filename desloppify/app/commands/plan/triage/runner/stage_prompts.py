@@ -28,6 +28,11 @@ from .stage_prompts_sense import (
 from .stage_prompts_validation import _validation_requirements
 
 
+def _required_issue_hashes(triage_input: TriageInput) -> list[str]:
+    """Return sorted short hashes for open review issues."""
+    return sorted(issue_id.rsplit("::", 1)[-1] for issue_id in triage_input.open_issues)
+
+
 def _compact_issue_summary(triage_input: TriageInput) -> str:
     """Return a compact issue summary for later triage stages."""
     by_dim: Counter[str] = Counter()
@@ -53,16 +58,22 @@ def _issue_context_for_stage(stage: str, triage_input: TriageInput) -> str:
     if stage in {"observe", "reflect"}:
         parts = ["## Issue Data\n\n" + build_triage_prompt(triage_input)]
         if stage == "reflect":
-            short_ids = sorted(
-                issue_id.rsplit("::", 1)[-1]
-                for issue_id in triage_input.open_issues
-            )
+            short_ids = _required_issue_hashes(triage_input)
             parts.append(
                 "## Required Issue Hashes\n"
                 f"Total open review issues: {len(short_ids)}\n"
                 "Every one of these hashes must appear exactly once in your cluster/skip blueprint.\n"
                 "Do not repeat hashes outside that blueprint.\n"
                 + ", ".join(short_ids)
+            )
+            parts.append(
+                "## Coverage Ledger Template\n"
+                "Your final report MUST contain a `## Coverage Ledger` section with one line per issue.\n"
+                "Allowed forms:\n"
+                '- `- abcd1234 -> cluster "cluster-name"`\n'
+                '- `- abcd1234 -> skip "specific-reason-tag"`\n'
+                "Do not mention hashes outside the `## Coverage Ledger` section.\n"
+                + "\n".join(f"- {short_id} -> TODO" for short_id in short_ids)
             )
         return "\n\n".join(parts)
     return _compact_issue_summary(triage_input)

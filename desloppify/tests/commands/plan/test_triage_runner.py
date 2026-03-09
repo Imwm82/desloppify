@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from desloppify.app.commands.plan.triage._stage_validation import (
+    _validate_reflect_issue_accounting,
+)
 from desloppify.app.commands.plan.triage.runner import codex_runner
 from desloppify.app.commands.plan.triage.runner.stage_prompts import build_stage_prompt
 from desloppify.app.commands.plan.triage.runner.stage_validation import (
@@ -60,6 +63,8 @@ def test_build_reflect_prompt_includes_prior(tmp_path: Path) -> None:
     assert "REFLECT" in prompt
     assert "My observation report" in prompt
     assert "## Required Issue Hashes" in prompt
+    assert "## Coverage Ledger Template" in prompt
+    assert "-> TODO" in prompt
     assert "exactly once" in prompt
 
 
@@ -98,8 +103,32 @@ def test_build_reflect_prompt_output_only_for_codex_runner(tmp_path: Path) -> No
     assert "Do NOT run any `desloppify` commands." in prompt
     assert "Do NOT debug, repair, reinstall, or inspect the `desloppify` CLI/environment." in prompt
     assert "orchestrator records and confirms the stage" in prompt
+    assert "## Coverage Ledger Template" in prompt
     assert "CLI Command Reference" not in prompt
     assert 'desloppify plan triage --stage reflect --report "' not in prompt
+
+
+def test_validate_reflect_issue_accounting_prefers_coverage_ledger() -> None:
+    valid_ids = {
+        "review::src/a.ts::alpha::aaaabbbb",
+        "review::src/b.ts::beta::ccccdddd",
+    }
+    report = """
+## Coverage Ledger
+- aaaabbbb -> cluster "alpha"
+- ccccdddd -> skip "false-positive"
+
+## Cluster Blueprint
+Cluster "alpha" handles aaaabbbb after the shared seam is stable.
+"""
+    ok, cited, missing, duplicates = _validate_reflect_issue_accounting(
+        report=report,
+        valid_ids=valid_ids,
+    )
+    assert ok
+    assert cited == valid_ids
+    assert missing == []
+    assert duplicates == []
 
 
 def test_build_organize_prompt(tmp_path: Path) -> None:

@@ -71,7 +71,7 @@ def test_import_untrusted_assessments_are_dropped_by_default(tmp_path):
     issues_path = tmp_path / "issues.json"
     issues_path.write_text(json.dumps(payload))
 
-    parsed = load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+    parsed = load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     assert parsed["assessments"] == {}
     policy = parsed.get("_assessment_policy", {})
     assert policy["mode"] == "issues_only"
@@ -89,8 +89,7 @@ def test_import_manual_override_requires_attestation(tmp_path, capsys):
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            manual_override=True,
+            config=ImportLoadConfig(manual_override=True),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "--manual-override requires --attest" in err
@@ -106,9 +105,10 @@ def test_import_manual_override_allows_untrusted_assessments(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
-        manual_override=True,
-        manual_attest="Manual review calibrated after independent audit.",
+        config=ImportLoadConfig(
+            manual_override=True,
+            manual_attest="Manual review calibrated after independent audit.",
+        ),
     )
     assert parsed["assessments"]["naming_quality"] == 95
     policy = parsed.get("_assessment_policy", {})
@@ -126,33 +126,14 @@ def test_import_manual_override_rejects_allow_partial_combo(tmp_path, capsys):
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            allow_partial=True,
-            manual_override=True,
-            manual_attest="operator note",
+            config=ImportLoadConfig(
+                allow_partial=True,
+                manual_override=True,
+                manual_attest="operator note",
+            ),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "--manual-override cannot be combined with --allow-partial" in err
-
-
-def test_import_config_rejects_legacy_kwargs_mix(tmp_path, capsys):
-    payload = {
-        "issues": [],
-        "assessments": {"naming_quality": 95},
-    }
-    issues_path = tmp_path / "issues.json"
-    issues_path.write_text(json.dumps(payload))
-
-    with pytest.raises(ImportPayloadLoadError) as exc:
-        load_import_issues_data(
-            str(issues_path),
-            colorize_fn=_colorize,
-            config=ImportLoadConfig(),
-            manual_override=True,
-        )
-    err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
-    assert "Import config conflict" in err
-    assert "manual_override" in err
 
 
 def test_import_config_allows_clean_config_only_path(tmp_path):
@@ -162,7 +143,6 @@ def test_import_config_allows_clean_config_only_path(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
         config=ImportLoadConfig(manual_override=True, manual_attest="manual override ok"),
     )
     assert parsed["assessments"]["naming_quality"] == 95
@@ -179,9 +159,10 @@ def test_import_attested_external_requires_attest_phrases(tmp_path, capsys):
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            attested_external=True,
-            manual_attest="looks good",
+            config=ImportLoadConfig(
+                attested_external=True,
+                manual_attest="looks good",
+            ),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "--attested-external requires --attest containing both" in err
@@ -200,11 +181,12 @@ def test_import_attested_external_rejects_untrusted_provenance(tmp_path, capsys)
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            attested_external=True,
-            manual_attest=(
-                "I validated this review was completed without awareness of overall score "
-                "and is unbiased."
+            config=ImportLoadConfig(
+                attested_external=True,
+                manual_attest=(
+                    "I validated this review was completed without awareness of overall score "
+                    "and is unbiased."
+                ),
             ),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
@@ -234,11 +216,12 @@ def test_import_attested_external_accepts_claude_blind_provenance(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
-        attested_external=True,
-        manual_attest=(
-            "I validated this review was completed without awareness of overall score "
-            "and is unbiased."
+        config=ImportLoadConfig(
+            attested_external=True,
+            manual_attest=(
+                "I validated this review was completed without awareness of overall score "
+                "and is unbiased."
+            ),
         ),
     )
     assert parsed["assessments"]["naming_quality"] == 100
@@ -269,11 +252,12 @@ def test_import_attested_external_rejects_non_claude_runner(tmp_path, capsys):
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            attested_external=True,
-            manual_attest=(
-                "I validated this review was completed without awareness of overall score "
-                "and is unbiased."
+            config=ImportLoadConfig(
+                attested_external=True,
+                manual_attest=(
+                    "I validated this review was completed without awareness of overall score "
+                    "and is unbiased."
+                ),
             ),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
@@ -292,13 +276,14 @@ def test_import_attested_external_rejects_allow_partial_combo(tmp_path, capsys):
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            attested_external=True,
-            manual_attest=(
-                "I validated this review was completed without awareness of overall score "
-                "and is unbiased."
+            config=ImportLoadConfig(
+                attested_external=True,
+                manual_attest=(
+                    "I validated this review was completed without awareness of overall score "
+                    "and is unbiased."
+                ),
+                allow_partial=True,
             ),
-            allow_partial=True,
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "--attested-external cannot be combined with --allow-partial" in err
@@ -333,7 +318,7 @@ def test_import_external_trusted_provenance_still_defaults_to_issues_only(tmp_pa
     issues_path = tmp_path / "issues.json"
     issues_path.write_text(json.dumps(payload))
 
-    parsed = load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+    parsed = load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     assert parsed["assessments"] == {}
     policy = parsed.get("_assessment_policy", {})
     assert policy["mode"] == "issues_only"
@@ -351,9 +336,10 @@ def test_import_trusted_internal_source_applies_assessments(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
-        trusted_assessment_source=True,
-        trusted_assessment_label="internal batch import test",
+        config=ImportLoadConfig(
+            trusted_assessment_source=True,
+            trusted_assessment_label="internal batch import test",
+        ),
     )
     assert parsed["assessments"]["naming_quality"] == 100
     policy = parsed.get("_assessment_policy", {})
@@ -381,7 +367,7 @@ def test_import_hash_mismatch_falls_back_to_issues_only(tmp_path):
     issues_path = tmp_path / "issues.json"
     issues_path.write_text(json.dumps(payload))
 
-    parsed = load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+    parsed = load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     assert parsed["assessments"] == {}
     policy = parsed.get("_assessment_policy", {})
     assert policy["mode"] == "issues_only"
@@ -409,7 +395,7 @@ def test_import_dimension_feedback_without_trusted_provenance_still_drops_assess
     issues_path = tmp_path / "issues.json"
     issues_path.write_text(json.dumps(payload))
 
-    parsed = load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+    parsed = load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     assert parsed["assessments"] == {}
     assert parsed["_assessment_policy"]["mode"] == "issues_only"
 
@@ -433,8 +419,7 @@ def test_import_rejects_issues_missing_schema_fields(tmp_path, capsys):
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            lang_name="typescript",
+            config=ImportLoadConfig(lang_name="typescript"),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "schema validation failed" in err
@@ -451,7 +436,7 @@ def test_import_rejects_invalid_assessments_shape(tmp_path, capsys):
     issues_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
-        load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+        load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "assessments must be an object when provided" in err
 
@@ -465,7 +450,7 @@ def test_import_rejects_invalid_reviewed_files_shape(tmp_path, capsys):
     issues_path.write_text(json.dumps(payload))
 
     with pytest.raises(ImportPayloadLoadError) as exc:
-        load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+        load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "reviewed_files must be an array when provided" in err
 
@@ -488,9 +473,7 @@ def test_import_allow_partial_bypasses_schema_gate(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
-        lang_name="typescript",
-        allow_partial=True,
+        config=ImportLoadConfig(lang_name="typescript", allow_partial=True),
     )
     assert parsed["assessments"] == {}
     assert parsed["_assessment_policy"]["mode"] == "issues_only"
@@ -504,7 +487,7 @@ def test_import_accepts_perfect_assessment_without_feedback(tmp_path):
     issues_path = tmp_path / "issues.json"
     issues_path.write_text(json.dumps(payload))
 
-    parsed = load_import_issues_data(str(issues_path), colorize_fn=_colorize)
+    parsed = load_import_issues_data(str(issues_path), config=ImportLoadConfig())
     assert parsed["assessments"] == {}
     assert parsed["_assessment_policy"]["mode"] == "issues_only"
 
@@ -527,9 +510,10 @@ def test_import_trusted_internal_accepts_dimension_notes_feedback(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
-        trusted_assessment_source=True,
-        trusted_assessment_label="internal batch import test",
+        config=ImportLoadConfig(
+            trusted_assessment_source=True,
+            trusted_assessment_label="internal batch import test",
+        ),
     )
     assert parsed["assessments"]["naming_quality"] == 95
     policy = parsed.get("_assessment_policy", {})
@@ -547,9 +531,10 @@ def test_import_trusted_internal_rejects_sub100_without_feedback(tmp_path, capsy
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            trusted_assessment_source=True,
-            trusted_assessment_label="internal batch import test",
+            config=ImportLoadConfig(
+                trusted_assessment_source=True,
+                trusted_assessment_label="internal batch import test",
+            ),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "assessments below 100.0 must include explicit feedback" in err
@@ -574,9 +559,10 @@ def test_import_trusted_internal_rejects_low_score_without_issue(tmp_path, capsy
     with pytest.raises(ImportPayloadLoadError) as exc:
         load_import_issues_data(
             str(issues_path),
-            colorize_fn=_colorize,
-            trusted_assessment_source=True,
-            trusted_assessment_label="internal batch import test",
+            config=ImportLoadConfig(
+                trusted_assessment_source=True,
+                trusted_assessment_label="internal batch import test",
+            ),
         )
     err = _render_import_load_error(exc.value, import_file=issues_path, capsys=capsys)
     assert "assessments below 85.0 must include at least one issue" in err
@@ -602,9 +588,10 @@ def test_import_trusted_internal_accepts_low_score_with_issue(tmp_path):
 
     parsed = load_import_issues_data(
         str(issues_path),
-        colorize_fn=_colorize,
-        trusted_assessment_source=True,
-        trusted_assessment_label="internal batch import test",
+        config=ImportLoadConfig(
+            trusted_assessment_source=True,
+            trusted_assessment_label="internal batch import test",
+        ),
     )
     assert parsed["assessments"]["naming_quality"] == 80
 

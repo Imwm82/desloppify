@@ -154,12 +154,38 @@ def _analyze_reflect_issue_accounting(
     valid_ids: set[str],
 ) -> tuple[set[str], list[str], list[str]]:
     """Return cited, missing, and duplicate issue IDs referenced by reflect."""
-    cited = extract_issue_citations(report, valid_ids)
     short_id_map: dict[str, str] = {}
     for issue_id in valid_ids:
         short_id = issue_id.rsplit("::", 1)[-1]
         if re.fullmatch(r"[0-9a-f]{8,}", short_id):
             short_id_map.setdefault(short_id, issue_id)
+    ledger_hits: Counter[str] | None = None
+    in_ledger = False
+    for raw_line in report.splitlines():
+        line = raw_line.strip()
+        if re.fullmatch(r"##\s+Coverage Ledger", line, re.IGNORECASE):
+            in_ledger = True
+            ledger_hits = Counter()
+            continue
+        if in_ledger and re.match(r"##\s+", line):
+            break
+        if not in_ledger:
+            continue
+        for token in re.findall(r"[0-9a-f]{8,}", line):
+            issue_id = short_id_map.get(token)
+            if issue_id:
+                ledger_hits[issue_id] += 1
+    if ledger_hits is not None:
+        cited = set(ledger_hits)
+        duplicates = sorted(issue_id for issue_id, count in ledger_hits.items() if count > 1)
+        missing = sorted(valid_ids - cited)
+        return cited, missing, duplicates
+    cited = extract_issue_citations(report, valid_ids)
+    # Also match valid IDs that appear literally in the report
+    # (handles non-hex IDs like test fixtures).
+    for issue_id in valid_ids:
+        if issue_id in report:
+            cited.add(issue_id)
     short_hits = Counter(
         short_id_map[token]
         for token in re.findall(r"[0-9a-f]{8,}", report)

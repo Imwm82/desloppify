@@ -434,6 +434,7 @@ def test_load_prior_reports_from_plan_uses_existing_stage_reports() -> None:
 
 def test_execute_stage_records_output_only_reflect_report(monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
+    plan_store = {"epic_triage_meta": {"triage_stages": {}}}
     for dirname in ("prompts", "output", "logs"):
         (tmp_path / dirname).mkdir()
 
@@ -444,15 +445,17 @@ def test_execute_stage_records_output_only_reflect_report(monkeypatch, tmp_path:
         output_file.write_text("Reflect analysis report with enough detail.", encoding="utf-8")
         return 0
 
-    monkeypatch.setattr(
-        "desloppify.app.commands.plan.triage.runner.codex_runner.run_triage_stage",
-        fake_run_triage_stage,
-    )
+    monkeypatch.setattr(orchestrator_pipeline_mod, "run_triage_stage", fake_run_triage_stage)
     monkeypatch.setitem(
         orchestrator_pipeline_mod._STAGE_HANDLERS,
         "reflect",
         orchestrator_pipeline_mod.StageHandler(
-            record_report=lambda report, _args, _services: captured.setdefault("report", report),
+            record_report=lambda report, _args, _services: (
+                captured.setdefault("report", report),
+                plan_store["epic_triage_meta"]["triage_stages"].update(
+                    {"reflect": {"report": report}}
+                ),
+            ),
             prompt_mode="output_only",
         ),
     )
@@ -460,7 +463,7 @@ def test_execute_stage_records_output_only_reflect_report(monkeypatch, tmp_path:
     status, result = orchestrator_pipeline_mod._execute_stage(
         stage="reflect",
         args=argparse.Namespace(state=None),
-        services=SimpleNamespace(),
+        services=SimpleNamespace(load_plan=lambda: plan_store),
         plan={},
         si={},
         prior_reports={},
@@ -498,10 +501,7 @@ def test_execute_stage_uses_self_record_mode_for_organize(monkeypatch, tmp_path:
         return 0
 
     monkeypatch.setattr(orchestrator_pipeline_mod, "build_stage_prompt", fake_build_stage_prompt)
-    monkeypatch.setattr(
-        "desloppify.app.commands.plan.triage.runner.codex_runner.run_triage_stage",
-        fake_run_triage_stage,
-    )
+    monkeypatch.setattr(orchestrator_pipeline_mod, "run_triage_stage", fake_run_triage_stage)
 
     status, result = orchestrator_pipeline_mod._execute_stage(
         stage="organize",
@@ -565,6 +565,94 @@ def test_execute_stage_blocks_organize_when_reflect_accounting_is_invalid(
 
     assert status == "failed"
     assert result["error"].startswith("reflect_accounting_invalid")
+
+
+def test_repair_reflect_report_if_needed_repairs_missing_hashes(monkeypatch, tmp_path: Path) -> None:
+    for dirname in ("prompts", "output", "logs"):
+        (tmp_path / dirname).mkdir()
+
+    repaired_report = """
+## Coverage Ledger
+- aaaabbbb -> cluster "alpha"
+- ccccdddd -> skip "false-positive"
+
+## Cluster Blueprint
+Cluster "alpha" owns the actual code changes.
+
+## Execution Order
+1. alpha
+"""
+
+    monkeypatch.setattr(orchestrator_pipeline_mod, "run_triage_stage", lambda **_kwargs: 0)
+    monkeypatch.setattr(orchestrator_pipeline_mod, "build_stage_prompt", lambda *a, **k: "repair prompt")
+    monkeypatch.setattr(
+        orchestrator_pipeline_mod,
+        "_read_stage_output",
+        lambda _path: repaired_report,
+    )
+
+    report, error = orchestrator_pipeline_mod._repair_reflect_report_if_needed(
+        report=(
+            "## Coverage Ledger\n"
+            '- aaaabbbb -> cluster "alpha"\n\n'
+            "## Cluster Blueprint\n"
+            "Cluster alpha is the main work."
+        ),
+        si=SimpleNamespace(
+            open_issues={
+                "review::src/a.ts::alpha::aaaabbbb": {},
+                "review::src/b.ts::beta::ccccdddd": {},
+            }
+        ),
+        prior_reports={"observe": "Observed the issues carefully."},
+        repo_root=tmp_path,
+        prompts_dir=tmp_path / "prompts",
+        output_dir=tmp_path / "output",
+        logs_dir=tmp_path / "logs",
+        cli_command="/tmp/run_desloppify.sh",
+        timeout_seconds=30,
+        append_run_log=lambda _line: None,
+    )
+
+    assert error is None
+    assert report == repaired_report
+
+
+def test_execute_stage_fails_when_handler_does_not_persist_stage(monkeypatch, tmp_path: Path) -> None:
+    for dirname in ("prompts", "output", "logs"):
+        (tmp_path / dirname).mkdir()
+
+    monkeypatch.setattr(orchestrator_pipeline_mod, "build_stage_prompt", lambda *a, **k: "prompt")
+    monkeypatch.setattr(orchestrator_pipeline_mod, "run_triage_stage", lambda **_kwargs: 0)
+    monkeypatch.setattr(orchestrator_pipeline_mod, "_read_stage_output", lambda _path: "x" * 120)
+    monkeypatch.setitem(
+        orchestrator_pipeline_mod._STAGE_HANDLERS,
+        "reflect",
+        orchestrator_pipeline_mod.StageHandler(record_report=lambda *_a, **_k: None),
+    )
+
+    services = SimpleNamespace(load_plan=lambda: {"epic_triage_meta": {"triage_stages": {}}})
+
+    status, result = orchestrator_pipeline_mod._execute_stage(
+        stage="reflect",
+        args=argparse.Namespace(state=None),
+        services=services,
+        plan={"epic_triage_meta": {"triage_stages": {"observe": {"report": "ok"}}}},
+        si=SimpleNamespace(open_issues={}),
+        prior_reports={"observe": "ok"},
+        repo_root=tmp_path,
+        prompts_dir=tmp_path / "prompts",
+        output_dir=tmp_path / "output",
+        logs_dir=tmp_path / "logs",
+        cli_command="/tmp/run_desloppify.sh",
+        stage_start=time.monotonic(),
+        timeout_seconds=60,
+        dry_run=False,
+        append_run_log=lambda _line: None,
+    )
+
+    assert status == "failed"
+    assert result["error"] == "stage_not_recorded"
 
 
 def test_run_codex_pipeline_raises_on_stage_failure(monkeypatch, tmp_path: Path) -> None:

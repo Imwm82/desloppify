@@ -64,47 +64,6 @@ class ImportLoadConfig:
     manual_attest: str | None = None
 
 
-def _config_and_legacy_kwargs_conflict(
-    *,
-    config: ImportLoadConfig | None,
-    lang_name: str | None,
-    allow_partial: bool,
-    trusted_assessment_source: bool,
-    trusted_assessment_label: str | None,
-    attested_external: bool,
-    manual_override: bool,
-    manual_attest: str | None,
-) -> list[str]:
-    """Return config/kwargs conflict errors to keep import API precedence explicit."""
-    if config is None:
-        return []
-
-    collisions: list[str] = []
-    if lang_name is not None:
-        collisions.append("lang_name")
-    if allow_partial:
-        collisions.append("allow_partial")
-    if trusted_assessment_source:
-        collisions.append("trusted_assessment_source")
-    if trusted_assessment_label is not None:
-        collisions.append("trusted_assessment_label")
-    if attested_external:
-        collisions.append("attested_external")
-    if manual_override:
-        collisions.append("manual_override")
-    if manual_attest is not None:
-        collisions.append("manual_attest")
-
-    if not collisions:
-        return []
-
-    joined = ", ".join(collisions)
-    return [
-        "Import config conflict: pass either `config=ImportLoadConfig(...)` "
-        f"or legacy kwargs, not both (conflicting args: {joined})."
-    ]
-
-
 def _normalize_import_payload_shape(
     payload: dict[str, Any],
 ) -> tuple[ReviewImportPayload | None, list[str]]:
@@ -299,45 +258,15 @@ def _parse_and_validate_import(
 def load_import_issues_data(
     import_file: str,
     *,
-    config: ImportLoadConfig | None = None,
-    colorize_fn=None,
-    lang_name: str | None = None,
-    allow_partial: bool = False,
-    trusted_assessment_source: bool = False,
-    trusted_assessment_label: str | None = None,
-    attested_external: bool = False,
-    manual_override: bool = False,
-    manual_attest: str | None = None,
+    config: ImportLoadConfig,
 ) -> ReviewImportPayload:
     """Load and normalize review import payload to object format.
 
     Raises ``ImportPayloadLoadError`` when validation fails.
     """
-    _ = colorize_fn
-    conflict_errors = _config_and_legacy_kwargs_conflict(
-        config=config,
-        lang_name=lang_name,
-        allow_partial=allow_partial,
-        trusted_assessment_source=trusted_assessment_source,
-        trusted_assessment_label=trusted_assessment_label,
-        attested_external=attested_external,
-        manual_override=manual_override,
-        manual_attest=manual_attest,
-    )
-    if conflict_errors:
-        raise ImportPayloadLoadError(conflict_errors)
-    options = config or ImportLoadConfig(
-        lang_name=lang_name,
-        allow_partial=allow_partial,
-        trusted_assessment_source=trusted_assessment_source,
-        trusted_assessment_label=trusted_assessment_label,
-        attested_external=attested_external,
-        manual_override=manual_override,
-        manual_attest=manual_attest,
-    )
     data, errors = _parse_and_validate_import(
         import_file,
-        config=options,
+        config=config,
     )
     if errors:
         raise ImportPayloadLoadError(errors)

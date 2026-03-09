@@ -106,27 +106,36 @@ says "here's what we should DO about it, and here's what we should NOT do, and h
    cluster line or one skip line. Do not drop hashes, and do not repeat a hash in multiple
    clusters or in both a cluster and a skip.
 
-### Your report MUST include a concrete cluster blueprint
+### Your report MUST include both a coverage ledger and a concrete cluster blueprint
 
 This blueprint is what the organize stage will execute. Be specific:
 ```
-Cluster "media-lightbox-hooks": issues X, Y, Z (all in src/domains/media-lightbox/)
-Cluster "task-typing": issues A, B (both touch src/types/database.ts)
-Skip: issue W (false positive per observe), issue V (over-engineering — fix adds 50 lines for 3 lines saved)
+## Coverage Ledger
+- a5996373 -> cluster "travel-structure-contract-unification"
+- fb113678 -> skip "false-positive-current-code"
+
+## Cluster Blueprint
+Cluster "media-lightbox-hooks" (all in src/domains/media-lightbox/)
+Cluster "task-typing" (both touch src/types/database.ts)
+
+## Skip Decisions
+Skip "false-positive-current-code" (false positive per observe)
 ```
 
 ### Hard accounting rule
 
-- Mention each issue hash **once and only once** in the blueprint.
-- Do **not** mention issue hashes again in rationale paragraphs, recurring-pattern notes, or
-  ordering explanations. After the blueprint, refer to clusters by name.
-- Before finishing, do a self-check: cluster hashes + skip hashes must equal all open issue hashes.
+- Start your report with a `## Coverage Ledger` section.
+- In that section, mention each issue hash **once and only once** on its own ledger line.
+- Do **not** mention issue hashes again in cluster rationale paragraphs, recurring-pattern notes,
+  or ordering explanations. After the ledger, refer to clusters by name.
+- Before finishing, do a self-check: the ledger must cover all open issue hashes exactly once.
 
 ### What a LAZY reflect looks like (will be rejected):
 - Restating observe findings in slightly different words
 - "We should prioritize high-impact items and defer low-priority ones"
 - A bulleted list of dimensions without any strategic thinking
 - Ignoring recurring patterns
+- No `## Coverage Ledger`
 - No cluster blueprint (just vague grouping ideas)
 - Missing or duplicated issue hashes
 

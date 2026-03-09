@@ -20,8 +20,12 @@ from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
 
-from .._stage_validation import _validate_reflect_issue_accounting
+from .._stage_validation import (
+    _analyze_reflect_issue_accounting,
+    _validate_reflect_issue_accounting,
+)
 from ..services import TriageServices, default_triage_services
+from .codex_runner import run_triage_stage
 from .orchestrator_codex_observe import run_observe
 from .orchestrator_codex_sense import run_sense_check
 from .orchestrator_common import STAGES, ensure_triage_started, run_stamp
@@ -218,6 +222,127 @@ def _preflight_stage(
     return False, reason
 
 
+def _stage_report_recorded(plan: dict, stage: str) -> bool:
+    """True when the plan contains a persisted report for the given stage."""
+    return bool(
+        plan.get("epic_triage_meta", {})
+        .get("triage_stages", {})
+        .get(stage, {})
+        .get("report", "")
+    )
+
+
+def _build_reflect_repair_prompt(
+    *,
+    si,
+    prior_reports: dict[str, str],
+    repo_root: Path,
+    cli_command: str,
+    original_report: str,
+    missing_ids: list[str],
+    duplicate_ids: list[str],
+) -> str:
+    """Build a targeted retry prompt for a reflect report that failed accounting."""
+    missing_short = ", ".join(issue_id.rsplit("::", 1)[-1] for issue_id in missing_ids) or "none"
+    duplicate_short = (
+        ", ".join(issue_id.rsplit("::", 1)[-1] for issue_id in duplicate_ids) or "none"
+    )
+    base_prompt = build_stage_prompt(
+        "reflect",
+        si,
+        prior_reports,
+        repo_root=repo_root,
+        mode="output_only",
+        cli_command=cli_command,
+    )
+    return "\n\n".join(
+        [
+            base_prompt,
+            "## Repair Pass",
+            "Your previous reflect report failed the exact-hash accounting check.",
+            f"Missing hashes: {missing_short}",
+            f"Duplicated hashes: {duplicate_short}",
+            "Rewrite the FULL reflect report so it passes validation.",
+            "Requirements for this repair:",
+            "- Start with a `## Coverage Ledger` section.",
+            '- Use one ledger line per issue hash: `- abcd1234 -> cluster "name"` or `- abcd1234 -> skip "reason"`.',
+            "- Mention every required hash exactly once in that ledger.",
+            "- Do not mention hashes anywhere else in the report.",
+            "- Preserve the same strategy unless fixing the missing/duplicate hashes forces a small adjustment.",
+            "- Output only the corrected reflect report.",
+            "## Previous Reflect Report",
+            original_report,
+        ]
+    )
+
+
+def _repair_reflect_report_if_needed(
+    *,
+    report: str,
+    si,
+    prior_reports: dict[str, str],
+    repo_root: Path,
+    prompts_dir: Path,
+    output_dir: Path,
+    logs_dir: Path,
+    cli_command: str,
+    timeout_seconds: int,
+    append_run_log,
+) -> tuple[str | None, str | None]:
+    """Retry reflect once with a targeted repair prompt when accounting is invalid."""
+    _cited, missing_ids, duplicate_ids = _analyze_reflect_issue_accounting(
+        report=report,
+        valid_ids=set(getattr(si, "open_issues", {}).keys()),
+    )
+    if not missing_ids and not duplicate_ids:
+        return report, None
+
+    print(colorize("  Reflect: repairing missing/duplicate hash accounting...", "yellow"))
+    append_run_log(
+        "stage-reflect-repair-start "
+        f"missing={len(missing_ids)} duplicates={len(duplicate_ids)}"
+    )
+
+    repair_prompt = _build_reflect_repair_prompt(
+        si=si,
+        prior_reports=prior_reports,
+        repo_root=repo_root,
+        cli_command=cli_command,
+        original_report=report,
+        missing_ids=missing_ids,
+        duplicate_ids=duplicate_ids,
+    )
+    repair_prompt_file = prompts_dir / "reflect.repair.md"
+    repair_output_file = output_dir / "reflect.repair.raw.txt"
+    repair_log_file = logs_dir / "reflect.repair.log"
+    safe_write_text(repair_prompt_file, repair_prompt)
+    exit_code = run_triage_stage(
+        prompt=repair_prompt,
+        repo_root=repo_root,
+        output_file=repair_output_file,
+        log_file=repair_log_file,
+        timeout_seconds=timeout_seconds,
+    )
+    append_run_log(f"stage-reflect-repair-done code={exit_code}")
+    if exit_code != 0:
+        return None, f"reflect_repair_failed_exit_{exit_code}"
+
+    repaired_report = _read_stage_output(repair_output_file)
+    if not repaired_report:
+        return None, "reflect_repair_empty_output"
+
+    _cited, missing_after, duplicates_after = _analyze_reflect_issue_accounting(
+        report=repaired_report,
+        valid_ids=set(getattr(si, "open_issues", {}).keys()),
+    )
+    if missing_after or duplicates_after:
+        return None, "reflect_repair_invalid"
+
+    print(colorize("  Reflect: repair pass fixed issue accounting.", "green"))
+    append_run_log("stage-reflect-repair-success")
+    return repaired_report, None
+
+
 def _execute_stage(
     *,
     stage: str,
@@ -237,8 +362,6 @@ def _execute_stage(
     append_run_log,
 ) -> tuple[str, dict]:
     """Execute one stage and return (status, stage_result)."""
-    from .codex_runner import run_triage_stage
-
     handler = _STAGE_HANDLERS.get(stage)
     used_parallel = False
     prompt_mode = handler.prompt_mode if handler is not None else "output_only"
@@ -348,7 +471,60 @@ def _execute_stage(
         if handler and handler.record_report is not None:
             report = _read_stage_output(output_file)
             if report:
+                if stage == "reflect":
+                    report, repair_error = _repair_reflect_report_if_needed(
+                        report=report,
+                        si=si,
+                        prior_reports=prior_reports,
+                        repo_root=repo_root,
+                        prompts_dir=prompts_dir,
+                        output_dir=output_dir,
+                        logs_dir=logs_dir,
+                        cli_command=cli_command,
+                        timeout_seconds=timeout_seconds,
+                        append_run_log=append_run_log,
+                    )
+                    if repair_error:
+                        print(
+                            colorize(
+                                f"  Stage {stage}: repair failed ({repair_error}).",
+                                "red",
+                            )
+                        )
+                        append_run_log(
+                            f"stage-failed stage={stage} elapsed={elapsed}s reason={repair_error}"
+                        )
+                        return "failed", {
+                            "status": "failed",
+                            "elapsed_seconds": elapsed,
+                            "error": repair_error,
+                        }
+                    if not report:
+                        append_run_log(
+                            f"stage-failed stage={stage} elapsed={elapsed}s reason=reflect_repair_no_report"
+                        )
+                        return "failed", {
+                            "status": "failed",
+                            "elapsed_seconds": elapsed,
+                            "error": "reflect_repair_no_report",
+                        }
                 handler.record_report(report, args, services)
+                plan_after_record = services.load_plan()
+                if not _stage_report_recorded(plan_after_record, stage):
+                    print(
+                        colorize(
+                            f"  Stage {stage}: handler completed but did not persist the stage.",
+                            "red",
+                        )
+                    )
+                    append_run_log(
+                        f"stage-record-failed stage={stage} elapsed={elapsed}s reason=stage_not_recorded"
+                    )
+                    return "failed", {
+                        "status": "failed",
+                        "elapsed_seconds": elapsed,
+                        "error": "stage_not_recorded",
+                    }
                 append_run_log(
                     f"stage-recorded stage={stage} elapsed={elapsed}s mode=orchestrator"
                 )
