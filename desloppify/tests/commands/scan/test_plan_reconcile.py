@@ -9,7 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 
 import desloppify.app.commands.scan.plan_reconcile as reconcile_mod
 from desloppify.engine._plan.schema import empty_plan

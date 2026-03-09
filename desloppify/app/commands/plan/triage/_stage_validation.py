@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 
 from desloppify.app.commands.helpers.runtime import command_runtime
-from desloppify.engine._plan.triage_playbook import TRIAGE_CMD_ORGANIZE
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan import collect_triage_input, detect_recurring_patterns, save_plan
 from desloppify.state import utc_now
@@ -25,7 +24,6 @@ from ._stage_validation_completion_policy import _resolve_completion_strategy
 from ._stage_validation_completion_policy import _resolve_confirm_existing_strategy
 from ._stage_validation_completion_stages import _auto_confirm_enrich_for_complete
 from ._stage_validation_completion_stages import _auto_confirm_organize_for_complete
-from ._stage_validation_completion_stages import _auto_confirm_sense_check_for_complete
 from ._stage_validation_completion_stages import _require_enrich_stage_for_complete
 from ._stage_validation_completion_stages import _require_organize_stage_for_complete
 from ._stage_validation_completion_stages import _require_sense_check_stage_for_complete

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.engine.detectors.coverage.mapping_imports import (

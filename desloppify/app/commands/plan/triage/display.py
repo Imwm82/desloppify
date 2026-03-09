@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
 
 from desloppify.app.commands.helpers.display import short_issue_id
 from desloppify.engine._plan.triage_playbook import (
@@ -20,9 +19,7 @@ from .display_layout import print_issues_by_dimension as _print_issues_by_dimens
 from .display_layout import print_prior_stage_reports as _print_prior_stage_reports_impl
 from .display_layout import show_plan_summary as _show_plan_summary_impl
 from .helpers import (
-    find_cluster_for,
     manual_clusters_with_issues,
-    open_review_ids_from_state,
     print_cascade_clear_feedback,
     triage_coverage,
 )

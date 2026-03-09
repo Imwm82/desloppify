@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import pytest
 
 from desloppify.app.commands.plan.triage._stage_validation import (
     _cluster_file_overlaps,
@@ -181,7 +180,6 @@ def test_cluster_file_overlaps_auto_excluded() -> None:
 def test_depends_on_persisted(monkeypatch, capsys, tmp_path: Path) -> None:
     """--depends-on should persist on cluster dict."""
     from desloppify.app.commands.plan import cluster_handlers
-    from desloppify.engine import plan as plan_mod
 
     test_plan = {
         "clusters": {
