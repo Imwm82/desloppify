@@ -49,6 +49,8 @@ from desloppify.languages.python.detectors.smells_ast._types import (
     merge_smell_matches,
 )
 
+SmellCounts = dict[str, list[SmellMatch]]
+
 
 @dataclass(frozen=True)
 class _NodeDetectorSpec:
@@ -204,7 +206,11 @@ TREE_DETECTORS: tuple[_TreeDetectorSpec, ...] = (
 )
 
 
-def detect_ast_smells(filepath: str, content: str, smell_counts: dict[str, list]):
+def detect_ast_smells(
+    filepath: str,
+    content: str,
+    smell_counts: SmellCounts,
+) -> None:
     """Detect AST-based code smells using registry-driven collector dispatch."""
     try:
         tree = ast.parse(content, filename=filepath)

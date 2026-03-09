@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from ..runner_parallel import BatchProgressEvent
@@ -17,7 +18,7 @@ def record_execution_issue(append_run_log_fn, batch_index: int, exc: Exception) 
 
 def _handle_heartbeat(
     *,
-    details: dict,
+    details: dict[str, object],
     total_batches: int,
     stall_warning_seconds: float,
     stall_warned_batches: set[int],
@@ -89,12 +90,12 @@ def build_progress_reporter(
     stall_warned_batches: set[int],
     total_batches: int,
     stall_warning_seconds: float,
-    prompt_files: dict,
-    output_files: dict,
-    log_files: dict,
-    append_run_log,
-    colorize_fn,
-):
+    prompt_files: dict[int, object],
+    output_files: dict[int, object],
+    log_files: dict[int, object],
+    append_run_log: Callable[[str], None],
+    colorize_fn: Callable[[str, str], str],
+) -> Callable[[BatchProgressEvent], None]:
     """Build the progress callback closure used during batch execution."""
 
     def _report_progress(

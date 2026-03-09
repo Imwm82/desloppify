@@ -43,7 +43,7 @@ def _consume_indented_line(
     detail_lines.append(line.strip())
 
 
-def _format_step_lines(index: int, step: str | dict) -> list[str]:
+def _format_step_lines(index: int, step: str | ActionStep) -> list[str]:
     """Render a single step block into numbered text lines."""
     if isinstance(step, str):
         return [f"{index}. {step}", ""]
@@ -134,7 +134,7 @@ def parse_steps_file(text: str) -> list[ActionStep]:
     return steps
 
 
-def format_steps(steps: list[str | dict]) -> str:
+def format_steps(steps: list[str | ActionStep]) -> str:
     """Format a list of ActionStep dicts (or legacy strings) into numbered-steps text.
 
     Round-trips with ``parse_steps_file``: ``parse_steps_file(format_steps(steps))``
@@ -146,14 +146,14 @@ def format_steps(steps: list[str | dict]) -> str:
     return "\n".join(lines)
 
 
-def normalize_step(step: str | dict) -> dict:
+def normalize_step(step: str | ActionStep) -> ActionStep:
     """Ensure a step is an ActionStep dict. Wraps plain strings."""
     if isinstance(step, dict):
         return step
     return {"title": step}
 
 
-def step_summary(step: str | dict) -> str:
+def step_summary(step: str | ActionStep) -> str:
     """Return a one-line summary of a step for display."""
     if isinstance(step, str):
         return step

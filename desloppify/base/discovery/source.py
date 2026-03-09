@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import matches_exclusion
@@ -70,7 +71,7 @@ def disable_file_cache() -> None:
 
 
 @contextmanager
-def file_cache_scope():
+def file_cache_scope() -> Iterator[None]:
     """Temporarily enable file cache within a context, with nested safety."""
     runtime = current_runtime_context()
     was_enabled = runtime.cache_enabled

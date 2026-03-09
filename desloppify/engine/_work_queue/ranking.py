@@ -238,7 +238,7 @@ def _natural_sort_key(item: WorkQueueItem) -> tuple:
     )
 
 
-def item_sort_key(item: WorkQueueItem) -> tuple:
+def item_sort_key(item: WorkQueueItem) -> tuple[Any, ...]:
     """Unified sort key: plan position first, then natural ranking.
 
     When ``_plan_position`` is stamped (by :func:`stamp_plan_sort_keys`),

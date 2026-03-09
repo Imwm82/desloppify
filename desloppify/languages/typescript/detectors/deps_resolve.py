@@ -7,6 +7,7 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from collections.abc import Iterator
 
 from desloppify.base.output.fallbacks import log_best_effort_failure
 
@@ -117,11 +118,11 @@ def extract_paths(data: dict[str, Any], base_dir: Path) -> dict[str, str] | None
     return result if result else None
 
 
-def iter_resolve_candidates(target: Path):
+def iter_resolve_candidates(target: Path) -> Iterator[Path]:
     """Yield filesystem candidates for a module specifier target."""
     seen: set[str] = set()
 
-    def _emit(candidate: Path):
+    def _emit(candidate: Path) -> Iterator[Path]:
         key = str(candidate)
         if key in seen:
             return
