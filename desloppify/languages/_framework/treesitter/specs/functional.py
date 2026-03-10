@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from desloppify.languages._framework.treesitter import TreeSitterLangSpec
-
 from ..imports.resolvers_functional import (
     resolve_elixir_import,
     resolve_erlang_include,
@@ -11,6 +9,7 @@ from ..imports.resolvers_functional import (
     resolve_haskell_import,
     resolve_ocaml_import,
 )
+from ..types import TreeSitterLangSpec
 
 ELIXIR_SPEC = TreeSitterLangSpec(
     grammar="elixir",
