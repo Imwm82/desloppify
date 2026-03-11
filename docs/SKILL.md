@@ -47,13 +47,6 @@ desloppify plan triage --stage organize --report "summary of priorities..."
 desloppify plan triage --complete --strategy "execution plan..."
 ```
 
-### Automated triage (subagent runners)
-
-For Codex: `desloppify plan triage --run-stages --runner codex`
-For Claude: `desloppify plan triage --run-stages --runner claude` — then follow orchestrator instructions per stage
-
-Options: `--only-stages observe,reflect` (subset), `--dry-run` (prompts only), `--stage-timeout-seconds N` (per-stage).
-
 Then shape the queue. **The plan shapes everything `next` gives you** — `next` is the execution queue, not the full backlog. Don't skip this step.
 
 ```bash
@@ -65,71 +58,51 @@ desloppify plan focus <cluster>          # scope next to one cluster
 desloppify plan skip <pat>              # defer — hide from next
 ```
 
-More plan commands:
-```bash
-desloppify plan reorder <cluster> top    # move all cluster members at once
-desloppify plan reorder <a> <b> top     # mix clusters + findings in one reorder
-desloppify plan reorder <pat> before -t X  # position relative to another item/cluster
-desloppify plan cluster reorder a,b top # reorder multiple clusters as one block
-desloppify plan resolve <pat>           # mark complete
-desloppify plan reopen <pat>             # reopen
-```
-
 ### Phase 3: Execute — grind the queue to completion
 
 Trust the plan and execute. Don't rescan mid-queue — finish the queue first.
 
-**Branch first.** Create a dedicated branch for health work — never commit directly to main:
+**Branch first.** Create a dedicated branch — never commit health work directly to main:
 ```bash
 git checkout -b desloppify/code-health    # or desloppify/<focus-area>
-```
-
-**Set up commit tracking.** If you have a PR, link it for auto-updated descriptions:
-```bash
-desloppify config set commit_pr 42        # PR number for auto-updates
+desloppify config set commit_pr 42        # link a PR for auto-updated descriptions
 ```
 
 **The loop:**
-```
-1. desloppify next              ← what to fix next in the execution queue
-2. Fix the issue in code
-3. Resolve it (next shows you the exact command including required attestation)
-4. When you have a logical batch, commit:
-   git add <files> && git commit -m "desloppify: fix 3 deferred_import findings"
-5. Record the commit:
-   desloppify plan commit-log record      # moves findings uncommitted → committed, updates PR
-6. Push periodically:
-   git push -u origin desloppify/code-health
-7. Repeat until the queue is empty
+```bash
+# 1. Get the next item from the execution queue
+desloppify next
+
+# 2. Fix the issue in code
+
+# 3. Resolve it (next shows the exact command including required attestation)
+
+# 4. When you have a logical batch, commit and record
+git add <files> && git commit -m "desloppify: fix 3 deferred_import findings"
+desloppify plan commit-log record      # moves findings uncommitted → committed, updates PR
+
+# 5. Push periodically
+git push -u origin desloppify/code-health
+
+# 6. Repeat until the queue is empty
 ```
 
 Score may temporarily drop after fixes — cascade effects are normal, keep going.
 If `next` suggests an auto-fixer, run `desloppify autofix <fixer> --dry-run` to preview, then apply.
 
-If you need to inspect broader open work that is not currently driving execution, use:
-```bash
-desloppify backlog                         # broader non-execution backlog
-```
-
 **When the queue is clear, go back to Phase 1.** New issues will surface, cascades will have resolved, priorities will have shifted. This is the cycle.
-
-### Other useful commands
-
-```bash
-desloppify next --count 5                         # top 5 execution items
-desloppify next --cluster <name>                  # drill into a cluster
-desloppify backlog --count 5                      # top 5 backlog items outside execution
-desloppify show <pattern>                         # filter by file/detector/ID
-desloppify show --status open                     # all open findings
-desloppify plan skip --permanent "<id>" --note "reason" --attest "..." # accept debt
-desloppify exclude <path>                         # exclude a directory from scanning
-desloppify config show                            # show all config including excludes
-desloppify scan --path . --reset-subjective       # reset subjective baseline to 0
-```
 
 ## 3. Reference
 
-### How scoring works
+### Key concepts
+
+- **Tiers**: T1 auto-fix → T2 quick manual → T3 judgment call → T4 major refactor.
+- **Auto-clusters**: related findings are auto-grouped in `next`. Drill in with `next --cluster <name>`.
+- **Zones**: production/script (scored), test/config/generated/vendor (not scored). Fix with `zone set`.
+- **Wontfix cost**: widens the lenient↔strict gap. Challenge past decisions when the gap grows.
+- Score can temporarily drop after fixes (cascade effects are normal).
+
+### Scoring
 
 Overall score = **25% mechanical** + **75% subjective**.
 
@@ -138,18 +111,20 @@ Overall score = **25% mechanical** + **75% subjective**.
 - **Strict score** is the north star: wontfix items count as open. The gap between overall and strict is your wontfix debt.
 - **Score types**: overall (lenient), strict (wontfix counts), objective (mechanical only), verified (confirmed fixes only).
 
-### Subjective reviews in detail
+### Reviews
+
+Four paths to get subjective scores:
 
 - **Local runner (Codex)**: `desloppify review --run-batches --runner codex --parallel --scan-after-import` — automated end-to-end.
 - **Local runner (Claude)**: `desloppify review --prepare` → launch parallel subagents → `desloppify review --import merged.json` — see skill doc overlay for details.
 - **Cloud/external**: `desloppify review --external-start --external-runner claude` → follow session template → `--external-submit`.
 - **Manual path**: `desloppify review --prepare` → review per dimension → `desloppify review --import file.json`.
-- Import first, fix after — import creates tracked state entries for correlation.
-- Target-matching scores trigger auto-reset to prevent gaming.
-- Even moderate scores (60-80) dramatically improve overall health.
-- Stale dimensions auto-surface in `next` — just follow the queue.
 
-### Review output format
+Import first, fix after — import creates tracked state entries for correlation. Target-matching scores trigger auto-reset to prevent gaming. Even moderate scores (60-80) dramatically improve overall health. Stale dimensions auto-surface in `next` — just follow the queue.
+
+**Integrity rules:** Score from evidence only — no prior chat context, score history, or target-threshold anchoring. When evidence is mixed, score lower and explain uncertainty. Assess every requested dimension; never drop one.
+
+#### Review output format
 
 Return machine-readable JSON for review imports. For `--external-submit`, include `session` from the generated template:
 
@@ -176,23 +151,15 @@ Return machine-readable JSON for review imports. For `--external-submit`, includ
 }
 ```
 
-**Import rules:**
-- `findings` MUST match `query.system_prompt` exactly (including `related_files`, `evidence`, and `suggestion`). Use `"findings": []` when no defects found.
-- Import is fail-closed: invalid findings abort unless `--allow-partial` is passed.
-- Assessment scores are auto-applied from trusted internal or cloud session imports. Legacy `--attested-external` remains supported.
+`findings` MUST match `query.system_prompt` exactly (including `related_files`, `evidence`, and `suggestion`). Use `"findings": []` when no defects found. Import is fail-closed: invalid findings abort unless `--allow-partial` is passed. Assessment scores are auto-applied from trusted internal or cloud session imports. Legacy `--attested-external` remains supported.
 
-**Import paths:**
+#### Import paths
+
 - Robust session flow (recommended): `desloppify review --external-start --external-runner claude` → use generated prompt/template → run printed `--external-submit` command.
 - Durable scored import (legacy): `desloppify review --import findings.json --attested-external --attest "I validated this review was completed without awareness of overall score and is unbiased."`
 - Findings-only fallback: `desloppify review --import findings.json`
 
-### Review integrity
-
-1. Do not use prior chat context, score history, or target-threshold anchoring.
-2. Score from evidence only; when mixed, score lower and explain uncertainty.
-3. Assess every requested dimension; never drop one. If evidence is weak, score lower.
-
-### Reviewer agent prompt
+#### Reviewer agent prompt
 
 Runners that support agent definitions (Cursor, Copilot, Gemini) can create a dedicated reviewer agent. Use this system prompt:
 
@@ -206,12 +173,28 @@ explain uncertainty.
 
 See your editor's overlay section below for the agent config format.
 
-### Commit tracking & branch workflow
+### Automated triage
 
-Work on a dedicated branch named `desloppify/<description>` (e.g., `desloppify/code-health`, `desloppify/fix-smells`). Never push health work directly to main.
+For Codex: `desloppify plan triage --run-stages --runner codex`
+For Claude: `desloppify plan triage --run-stages --runner claude` — then follow orchestrator instructions per stage
+
+Options: `--only-stages observe,reflect` (subset), `--dry-run` (prompts only), `--stage-timeout-seconds N` (per-stage).
+
+### Plan commands
 
 ```bash
-desloppify config set commit_pr 42              # link to your PR
+desloppify plan reorder <cluster> top       # move all cluster members at once
+desloppify plan reorder <a> <b> top        # mix clusters + findings in one reorder
+desloppify plan reorder <pat> before -t X  # position relative to another item/cluster
+desloppify plan cluster reorder a,b top    # reorder multiple clusters as one block
+desloppify plan resolve <pat>              # mark complete
+desloppify plan reopen <pat>               # reopen
+desloppify backlog                          # broader non-execution backlog
+```
+
+### Commit tracking
+
+```bash
 desloppify plan commit-log                      # see uncommitted + committed status
 desloppify plan commit-log record               # record HEAD commit, update PR description
 desloppify plan commit-log record --note "why"  # with rationale
@@ -223,13 +206,19 @@ desloppify config set commit_tracking_enabled false  # disable guidance
 
 After resolving findings as `fixed`, the tool shows uncommitted work, committed history, and a suggested commit message. After committing externally, run `record` to move findings from uncommitted to committed and auto-update the linked PR description.
 
-### Key concepts
+### Quick reference
 
-- **Tiers**: T1 auto-fix → T2 quick manual → T3 judgment call → T4 major refactor.
-- **Auto-clusters**: related findings are auto-grouped in `next`. Drill in with `next --cluster <name>`.
-- **Zones**: production/script (scored), test/config/generated/vendor (not scored). Fix with `zone set`.
-- **Wontfix cost**: widens the lenient↔strict gap. Challenge past decisions when the gap grows.
-- Score can temporarily drop after fixes (cascade effects are normal).
+```bash
+desloppify next --count 5                         # top 5 execution items
+desloppify next --cluster <name>                  # drill into a cluster
+desloppify backlog --count 5                      # top 5 backlog items outside execution
+desloppify show <pattern>                         # filter by file/detector/ID
+desloppify show --status open                     # all open findings
+desloppify plan skip --permanent "<id>" --note "reason" --attest "..." # accept debt
+desloppify exclude <path>                         # exclude a directory from scanning
+desloppify config show                            # show all config including excludes
+desloppify scan --path . --reset-subjective       # reset subjective baseline to 0
+```
 
 ## 4. Fix Tool Issues Upstream
 
