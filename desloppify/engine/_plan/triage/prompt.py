@@ -164,7 +164,8 @@ Your plan should:
 Available directions for clusters: delete, merge, flatten, enforce, simplify, decompose, extract, inline.
 
 Available plan tools (the agent executing your plan has access to these):
-- `desloppify plan queue` — view all items in priority order
+- `desloppify plan queue` — view the execution queue in priority order
+- `desloppify backlog` — inspect broader open work outside the execution queue
 - `desloppify plan focus epic/<name>` — focus the queue on one epic
 - `desloppify plan skip <id> --permanent --note "why" --attest "..."` — permanently dismiss
 - `desloppify plan skip <id> --note "revisit later"` — temporarily defer

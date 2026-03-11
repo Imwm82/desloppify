@@ -38,9 +38,9 @@ desloppify review --prepare    # then follow your runner's review workflow
 
 ### Phase 2: Plan — decide what to work on
 
-After reviews, triage stages and plan creation appear as queue items in `next`. Complete them in order:
+After reviews, triage stages and plan creation appear in the execution queue surfaced by `next`. Complete them in order:
 ```bash
-desloppify next                                        # shows the next workflow step
+desloppify next                                        # shows the next execution workflow step
 desloppify plan triage --stage observe --report "themes and root causes..."
 desloppify plan triage --stage reflect --report "comparison against completed work..."
 desloppify plan triage --stage organize --report "summary of priorities..."
@@ -54,10 +54,11 @@ For Claude: `desloppify plan triage --run-stages --runner claude` — then follo
 
 Options: `--only-stages observe,reflect` (subset), `--dry-run` (prompts only), `--stage-timeout-seconds N` (per-stage).
 
-Then shape the queue. **The plan shapes everything `next` gives you** — don't skip this step.
+Then shape the queue. **The plan shapes everything `next` gives you** — `next` is the execution queue, not the full backlog. Don't skip this step.
 
 ```bash
-desloppify plan                          # see the full ordered queue
+desloppify plan                          # see the living plan details
+desloppify plan queue                    # compact execution queue view
 desloppify plan reorder <pat> top        # reorder — what unblocks the most?
 desloppify plan cluster create <name>    # group related issues to batch-fix
 desloppify plan focus <cluster>          # scope next to one cluster
@@ -90,7 +91,7 @@ desloppify config set commit_pr 42        # PR number for auto-updates
 
 **The loop:**
 ```
-1. desloppify next              ← what to fix next
+1. desloppify next              ← what to fix next in the execution queue
 2. Fix the issue in code
 3. Resolve it (next shows you the exact command including required attestation)
 4. When you have a logical batch, commit:
@@ -105,13 +106,19 @@ desloppify config set commit_pr 42        # PR number for auto-updates
 Score may temporarily drop after fixes — cascade effects are normal, keep going.
 If `next` suggests an auto-fixer, run `desloppify autofix <fixer> --dry-run` to preview, then apply.
 
+If you need to inspect broader open work that is not currently driving execution, use:
+```bash
+desloppify backlog                         # broader non-execution backlog
+```
+
 **When the queue is clear, go back to Phase 1.** New issues will surface, cascades will have resolved, priorities will have shifted. This is the cycle.
 
 ### Other useful commands
 
 ```bash
-desloppify next --count 5                         # top 5 priorities
+desloppify next --count 5                         # top 5 execution items
 desloppify next --cluster <name>                  # drill into a cluster
+desloppify backlog --count 5                      # top 5 backlog items outside execution
 desloppify show <pattern>                         # filter by file/detector/ID
 desloppify show --status open                     # all open findings
 desloppify plan skip --permanent "<id>" --note "reason" --attest "..." # accept debt

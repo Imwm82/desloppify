@@ -199,13 +199,13 @@ examples:
 def _add_next_parser(sub) -> None:
     p_next = sub.add_parser(
         "next",
-        help="Show next highest-priority open issue",
+        help="Show the next execution item from the living plan",
         epilog="""\
 examples:
-  desloppify next                       # single highest-priority item
-  desloppify next --count 10            # top 10 items
-  desloppify next --group file          # group by file
-  desloppify next --cluster my-cluster  # items in a cluster""",
+  desloppify next                       # single highest-priority execution item
+  desloppify next --count 10            # top 10 execution items
+  desloppify next --group file          # group execution items by file
+  desloppify next --cluster my-cluster  # execution items in a plan cluster""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_next.add_argument("--state", type=str, default=None, help="Path to state file")
