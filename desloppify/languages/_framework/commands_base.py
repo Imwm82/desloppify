@@ -68,7 +68,7 @@ def make_cmd_complexity(
     """Factory: detect complexity signals."""
 
     def cmd_complexity(args: argparse.Namespace) -> None:
-        threshold = getattr(args, "threshold", default_threshold)
+        threshold = getattr(args, "threshold", None) or default_threshold
         entries, _ = complexity_detector.detect_complexity(
             Path(args.path),
             signals=signals,

@@ -95,6 +95,19 @@ class TestMakeCmdComplexity:
             assert mock_detect.call_args.kwargs["threshold"] == 33
             mock_display.assert_called_once()
 
+    @patch("desloppify.languages._framework.commands_base.display_entries")
+    def test_falls_back_to_default_threshold_when_args_threshold_is_none(self, mock_display):
+        """Command uses the factory default when args.threshold exists but is None."""
+        cmd = make_cmd_complexity(file_finder=lambda p: [], signals=[], default_threshold=15)
+        args = SimpleNamespace(path="/tmp/test", threshold=None)
+
+        with patch(
+            "desloppify.engine.detectors.complexity.detect_complexity", return_value=([], 0)
+        ) as mock_detect:
+            cmd(args)
+            assert mock_detect.call_args.kwargs["threshold"] == 15
+            mock_display.assert_called_once()
+
 
 # ── make_cmd_single_use ──────────────────────────────────────
 

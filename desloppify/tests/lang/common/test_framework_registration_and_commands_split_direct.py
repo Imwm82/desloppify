@@ -32,8 +32,8 @@ import desloppify.languages._framework.treesitter.specs.specs as treesitter_spec
 import desloppify.languages.dart.commands as dart_commands_mod
 import desloppify.languages.go.commands as go_commands_mod
 import desloppify.languages.python.commands as python_commands_mod
-import desloppify.languages.typescript.detectors.cli as ts_commands_mod
-import desloppify.languages.typescript.detectors.cli as ts_detector_cli_mod
+import desloppify.languages.typescript.commands as ts_commands_mod
+import desloppify.languages.typescript.commands as ts_detector_cli_mod
 from desloppify.languages._framework.base.types import DetectorPhase
 
 
