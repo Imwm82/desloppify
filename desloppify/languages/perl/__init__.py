@@ -1,6 +1,6 @@
 """Perl language plugin — perlcritic."""
 
-from desloppify.languages._framework.generic import generic_lang
+from desloppify.languages._framework.generic_support.core import generic_lang
 from desloppify.languages._framework.treesitter import PERL_SPEC
 
 generic_lang(

@@ -11,20 +11,20 @@ from typing import Any
 
 from desloppify.engine._state.schema import StateModel
 
-from ._clusters_complexity import _build_complexity_hotspots
-from ._clusters_consistency import _build_duplicate_clusters, _build_naming_drift
-from ._clusters_dependency import (
+from .clusters.complexity import _build_complexity_hotspots
+from .clusters.consistency import _build_duplicate_clusters, _build_naming_drift
+from .clusters.dependency import (
     _build_boundary_violations,
     _build_dead_code,
     _build_deferred_import_density,
     _build_private_crossings,
 )
-from ._clusters_error_state import _build_error_hotspots, _build_mutable_globals
-from ._clusters_organization import (
+from .clusters.error_state import _build_error_hotspots, _build_mutable_globals
+from .clusters.organization import (
     _build_flat_dir_issues,
     _build_large_file_distribution,
 )
-from ._clusters_security import (
+from .clusters.security import (
     _build_security_hotspots,
     _build_signal_density,
     _build_systemic_patterns,

@@ -22,16 +22,18 @@ from desloppify.languages.framework import (
 )
 from desloppify.languages._framework.contract_validation import validate_lang_contract
 from desloppify.languages._framework.policy import REQUIRED_DIRS, REQUIRED_FILES
-from desloppify.languages._framework.registration import register_lang_class_with
+from desloppify.languages._framework.registry.registration import (
+    register_lang_class_with,
+)
 from desloppify.languages._framework.structure_validation import validate_lang_structure
 
 T = TypeVar("T")
 
 _LEGACY_FRAMEWORK_EXPORTS = {
-    "discovery": "desloppify.languages._framework.discovery",
-    "registry_state": "desloppify.languages._framework.registry_state",
-    "resolution": "desloppify.languages._framework.resolution",
-    "runtime": "desloppify.languages._framework.runtime",
+    "discovery": "desloppify.languages._framework.registry.discovery",
+    "registry_state": "desloppify.languages._framework.registry.state",
+    "resolution": "desloppify.languages._framework.registry.resolution",
+    "runtime": "desloppify.languages._framework.runtime_support.runtime",
 }
 
 

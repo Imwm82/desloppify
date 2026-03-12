@@ -1,62 +1,24 @@
-"""Shared language-plugin registration helpers."""
+"""Compatibility wrapper for language registration helpers."""
 
 from __future__ import annotations
 
-import inspect
-from pathlib import Path
-from typing import TypeVar
-
-from desloppify.engine.hook_registry import register_lang_hooks
-
-from . import registry_state
-from .base.types import LangConfig
-from .resolution import make_lang_config
-from .structure_validation import validate_lang_structure
-
-ConfigType = TypeVar("ConfigType")
+from .registry import registration as _impl
 
 
-def register_lang_class(name: str, config_cls: type[ConfigType]) -> None:
-    """Register one language class through canonical framework validation flow."""
-    register_lang_structure_fn = validate_lang_structure
-    module = inspect.getmodule(config_cls)
-    if module and hasattr(module, "__file__"):
-        register_lang_structure_fn(Path(module.__file__).parent, name)
-    if isinstance(config_cls, type) and issubclass(config_cls, LangConfig):
-        cfg = make_lang_config(name, config_cls)
-        registry_state.register(name, cfg)
-        return
-    registry_state.register(name, config_cls)
+def register_lang_class(name, config_cls) -> None:
+    _impl.register_lang_class(name, config_cls)
 
 
-def register_lang_class_with(
-    name: str,
-    config_cls: type[ConfigType],
-    *,
-    validate_lang_structure_fn=validate_lang_structure,
-) -> None:
-    """Register a class with injectable structure validation seam (tests/callers)."""
-    module = inspect.getmodule(config_cls)
-    if module and hasattr(module, "__file__"):
-        validate_lang_structure_fn(Path(module.__file__).parent, name)
-    if isinstance(config_cls, type) and issubclass(config_cls, LangConfig):
-        cfg = make_lang_config(name, config_cls)
-        registry_state.register(name, cfg)
-        return
-    registry_state.register(name, config_cls)
+def register_lang_class_with(name, config_cls, *, validate_lang_structure_fn=_impl.validate_lang_structure) -> None:
+    _impl.register_lang_class_with(
+        name,
+        config_cls,
+        validate_lang_structure_fn=validate_lang_structure_fn,
+    )
 
 
-def register_full_plugin(
-    name: str,
-    config_cls: type[ConfigType],
-    *,
-    test_coverage: object,
-) -> None:
-    """Register a full language plugin with uniform hooks + duplicate guard."""
-    register_lang_hooks(name, test_coverage=test_coverage)
-    if registry_state.is_registered(name):
-        return
-    register_lang_class(name, config_cls)
+def register_full_plugin(name, config_cls, *, test_coverage: object) -> None:
+    _impl.register_full_plugin(name, config_cls, test_coverage=test_coverage)
 
 
 __all__ = [

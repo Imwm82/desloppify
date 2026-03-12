@@ -13,11 +13,11 @@ from desloppify.engine.detectors.orphaned import (
     OrphanedDetectionOptions,
     detect_orphaned_files,
 )
-from desloppify.languages._framework.commands_base import (
+from desloppify.languages._framework.commands.base import (
     make_cmd_complexity,
     make_cmd_large,
 )
-from desloppify.languages._framework.commands_base_registry import (
+from desloppify.languages._framework.commands.registry import (
     build_standard_detect_registry,
 )
 from desloppify.languages.csharp.detectors.deps import (

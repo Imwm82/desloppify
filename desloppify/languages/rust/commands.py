@@ -10,12 +10,12 @@ from typing import Any
 
 from desloppify.base.discovery.file_paths import rel
 from desloppify.base.output.terminal import colorize, display_entries
-from desloppify.languages._framework.commands_base import (
+from desloppify.languages._framework.commands.base import (
     make_cmd_complexity,
     make_cmd_large,
     make_cmd_smells,
 )
-from desloppify.languages._framework.commands_base_registry import (
+from desloppify.languages._framework.commands.registry import (
     build_standard_detect_registry,
     compose_detect_registry,
     make_cmd_cycles,

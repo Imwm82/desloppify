@@ -6,28 +6,28 @@ from pathlib import Path
 
 from desloppify.engine.policy.zones import EXCLUDED_ZONE_VALUES
 
-from .selection_contexts import (
+from .contexts import (
     api_surface_context as _api_surface_context,
 )
-from .selection_contexts import (
+from .contexts import (
     architecture_context as _architecture_context,
 )
-from .selection_contexts import (
+from .contexts import (
     coupling_context as _coupling_context,
 )
-from .selection_contexts import (
+from .contexts import (
     dependencies_context as _dependencies_context,
 )
-from .selection_contexts import (
+from .contexts import (
     error_strategy_context as _error_strategy_context,
 )
-from .selection_contexts import (
+from .contexts import (
     naming_conventions_context as _naming_conventions_context,
 )
-from .selection_contexts import (
+from .contexts import (
     sibling_behavior_context as _sibling_behavior_context,
 )
-from .selection_contexts import (
+from .contexts import (
     testing_context as _testing_context,
 )
 
@@ -52,19 +52,6 @@ def select_holistic_files(path: Path, lang: object, files: list[str] | None) -> 
             continue
         filtered.append(filepath)
     return filtered
-
-
-__all__ = [
-    "select_holistic_files",
-    "_api_surface_context",
-    "_architecture_context",
-    "_coupling_context",
-    "_dependencies_context",
-    "_error_strategy_context",
-    "_naming_conventions_context",
-    "_sibling_behavior_context",
-    "_testing_context",
-]
 
 
 __all__ = [

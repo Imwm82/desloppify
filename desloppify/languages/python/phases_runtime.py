@@ -25,7 +25,7 @@ from desloppify.languages._framework.issue_factories import (
     make_passthrough_issues,
     make_single_use_issues,
 )
-from desloppify.languages._framework.runtime import LangRun
+from desloppify.languages._framework.runtime_support.runtime import LangRun
 from desloppify.languages.python.detectors import (
     coupling_contracts as coupling_contracts_detector_mod,
 )

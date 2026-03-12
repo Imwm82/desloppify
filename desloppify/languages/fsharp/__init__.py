@@ -1,6 +1,6 @@
 """F# language plugin — dotnet build."""
 
-from desloppify.languages._framework.generic import generic_lang
+from desloppify.languages._framework.generic_support.core import generic_lang
 from desloppify.languages._framework.treesitter import FSHARP_SPEC
 
 generic_lang(

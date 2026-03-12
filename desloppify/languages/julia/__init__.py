@@ -1,6 +1,6 @@
 """Julia language plugin — tree-sitter structural analysis."""
 
-from desloppify.languages._framework.generic import generic_lang
+from desloppify.languages._framework.generic_support.core import generic_lang
 from desloppify.languages._framework.treesitter import JULIA_SPEC
 
 generic_lang(

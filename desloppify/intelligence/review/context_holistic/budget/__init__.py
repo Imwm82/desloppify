@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .budget_abstractions_axes import (
+from .axes import (
     _assemble_context,
     _build_abstraction_leverage_context,
     _build_definition_directness_context,
@@ -12,17 +12,17 @@ from .budget_abstractions_axes import (
     _build_type_discipline_context,
     _compute_sub_axes,
 )
-from .budget_abstractions_scan import _abstractions_context
-from .budget_analysis import (
+from .scan import _abstractions_context
+from .analysis import (
     _count_signature_params,
     _extract_type_names,
     _score_clamped,
 )
-from .budget_patterns_types import (
+from .patterns_types import (
     _collect_typed_dict_defs,
     _find_typed_dict_usage_violations,
 )
-from .budget_patterns_wrappers import (
+from .patterns_wrappers import (
     _find_delegation_heavy_classes,
     _find_facade_modules,
     _find_python_passthrough_wrappers,

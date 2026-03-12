@@ -28,7 +28,7 @@ from desloppify.languages.python.extractors_classes import extract_py_classes
 if TYPE_CHECKING:
     import argparse
 
-from desloppify.languages._framework.commands_base import (
+from desloppify.languages._framework.commands.base import (
     make_cmd_complexity,
     make_cmd_facade,
     make_cmd_large,
@@ -37,7 +37,7 @@ from desloppify.languages._framework.commands_base import (
     make_cmd_single_use,
     make_cmd_smells,
 )
-from desloppify.languages._framework.commands_base_registry import (
+from desloppify.languages._framework.commands.registry import (
     build_standard_detect_registry,
     compose_detect_registry,
 )

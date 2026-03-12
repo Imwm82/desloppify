@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from desloppify.languages._framework.commands_base import (
+from desloppify.languages._framework.commands.base import (
     make_cmd_complexity,
     make_cmd_large,
 )
-from desloppify.languages._framework.commands_base_registry import (
+from desloppify.languages._framework.commands.registry import (
     build_standard_detect_registry,
     compose_detect_registry,
     make_cmd_cycles,

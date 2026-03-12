@@ -1,7 +1,7 @@
 """PHP language plugin — phpstan + tree-sitter + Laravel-aware hooks."""
 
 from desloppify.engine.policy.zones import COMMON_ZONE_RULES, Zone, ZoneRule
-from desloppify.languages._framework.generic import generic_lang
+from desloppify.languages._framework.generic_support.core import generic_lang
 from desloppify.languages._framework.treesitter import PHP_SPEC
 from desloppify.languages.php import test_coverage as _test_coverage_mod
 

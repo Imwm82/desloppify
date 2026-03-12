@@ -16,7 +16,7 @@ from desloppify.languages._framework.base.phase_builders import (
     shared_subjective_duplicates_tail,
 )
 from desloppify.languages._framework.base.types import DetectorPhase, LangConfig
-from desloppify.languages._framework.generic import make_tool_phase
+from desloppify.languages._framework.generic_support.core import make_tool_phase
 from desloppify.languages._framework.registration import register_full_plugin
 from desloppify.languages._framework.treesitter.phases import all_treesitter_phases
 from desloppify.languages.go import test_coverage as go_test_coverage_hooks

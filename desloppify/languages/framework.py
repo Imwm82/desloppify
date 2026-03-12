@@ -6,8 +6,8 @@ Use this module from app/engine layers instead of importing
 
 from __future__ import annotations
 
-from desloppify.languages._framework import discovery as _discovery_mod
-from desloppify.languages._framework import registry_state as registry_state
+from desloppify.languages._framework.registry import discovery as _discovery_mod
+from desloppify.languages._framework.registry import state as registry_state
 from desloppify.languages._framework.base.types import (
     BoundaryRule,
     DetectorCoverageRecord,
@@ -19,12 +19,12 @@ from desloppify.languages._framework.base.types import (
     LangSecurityResult,
     ScanCoverageRecord,
 )
-from desloppify.languages._framework.runtime import (
+from desloppify.languages._framework.runtime_support.runtime import (
     LangRun,
     LangRunOverrides,
     make_lang_run,
 )
-from desloppify.languages._framework.resolution import (
+from desloppify.languages._framework.registry.resolution import (
     auto_detect_lang,
     available_langs,
     get_lang,
@@ -36,14 +36,18 @@ load_all = _discovery_mod.load_all
 
 def shared_phase_labels() -> set[str]:
     """Return generic shared phase labels lazily to avoid import cycles."""
-    from desloppify.languages._framework.generic import SHARED_PHASE_LABELS
+    from desloppify.languages._framework.generic_support.capabilities import (
+        SHARED_PHASE_LABELS,
+    )
 
     return SHARED_PHASE_LABELS
 
 
 def capability_report(cfg: LangRun) -> tuple[list[str], list[str]] | None:
     """Return capability report lazily without importing generic internals eagerly."""
-    from desloppify.languages._framework.generic import capability_report as _capability_report
+    from desloppify.languages._framework.generic_support.capabilities import (
+        capability_report as _capability_report,
+    )
 
     return _capability_report(cfg)
 

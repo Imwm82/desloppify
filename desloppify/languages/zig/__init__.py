@@ -1,6 +1,6 @@
 """Zig language plugin — zig build."""
 
-from desloppify.languages._framework.generic import generic_lang
+from desloppify.languages._framework.generic_support.core import generic_lang
 from desloppify.languages._framework.treesitter import ZIG_SPEC
 
 generic_lang(
