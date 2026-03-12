@@ -10,7 +10,7 @@ import json
 import logging
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from collections import defaultdict
 from pathlib import Path
