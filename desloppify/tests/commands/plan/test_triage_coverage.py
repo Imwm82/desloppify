@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.app.commands.plan.triage.command import _triage_coverage
+from desloppify.app.commands.plan.triage.review_coverage import triage_coverage
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.constants import TRIAGE_STAGE_IDS
 
@@ -37,7 +37,7 @@ class TestTriageCoverage:
             "unused-import::test.py",       # mechanical — should be excluded
             clustered=["review::test.py::naming_issue"],
         )
-        organized, total, _ = _triage_coverage(
+        organized, total, _ = triage_coverage(
             plan,
             open_review_ids=_review_ids(
                 "review::test.py::naming_issue",
@@ -56,7 +56,7 @@ class TestTriageCoverage:
             "unused-import::d.py",
             clustered=["review::a.py::issue1", "concerns::b.py::issue2"],
         )
-        organized, total, _ = _triage_coverage(
+        organized, total, _ = triage_coverage(
             plan,
             open_review_ids=_review_ids(
                 "review::a.py::issue1",
@@ -70,7 +70,7 @@ class TestTriageCoverage:
     def test_coverage_empty_queue(self):
         """Empty queue returns (0, 0, clusters)."""
         plan = _plan_with_queue()  # only triage stage IDs
-        organized, total, clusters = _triage_coverage(
+        organized, total, clusters = triage_coverage(
             plan, open_review_ids=set(),
         )
         assert organized == 0
@@ -80,7 +80,7 @@ class TestTriageCoverage:
     def test_coverage_excludes_triage_stages(self):
         """Triage stage IDs are never counted toward review coverage totals."""
         plan = _plan_with_queue("review::test.py::issue1")
-        _, total, _ = _triage_coverage(
+        _, total, _ = triage_coverage(
             plan,
             open_review_ids=_review_ids("review::test.py::issue1"),
         )
@@ -112,7 +112,7 @@ class TestTriageCoverage:
             "review::b.py::issue2",
             "review::c.py::issue3",
         )
-        organized, total, _ = _triage_coverage(plan, open_review_ids=open_ids)
+        organized, total, _ = triage_coverage(plan, open_review_ids=open_ids)
         assert total == 3
         assert organized == 2
 
@@ -124,7 +124,7 @@ class TestTriageCoverage:
             clustered=["review::test.py::issue1"],
         )
         # No open_review_ids — uses queue_order
-        organized, total, _ = _triage_coverage(plan)
+        organized, total, _ = triage_coverage(plan)
         assert total == 1
         assert organized == 1
 
@@ -152,7 +152,7 @@ class TestTriageCoverage:
             "auto": False,
         }
 
-        organized, total, _ = _triage_coverage(plan)
+        organized, total, _ = triage_coverage(plan)
 
         assert total == 2
         assert organized == 2

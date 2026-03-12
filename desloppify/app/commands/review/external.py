@@ -26,7 +26,7 @@ from .packet.build import (
 from .importing.cmd import do_import, do_validate_import
 from .importing.flags import ReviewImportConfig
 from .runner_packets import run_stamp, sha256_file
-from .runner_process import FollowupScanDeps, run_followup_scan
+from desloppify.app.commands.runner.codex_batch import FollowupScanDeps, run_followup_scan
 from .runtime.setup import setup_lang_concrete
 from .prompt_sections import (
     build_batch_context,

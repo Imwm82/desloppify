@@ -6,3 +6,16 @@ Capabilities:
 - ``triage``: staged planning workflow entrypoint + stage modules
 - ``commit_log``: commit tracking status/history/record helpers
 """
+
+from __future__ import annotations
+
+import argparse
+
+
+def cmd_plan(args: argparse.Namespace) -> None:
+    """Dispatch to the plan command implementation."""
+    from .cmd import cmd_plan as _cmd_plan
+
+    _cmd_plan(args)
+
+__all__ = ["cmd_plan"]

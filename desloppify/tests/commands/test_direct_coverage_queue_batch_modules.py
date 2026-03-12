@@ -15,7 +15,7 @@ import desloppify.app.commands.review.packet.build as packet_build_mod
 import desloppify.app.commands.review.runner_failures as runner_failures_mod
 import desloppify.app.commands.review.runner_packets as runner_packets_mod
 import desloppify.app.commands.review.runner_parallel as runner_parallel_mod
-import desloppify.app.commands.review.runner_process as runner_process_mod
+import desloppify.app.commands.runner.codex_batch as runner_process_mod
 import desloppify.app.commands.review.runtime_paths as runtime_paths_mod
 import desloppify.app.commands.review.state_payloads as state_payloads_mod
 import desloppify.app.commands.scan.plan_nudge as plan_nudge_mod

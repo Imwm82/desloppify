@@ -24,7 +24,7 @@ from .apply_retro import (
     _resolve_fixer_results,
     _warn_uncommitted_changes,
 )
-from .options import _COMMAND_POST_FIX
+from .fixer_selection import _COMMAND_POST_FIX
 
 if TYPE_CHECKING:
     from desloppify.languages.framework import FixerConfig, LangRun

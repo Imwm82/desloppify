@@ -14,7 +14,7 @@ import pytest
 import desloppify.app.commands.review.runner_failures as runner_failures_mod
 import desloppify.app.commands.review.runner_packets as runner_packets_mod
 import desloppify.app.commands.review.runner_parallel as runner_parallel_mod
-import desloppify.app.commands.review.runner_process as runner_process_mod
+import desloppify.app.commands.runner.codex_batch as runner_process_mod
 from desloppify.app.commands.review.batch.orchestrator import do_run_batches
 from desloppify.base.exception_sets import CommandError
 
@@ -552,5 +552,4 @@ class TestCmdReviewPrepareRunnerHelpers:
         run_log_path = Path(summary_payload["run_log"])
         run_log_text = run_log_path.read_text()
         assert "run-interrupted reason=keyboard_interrupt" in run_log_text
-
 

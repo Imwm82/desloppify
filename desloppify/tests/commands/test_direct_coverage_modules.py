@@ -20,7 +20,7 @@ import desloppify.app.commands.review.batch.execution as review_batches
 import desloppify.app.commands.review.importing.cmd as review_import
 import desloppify.app.commands.review.importing.helpers as review_import_helpers
 import desloppify.app.commands.review.prepare as review_prepare
-import desloppify.app.commands.review.runner_process as review_runner_helpers
+import desloppify.app.commands.runner.codex_batch as review_runner_helpers
 import desloppify.app.commands.review.runtime.setup as review_runtime_setup
 import desloppify.app.commands.scan.artifacts as scan_artifacts
 import desloppify.app.commands.scan.cmd as scan_cmd_mod

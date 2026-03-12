@@ -42,10 +42,15 @@ from .flags import (
     mark_manual_override_assessments_provisional,
     validate_import_flag_combos,
 )
-from .output import print_import_load_errors
+from .output import (
+    print_assessment_mode_banner,
+    print_assessment_policy_notice,
+    print_import_load_errors,
+)
+from .policy import assessment_policy_model_from_payload
+from .helpers import load_import_issues_data
 from .parse import (
     ImportPayloadLoadError,
-    load_import_issues_data,
     resolve_override_context,
 )
 from .plan_sync import sync_plan_after_import
@@ -302,13 +307,13 @@ def do_import(
     )
 
     assessment_policy: AssessmentImportPolicyModel = (
-        import_helpers_mod.assessment_policy_model_from_payload(issues_data)
+        assessment_policy_model_from_payload(issues_data)
     )
-    import_helpers_mod.print_assessment_mode_banner(
+    print_assessment_mode_banner(
         assessment_policy.to_dict(),
         colorize_fn=colorize,
     )
-    import_helpers_mod.print_assessment_policy_notice(
+    print_assessment_policy_notice(
         assessment_policy.to_dict(),
         import_file=str(import_file),
         colorize_fn=colorize,
@@ -380,7 +385,7 @@ def do_validate_import(
 ) -> None:
     """Validate import payload/policy and print mode without mutating state."""
     resolved_import_config = import_config or ReviewImportConfig()
-    override_enabled, override_attest = import_helpers_mod.resolve_override_context(
+    override_enabled, override_attest = resolve_override_context(
         manual_override=resolved_import_config.manual_override,
         manual_attest=resolved_import_config.manual_attest,
     )
@@ -395,7 +400,7 @@ def do_validate_import(
         raise CommandError(str(exc), exit_code=1) from exc
 
     try:
-        issues_data = import_helpers_mod.load_import_issues_data(
+        issues_data = load_import_issues_data(
             import_file,
             config=build_import_load_config(
                 lang_name=lang.name,
@@ -404,22 +409,22 @@ def do_validate_import(
                 override_attest=override_attest,
             ),
         )
-    except import_helpers_mod.ImportPayloadLoadError as exc:
-        import_helpers_mod.print_import_load_errors(
+    except ImportPayloadLoadError as exc:
+        print_import_load_errors(
             exc.errors,
             import_file=str(import_file),
             colorize_fn=colorize,
         )
         raise PacketValidationError("import payload validation failed", exit_code=1) from exc
 
-    assessment_policy = import_helpers_mod.assessment_policy_model_from_payload(
+    assessment_policy = assessment_policy_model_from_payload(
         issues_data
     )
-    import_helpers_mod.print_assessment_mode_banner(
+    print_assessment_mode_banner(
         assessment_policy.to_dict(),
         colorize_fn=colorize,
     )
-    import_helpers_mod.print_assessment_policy_notice(
+    print_assessment_policy_notice(
         assessment_policy.to_dict(),
         import_file=str(import_file),
         colorize_fn=colorize,

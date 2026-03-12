@@ -17,7 +17,7 @@ import desloppify.app.commands.review.batch.scope as review_scope_mod
 import desloppify.app.commands.review.runner_failures as runner_failures_mod
 import desloppify.app.commands.review.runner_packets as runner_packets_mod
 import desloppify.app.commands.review.runner_parallel as runner_parallel_mod
-import desloppify.app.commands.review.runner_process as runner_process_mod
+import desloppify.app.commands.runner.codex_batch as runner_process_mod
 from desloppify import state as state_mod
 from desloppify.app.commands.review.batch.orchestrator import (
     do_run_batches,

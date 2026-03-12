@@ -45,7 +45,7 @@ from ..runner_packets import (
     write_packet_snapshot,
 )
 from ..runner_parallel import BatchExecutionOptions, collect_batch_results, execute_batches
-from ..runner_process import (
+from desloppify.app.commands.runner.codex_batch import (
     CodexBatchRunnerDeps,
     FollowupScanDeps,
     run_codex_batch,

@@ -1,4 +1,4 @@
-"""Autofix command option and fixer resolution helpers."""
+"""Fixer selection helpers that own autofix config resolution."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from desloppify.languages.framework import FixerConfig, LangConfig
 _COMMAND_POST_FIX: dict[str, Callable[..., None]] = {}
 
 
-def _resolve_fixer_config(args, fixer_name: str) -> tuple[LangConfig, FixerConfig]:
+def resolve_fixer_config(args, fixer_name: str) -> tuple[LangConfig, FixerConfig]:
     """Resolve and normalize fixer config from language registry, or raise."""
     lang = resolve_lang(args)
     if not lang:
@@ -33,6 +33,9 @@ def _resolve_fixer_config(args, fixer_name: str) -> tuple[LangConfig, FixerConfi
     return lang, fixer_config
 
 
-def _load_fixer(args, fixer_name: str) -> tuple[LangConfig, FixerConfig]:
-    """Compatibility alias for older call sites/tests."""
-    return _resolve_fixer_config(args, fixer_name)
+def load_fixer(args, fixer_name: str) -> tuple[LangConfig, FixerConfig]:
+    """Compatibility alias for older call sites."""
+    return resolve_fixer_config(args, fixer_name)
+
+
+__all__ = ["_COMMAND_POST_FIX", "load_fixer", "resolve_fixer_config"]
