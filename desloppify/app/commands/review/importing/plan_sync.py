@@ -19,7 +19,10 @@ from desloppify.engine._plan.persistence import (
     plan_path_for_state,
     save_plan,
 )
-from desloppify.engine._plan.policy.subjective import compute_subjective_visibility
+from desloppify.engine._plan.policy.subjective import (
+    SubjectiveVisibility,
+    compute_subjective_visibility,
+)
 from desloppify.engine._plan.reconcile_review_import import (
     ReviewImportSyncResult,
     sync_plan_after_review_import,

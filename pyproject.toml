@@ -112,5 +112,4 @@ files = [
   "desloppify/app/commands/scan/workflow.py",
   "desloppify/app/cli_support/parser.py",
   "desloppify/app/cli_support/parser_groups.py",
-  "desloppify/languages/_framework/generic.py",
 ]

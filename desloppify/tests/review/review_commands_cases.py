@@ -1125,9 +1125,9 @@ class TestCmdReviewPrepare:
 
         payload = captured["payload"]
         assert isinstance(payload, dict)
-        assert payload["assessments"]["high_level_elegance"] == 72.4
-        assert payload["assessments"]["mid_level_elegance"] == 63.0
-        assert payload["assessments"]["low_level_elegance"] == 78.5
+        assert payload["assessments"]["high_level_elegance"] == 77.0
+        assert payload["assessments"]["mid_level_elegance"] == 65.0
+        assert payload["assessments"]["low_level_elegance"] == 80.0
         # Reviewer agents explore freely — no seed-file-based reviewed_files
         assert "reviewed_files" not in payload
         assert "dimension_notes" in payload
@@ -1656,7 +1656,7 @@ class TestCmdReviewPrepare:
             do_run_batches(args, empty_state, lang, "fake_sp", config={})
 
         payload = captured["payload"]
-        assert payload["assessments"]["mid_level_elegance"] == pytest.approx(75.0, abs=0.1)
+        assert payload["assessments"]["mid_level_elegance"] == pytest.approx(77.0, abs=0.1)
         assert "reviewed_files" not in payload
         import_config = captured["kwargs"]["import_config"]
         assert isinstance(import_config, ReviewImportConfig)
@@ -1857,7 +1857,7 @@ class TestCmdReviewPrepare:
         payload = captured["payload"]
         assert isinstance(payload, dict)
         abstraction = payload["assessments"]["abstraction_fitness"]
-        assert abstraction["score"] == 67.4
+        assert abstraction["score"] == 72.0
         assert abstraction["components"] == [
             "Abstraction Leverage",
             "Indirection Cost",

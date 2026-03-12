@@ -693,9 +693,13 @@ def normalize_batch_result(
         expected_dimensions=len(allowed_dims),
     )
     context_updates = _normalize_context_updates(payload, allowed_dims)
+    all_issues: list[BatchIssuePayload] = [
+        *[issue.to_payload() for issue in issues],
+        *dismissed_concerns,
+    ]
     return (
         assessments,
-        [issue.to_payload() for issue in issues] + list(dismissed_concerns),
+        all_issues,
         dimension_notes,
         dimension_judgment,
         quality,
