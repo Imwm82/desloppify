@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import importlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -23,6 +22,9 @@ from desloppify.app.commands.scan.coverage import (
 )
 from desloppify.app.commands.scan.coverage import (
     seed_runtime_coverage_warnings as _seed_runtime_coverage_warnings,
+)
+from desloppify.app.commands.scan.plan_reconcile import (
+    reconcile_plan_post_scan as _reconcile_plan_post_scan_impl,
 )
 from desloppify.app.commands.scan.helpers import (
     audit_excluded_dirs,
@@ -86,10 +88,7 @@ def _clear_needs_rescan_flag(config: dict[str, object]) -> None:
 
 def _reconcile_plan_post_scan(runtime: ScanRuntime) -> None:
     """Reconcile plan queue metadata and stale subjective review dimensions."""
-    reconcile_mod = importlib.import_module(
-        "desloppify.app.commands.scan.plan_reconcile"
-    )
-    reconcile_mod.reconcile_plan_post_scan(runtime)
+    _reconcile_plan_post_scan_impl(runtime)
 
 
 def _state_subjective_assessments(
