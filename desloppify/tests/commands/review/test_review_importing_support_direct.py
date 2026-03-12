@@ -65,10 +65,15 @@ def _patch_basic_plan_sync_runtime(
     monkeypatch.setattr(plan_sync_mod, "append_log_entry", lambda *_a, **_k: None)
 
 
+def _sync_request(**kwargs) -> object:
+    return plan_sync_mod.PlanImportSyncRequest(**kwargs)
+
+
 def test_plan_sync_uses_narrow_plan_facades() -> None:
     src = inspect.getsource(plan_sync_mod)
     assert "from desloppify.engine.plan import" not in src
     assert "desloppify.engine._plan.persistence" in src
+    assert "@dataclass(frozen=True)\nclass PlanImportSyncRequest" in src
 
 
 def test_flags_validation_and_assessment_state_helpers() -> None:
@@ -166,7 +171,7 @@ def test_sync_plan_after_import_scopes_living_plan_to_state_file(monkeypatch, tm
         state={},
         diff={"new": 1, "reopened": 0},
         assessment_mode="issues_only",
-        state_file=state_file,
+        request=_sync_request(state_file=state_file),
     )
 
     assert seen["state_path"] == state_file
@@ -392,7 +397,7 @@ def test_sync_plan_after_import_reuses_plan_aware_policy(monkeypatch) -> None:
         state={},
         diff={"new": 1, "reopened": 0},
         assessment_mode="issues_only",
-        config={"target_strict_score": 97},
+        request=_sync_request(config={"target_strict_score": 97}),
     )
 
     assert seen["target_strict"] == 97.0
@@ -577,13 +582,15 @@ def test_sync_plan_after_import_rebuilds_subjective_clusters_for_assessment_only
         state=state,
         diff={"new": 0, "reopened": 0, "auto_resolved": 0},
         assessment_mode="trusted_internal",
-        import_payload={
-            "assessments": {
-                "Design coherence": 80,
-                "Naming quality": 78,
+        request=_sync_request(
+            import_payload={
+                "assessments": {
+                    "Design coherence": 80,
+                    "Naming quality": 78,
+                },
+                "issues": [],
             },
-            "issues": [],
-        },
+        ),
     )
 
     assert "auto/initial-review" not in plan["clusters"]
@@ -749,6 +756,8 @@ def test_report_review_import_outcome_reports_provisional_warning(capsys, monkey
 
 def test_plan_sync_source_preserves_scoped_sync_pipeline_contract() -> None:
     src = inspect.getsource(plan_sync_mod.sync_plan_after_import)
+    assert "request: PlanImportSyncRequest | None = None" in src
+    assert "state_file = request.state_file if request is not None else None" in src
     assert "plan_path = None" in src
     assert "plan_path_for_state(Path(state_file))" in src
     assert "if not has_living_plan(plan_path):" in src
@@ -760,13 +769,13 @@ def test_plan_sync_source_preserves_scoped_sync_pipeline_contract() -> None:
     assert "communicate_result = sync_communicate_score_needed(" in src
     assert "import_scores_result = sync_import_scores_needed(" in src
     assert "create_plan_result = sync_create_plan_needed(" in src
-    assert "import_result = sync_plan_after_review_import(" in src
-    assert "stale_sync_result = sync_subjective_dimensions(" in src
-    assert 'workflow_injected_ids.append("workflow::communicate-score")' in src
-    assert 'workflow_injected_ids.append("workflow::import-scores")' in src
-    assert 'workflow_injected_ids.append("workflow::create-plan")' in src
-    assert "append_log_entry(" in src
-    assert '"review_import_sync"' in src
+    assert "sync_inputs = _build_import_sync_inputs(diff, import_payload)" in src
+    assert "mutations = _PlanImportMutations()" in src
+    assert "_record_workflow_change(" in src
+    assert "_sync_review_delta(" in src
+    assert "_sync_subjective_queue_after_import(" in src
+    assert "_append_workflow_log_entries(" in src
+    assert "_append_review_import_sync_log(" in src
     assert "save_plan(plan, plan_path)" in src
     assert "_print_review_import_sync(" in src
 

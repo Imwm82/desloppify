@@ -31,6 +31,16 @@ from ..cluster_ops_reorder import _cmd_cluster_reorder
 from ..cluster_update import cmd_cluster_update as _cmd_cluster_update_impl
 
 _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
+_HINT_TONE = "dim"
+_VALID_PATTERN_HINTS = (
+    "f41b3eb7              (8-char hash suffix from dashboard)",
+    "review::path::name    (ID prefix)",
+    "review                (all issues from detector)",
+    "src/foo.py            (all issues in file)",
+    "timing_attack         (issue name - last ::segment of ID)",
+    "review::*naming*      (glob pattern)",
+    "my-cluster            (cluster name - expands to members)",
+)
 
 
 def _all_known_issue_ids(state: dict, plan: dict | None) -> list[str]:
@@ -87,14 +97,51 @@ def _suggest_close_matches(state: dict, plan: dict | None, patterns: list[str]) 
 
 def _print_pattern_hints() -> None:
     """Print valid pattern format hints after a no-match error."""
-    print(colorize("  Valid patterns:", "dim"))
-    print(colorize("    f41b3eb7              (8-char hash suffix from dashboard)", "dim"))
-    print(colorize("    review::path::name    (ID prefix)", "dim"))
-    print(colorize("    review                (all issues from detector)", "dim"))
-    print(colorize("    src/foo.py            (all issues in file)", "dim"))
-    print(colorize("    timing_attack         (issue name - last ::segment of ID)", "dim"))
-    print(colorize("    review::*naming*      (glob pattern)", "dim"))
-    print(colorize("    my-cluster            (cluster name - expands to members)", "dim"))
+    print(colorize("  Valid patterns:", _HINT_TONE))
+    for hint in _VALID_PATTERN_HINTS:
+        print(colorize(f"    {hint}", _HINT_TONE))
+
+
+def _print_cluster_dry_run(
+    *,
+    action: str,
+    cluster_name: str,
+    issue_ids: list[str],
+) -> None:
+    print(
+        colorize(
+            f"  [dry-run] Would {action} {len(issue_ids)} item(s) {cluster_name}:",
+            "cyan",
+        )
+    )
+    for fid in issue_ids:
+        print(colorize(f"    {fid}", _HINT_TONE))
+
+
+def _warn_cluster_overlap(
+    plan: dict,
+    *,
+    cluster_name: str,
+    issue_ids: list[str],
+) -> None:
+    member_set = set(issue_ids)
+    for other_name, other_cluster in plan.get("clusters", {}).items():
+        if other_name == cluster_name or other_cluster.get("auto"):
+            continue
+        other_ids = set(cluster_issue_ids(other_cluster))
+        if not other_ids:
+            continue
+        overlap = member_set & other_ids
+        if len(overlap) <= len(other_ids) * 0.5:
+            continue
+        percent = int(len(overlap) / len(other_ids) * 100)
+        print(
+            colorize(
+                f"  Warning: {len(overlap)} issue(s) also in cluster '{other_name}' "
+                f"({len(overlap)}/{len(other_ids)} = {percent}% overlap).",
+                "yellow",
+            )
+        )
 
 
 def _handle_no_match(state: dict, plan: dict, patterns: list[str]) -> None:
@@ -119,14 +166,11 @@ def _cmd_cluster_add(args: argparse.Namespace) -> None:
         return
 
     if dry_run:
-        print(
-            colorize(
-                f"  [dry-run] Would add {len(issue_ids)} item(s) to {cluster_name}:",
-                "cyan",
-            )
+        _print_cluster_dry_run(
+            action="add",
+            cluster_name=f"to {cluster_name}:",
+            issue_ids=issue_ids,
         )
-        for fid in issue_ids:
-            print(colorize(f"    {fid}", "dim"))
         return
 
     try:
@@ -135,23 +179,7 @@ def _cmd_cluster_add(args: argparse.Namespace) -> None:
         print(colorize(f"  {ex}", "red"))
         return
 
-    member_set = set(issue_ids)
-    for other_name, other_cluster in plan.get("clusters", {}).items():
-        if other_name == cluster_name or other_cluster.get("auto"):
-            continue
-        other_ids = set(cluster_issue_ids(other_cluster))
-        if not other_ids:
-            continue
-        overlap = member_set & other_ids
-        if len(overlap) > len(other_ids) * 0.5:
-            percent = int(len(overlap) / len(other_ids) * 100)
-            print(
-                colorize(
-                    f"  Warning: {len(overlap)} issue(s) also in cluster '{other_name}' "
-                    f"({len(overlap)}/{len(other_ids)} = {percent}% overlap).",
-                    "yellow",
-                )
-            )
+    _warn_cluster_overlap(plan, cluster_name=cluster_name, issue_ids=issue_ids)
 
     append_log_entry(plan, "cluster_add", issue_ids=issue_ids, cluster_name=cluster_name, actor="user")
     save_plan(plan)
@@ -174,14 +202,11 @@ def _cmd_cluster_remove(args: argparse.Namespace) -> None:
         return
 
     if dry_run:
-        print(
-            colorize(
-                f"  [dry-run] Would remove {len(issue_ids)} item(s) from {cluster_name}:",
-                "cyan",
-            )
+        _print_cluster_dry_run(
+            action="remove",
+            cluster_name=f"from {cluster_name}:",
+            issue_ids=issue_ids,
         )
-        for fid in issue_ids:
-            print(colorize(f"    {fid}", "dim"))
         return
 
     try:

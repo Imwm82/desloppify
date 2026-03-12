@@ -51,7 +51,7 @@ from .parse import (
     ImportPayloadLoadError,
     resolve_override_context,
 )
-from .plan_sync import sync_plan_after_import
+from .plan_sync import PlanImportSyncRequest, sync_plan_after_import
 from .results import report_review_import_outcome
 
 _SCORECARD_SUBJECTIVE_AT_TARGET = bind_scorecard_subjective_at_target(
@@ -185,10 +185,12 @@ def _persist_import_state(
         state,
         diff,
         assessment_mode,
-        state_file=state_file,
-        config=config,
-        import_file=import_file,
-        import_payload=import_payload,
+        request=PlanImportSyncRequest(
+            state_file=state_file,
+            config=config,
+            import_file=import_file,
+            import_payload=import_payload,
+        ),
     )
 
 
