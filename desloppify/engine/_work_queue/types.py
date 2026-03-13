@@ -57,6 +57,7 @@ class QueueItemCommon(QueueItemBase, total=False):
     estimated_impact: float
     primary_command: str
     action_type: str
+    execution_policy: str
     explain: dict[str, Any]
 
     # Plan-order metadata
@@ -101,10 +102,6 @@ class WorkItemQueueItem(QueueItemCommon, total=False):
     """Concrete queue item for one tracked work item."""
 
     tier: int
-
-
-# Legacy alias retained while imports move to the new name.
-IssueQueueItem = WorkItemQueueItem
 
 
 class ClusterQueueItem(QueueItemCommon, total=False):
@@ -190,6 +187,7 @@ class SerializedQueueItem(TypedDict, total=False):
     members_truncated: bool
     members_sample_limit: int
     autofix_hint: str
+    execution_policy: str
     action_steps: list[dict[str, Any]]
 
 
@@ -205,7 +203,6 @@ WorkQueueGroups: TypeAlias = dict[str, list[WorkQueueItem]]
 
 __all__ = [
     "ClusterQueueItem",
-    "IssueQueueItem",
     "PlanClusterRef",
     "QueueItemBase",
     "QueueItemCommon",

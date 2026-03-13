@@ -6,7 +6,7 @@ from desloppify.base.registry import DetectorMeta
 from desloppify.engine._plan.constants import AUTO_PREFIX
 from desloppify.engine._state.issue_semantics import (
     is_review_finding,
-    is_review_request,
+    is_assessment_request,
 )
 
 
@@ -21,7 +21,7 @@ def grouping_key(issue: dict, meta: DetectorMeta | None) -> str | None:
     if meta is None:
         return f"detector::{detector}"
 
-    if is_review_finding(issue) or is_review_request(issue):
+    if is_review_finding(issue) or is_assessment_request(issue):
         detail = issue.get("detail") or {}
         dimension = detail.get("dimension", "")
         if dimension:
@@ -58,7 +58,7 @@ def generate_description(
     count = len(members)
     detector = members[0].get("detector", "") if members else ""
 
-    if is_review_finding(members[0]) or is_review_request(members[0]):
+    if is_review_finding(members[0]) or is_assessment_request(members[0]):
         detail = (members[0].get("detail") or {}) if members else {}
         dimension = detail.get("dimension", detector)
         return f"Address {count} {dimension} review issues"

@@ -113,7 +113,7 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
             count += 1
 
     append_log_entry(plan, "reopen", issue_ids=reopened, actor="user")
-    clear_postflight_scan_completion(plan, issue_ids=reopened)
+    clear_postflight_scan_completion(plan, issue_ids=reopened, state=state_data)
     save_plan_state_transactional(
         plan=plan,
         plan_path=plan_file,

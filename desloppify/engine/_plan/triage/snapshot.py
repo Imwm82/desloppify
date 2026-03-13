@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from desloppify.engine._plan.constants import TRIAGE_IDS
+from desloppify.engine._plan.constants import TRIAGE_IDS, is_synthetic_id
 from desloppify.engine._plan.policy.stale import open_review_ids
 from desloppify.engine._plan.triage.playbook import TriageProgress, compute_triage_progress
 from desloppify.engine._state.schema import StateModel
@@ -58,8 +58,7 @@ def plan_review_ids(plan: dict) -> list[str]:
         issue_id
         for issue_id in plan.get("queue_order", [])
         if isinstance(issue_id, str)
-        and not issue_id.startswith("triage::")
-        and not issue_id.startswith("workflow::")
+        and not is_synthetic_id(issue_id)
         and (issue_id.startswith("review::") or issue_id.startswith("concerns::"))
     ]
 

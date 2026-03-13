@@ -47,11 +47,52 @@ def test_clearing_completion_for_real_issue_requires_new_scan() -> None:
     changed = clear_postflight_scan_completion(
         plan,
         issue_ids=["unused::src/app.ts::thing"],
+        state={
+            "issues": {
+                "unused::src/app.ts::thing": {
+                    "id": "unused::src/app.ts::thing",
+                    "detector": "unused",
+                    "status": "open",
+                    "file": "src/app.ts",
+                    "tier": 1,
+                    "confidence": "high",
+                    "summary": "unused import",
+                    "detail": {},
+                }
+            }
+        },
     )
 
     assert changed is True
     assert postflight_scan_pending(plan) is True
     assert current_lifecycle_phase(plan) == LIFECYCLE_PHASE_EXECUTE
+
+
+def test_clearing_completion_for_review_issue_keeps_current_scan_boundary() -> None:
+    plan = empty_plan()
+    mark_postflight_scan_completed(plan, scan_count=5)
+
+    changed = clear_postflight_scan_completion(
+        plan,
+        issue_ids=["review::src/app.ts::naming"],
+        state={
+            "issues": {
+                "review::src/app.ts::naming": {
+                    "id": "review::src/app.ts::naming",
+                    "detector": "review",
+                    "status": "open",
+                    "file": "src/app.ts",
+                    "tier": 1,
+                    "confidence": "high",
+                    "summary": "naming issue",
+                    "detail": {"dimension": "naming_quality"},
+                }
+            }
+        },
+    )
+
+    assert changed is False
+    assert postflight_scan_pending(plan) is False
 
 
 def test_current_lifecycle_phase_falls_back_for_legacy_plans() -> None:

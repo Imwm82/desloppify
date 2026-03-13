@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from desloppify.engine._plan.cluster_semantics import cluster_autofix_hint
 from desloppify.engine._plan.schema import (
     Cluster,
     EPIC_PREFIX,
@@ -526,8 +527,7 @@ def _append_mechanical_backlog_section(
 
 
 def _cluster_autofix_hint(cluster: dict[str, Any]) -> str:
-    action = str(cluster.get("action", ""))
-    return action if "desloppify autofix" in action else ""
+    return cluster_autofix_hint(cluster) or ""
 
 
 def _cluster_backlog_summary(name: str, cluster: dict[str, Any], member_count: int) -> str:

@@ -155,6 +155,7 @@ def build_issue_items(
         item = cast(WorkQueueItem, dict(issue))
         item["id"] = issue_id
         item["kind"] = "issue"
+        item["action_type"] = meta.action_type if meta is not None else "manual_fix"
         item["is_review"] = is_review_issue(item)
         item["is_subjective"] = is_subjective_issue(item)
         item["review_weight"] = (

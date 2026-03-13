@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 from desloppify.base.registry import DETECTORS
-from desloppify.engine._state.issue_semantics import ensure_issue_semantics
+from desloppify.engine._state.issue_semantics import ensure_work_item_semantics
 from desloppify.engine._state.merge_history import (
     _append_scan_history,
     _build_merge_diff,
@@ -113,7 +113,7 @@ def merge_scan(
     ensure_state_defaults(state)
     for issue in current_issues:
         if isinstance(issue, dict):
-            ensure_issue_semantics(issue)
+            ensure_work_item_semantics(issue)
     resolved_options = options or MergeScanOptions()
 
     now = utc_now()

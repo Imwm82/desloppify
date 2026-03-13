@@ -85,21 +85,21 @@ def test_issue_semantics_normalize_legacy_detector_rows():
     }
     mechanical_issue = {"id": "unused::src/a.py::x", "detector": "unused", "detail": {}}
 
-    issue_semantics_mod.ensure_issue_semantics(review_issue)
-    issue_semantics_mod.ensure_issue_semantics(concern_issue)
-    issue_semantics_mod.ensure_issue_semantics(request_issue)
-    issue_semantics_mod.ensure_issue_semantics(mechanical_issue)
+    issue_semantics_mod.ensure_work_item_semantics(review_issue)
+    issue_semantics_mod.ensure_work_item_semantics(concern_issue)
+    issue_semantics_mod.ensure_work_item_semantics(request_issue)
+    issue_semantics_mod.ensure_work_item_semantics(mechanical_issue)
 
     assert review_issue["work_item_kind"] == issue_semantics_mod.REVIEW_DEFECT
-    assert review_issue["issue_kind"] == issue_semantics_mod.REVIEW_FINDING
+    assert review_issue["issue_kind"] == issue_semantics_mod.REVIEW_DEFECT
     assert review_issue["origin"] == issue_semantics_mod.REVIEW_IMPORT_ORIGIN
     assert concern_issue["work_item_kind"] == issue_semantics_mod.REVIEW_CONCERN
-    assert concern_issue["issue_kind"] == issue_semantics_mod.CONCERN_FINDING
+    assert concern_issue["issue_kind"] == issue_semantics_mod.REVIEW_CONCERN
     assert request_issue["work_item_kind"] == issue_semantics_mod.ASSESSMENT_REQUEST
-    assert request_issue["issue_kind"] == issue_semantics_mod.REVIEW_REQUEST
+    assert request_issue["issue_kind"] == issue_semantics_mod.ASSESSMENT_REQUEST
     assert request_issue["origin"] == issue_semantics_mod.SYNTHETIC_TASK_ORIGIN
     assert mechanical_issue["work_item_kind"] == issue_semantics_mod.MECHANICAL_DEFECT
-    assert mechanical_issue["issue_kind"] == issue_semantics_mod.MECHANICAL_FINDING
+    assert mechanical_issue["issue_kind"] == issue_semantics_mod.MECHANICAL_DEFECT
     assert mechanical_issue["origin"] == issue_semantics_mod.SCAN_ORIGIN
 
 

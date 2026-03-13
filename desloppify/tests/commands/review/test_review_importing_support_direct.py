@@ -147,9 +147,9 @@ def test_print_review_import_sync_reports_new_ids_and_triage_commands(capsys) ->
     )
 
     out = capsys.readouterr().out
-    assert "2 new review issue(s) added to queue" in out
+    assert "2 new review work item(s) added to queue" in out
     assert "Alpha summary" in out
-    assert "stale review issue(s) removed from queue" in out
+    assert "stale review work item(s) removed from queue" in out
     assert plan_sync_mod.TRIAGE_CMD_RUN_STAGES_CODEX in out
     assert plan_sync_mod.TRIAGE_CMD_RUN_STAGES_CLAUDE in out
 
@@ -375,7 +375,7 @@ def test_sync_plan_after_import_keeps_workflow_before_triage(monkeypatch) -> Non
     )
 
     plan_sync_mod.sync_plan_after_import(
-        state={"issues": {"review::x": {"summary": "new review issue"}}},
+        state={"issues": {"review::x": {"summary": "new review work item"}}},
         diff={"new": 1, "reopened": 0},
         assessment_mode="trusted_internal",
     )
@@ -478,7 +478,7 @@ def test_sync_plan_after_import_preserves_scan_phase_for_temporary_skips(
     )
 
     plan_sync_mod.sync_plan_after_import(
-        state={"issues": {"review::new": {"summary": "new review issue"}}},
+        state={"issues": {"review::new": {"summary": "new review work item"}}},
         diff={"new": 1, "reopened": 0},
         assessment_mode="issues_only",
     )
@@ -511,7 +511,7 @@ def test_sync_plan_after_import_does_not_purge_subjective_ids(monkeypatch) -> No
     )
 
     plan_sync_mod.sync_plan_after_import(
-        state={"issues": {"review::new": {"summary": "new review issue"}}},
+        state={"issues": {"review::new": {"summary": "new review work item"}}},
         diff={"new": 1, "reopened": 0},
         assessment_mode="issues_only",
     )

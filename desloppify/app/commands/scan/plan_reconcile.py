@@ -12,8 +12,9 @@ from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.auto_cluster import auto_cluster_issues
 from desloppify.engine._plan.constants import (
-    SYNTHETIC_PREFIXES,
     WORKFLOW_COMMUNICATE_SCORE_ID,
+    is_synthetic_id,
+    is_triage_id,
 )
 from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.persistence import (
@@ -38,7 +39,7 @@ from desloppify.engine._work_queue.context import queue_context
 from desloppify.engine._work_queue.snapshot import coarse_phase_name
 from desloppify.engine.work_queue import build_deferred_disposition_item
 from desloppify.engine._state.issue_semantics import (
-    is_review_request,
+    is_assessment_request,
     is_triage_finding,
 )
 
@@ -53,7 +54,7 @@ def _reset_cycle_for_force_rescan(plan: dict[str, object]) -> bool:
     metadata are all stale and must be removed.
     """
     order: list[str] = plan.get("queue_order", [])
-    synthetic = [item for item in order if any(item.startswith(p) for p in SYNTHETIC_PREFIXES)]
+    synthetic = [item for item in order if is_synthetic_id(item)]
     if not synthetic and not plan.get("plan_start_scores"):
         return False
     for item in synthetic:
@@ -302,7 +303,7 @@ def _sync_triage_and_log(
         if meta.get("triage_recommended"):
             print(
                 colorize(
-                    "  Plan: review issues changed — triage recommended after current work.",
+                    "  Plan: review work items changed — triage recommended after current work.",
                     "dim",
                 )
             )
@@ -312,7 +313,7 @@ def _sync_triage_and_log(
     if triage_sync.injected:
         print(
             colorize(
-                "  Plan: planning mode needed — review issues changed since last triage.",
+                "  Plan: planning mode needed — review work items changed since last triage.",
                 "cyan",
             )
         )
@@ -407,7 +408,7 @@ def _has_postflight_review_work(
     has_review_like_issue = any(
         isinstance(issue, dict)
         and issue.get("status") == "open"
-        and (is_triage_finding(issue) or is_review_request(issue))
+        and (is_triage_finding(issue) or is_assessment_request(issue))
         for issue in issues.values()
     )
     if has_review_like_issue:
@@ -430,7 +431,7 @@ def _has_postflight_workflow_items(plan: dict[str, object]) -> bool:
 
 def _has_triage_items(plan: dict[str, object]) -> bool:
     return any(
-        isinstance(item_id, str) and item_id.startswith("triage::")
+        isinstance(item_id, str) and is_triage_id(item_id)
         for item_id in plan.get("queue_order", [])
     )
 

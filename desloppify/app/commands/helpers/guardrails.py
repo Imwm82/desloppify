@@ -70,7 +70,7 @@ def triage_guardrail_messages(
     messages: list[str] = []
     if result.new_ids:
         messages.append(
-            f"{len(result.new_ids)} new review issue(s) not yet triaged."
+            f"{len(result.new_ids)} new review work item(s) not yet triaged."
             " Run the staged triage runner to incorporate them "
             f"(`{TRIAGE_CMD_RUN_STAGES_CODEX}` or `{TRIAGE_CMD_RUN_STAGES_CLAUDE}`)."
         )
@@ -115,7 +115,7 @@ def require_triage_current_or_exit(
 
     new_ids = result.new_ids
     lines = [
-        f"BLOCKED: {len(new_ids) or 'some'} new review issue(s) have not been triaged."
+        f"BLOCKED: {len(new_ids) or 'some'} new review work item(s) have not been triaged."
     ]
     if new_ids:
         for fid in sorted(new_ids)[:5]:

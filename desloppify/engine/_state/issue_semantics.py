@@ -39,16 +39,6 @@ WORK_ITEM_ORIGINS: frozenset[str] = frozenset(
     }
 )
 
-# Legacy semantic aliases kept for compatibility while the repo moves to the
-# work-item terminology.
-MECHANICAL_FINDING = MECHANICAL_DEFECT
-REVIEW_FINDING = REVIEW_DEFECT
-CONCERN_FINDING = REVIEW_CONCERN
-REVIEW_REQUEST = ASSESSMENT_REQUEST
-SYNTHETIC_REQUEST_ORIGIN = SYNTHETIC_TASK_ORIGIN
-ISSUE_KINDS = WORK_ITEM_KINDS
-ISSUE_ORIGINS = WORK_ITEM_ORIGINS
-
 _LEGACY_KIND_ALIASES: dict[str, str] = {
     "mechanical_finding": MECHANICAL_DEFECT,
     "review_finding": REVIEW_DEFECT,
@@ -115,24 +105,6 @@ def infer_work_item_origin(
     return SCAN_ORIGIN
 
 
-def infer_issue_kind(
-    detector: object,
-    *,
-    detail: Mapping[str, Any] | None = None,
-) -> WorkItemKind:
-    """Backward-compatible alias for canonical work-item kind inference."""
-    return infer_work_item_kind(detector, detail=detail)
-
-
-def infer_issue_origin(
-    detector: object,
-    *,
-    detail: Mapping[str, Any] | None = None,
-) -> WorkItemOrigin:
-    """Backward-compatible alias for canonical work-item origin inference."""
-    return infer_work_item_origin(detector, detail=detail)
-
-
 def normalized_work_item_kind(issue: Mapping[str, Any]) -> WorkItemKind:
     """Return the canonical work-item kind, inferring from legacy data when needed."""
     raw_kind = str(
@@ -145,11 +117,6 @@ def normalized_work_item_kind(issue: Mapping[str, Any]) -> WorkItemKind:
     return infer_work_item_kind(issue.get("detector", ""), detail=_detail_dict(issue))
 
 
-def normalized_issue_kind(issue: Mapping[str, Any]) -> WorkItemKind:
-    """Backward-compatible alias for canonical work-item kind normalization."""
-    return normalized_work_item_kind(issue)
-
-
 def normalized_work_item_origin(issue: Mapping[str, Any]) -> WorkItemOrigin:
     """Return the canonical work-item origin, inferring from legacy data when needed."""
     raw_origin = str(issue.get("origin", "")).strip()
@@ -160,28 +127,18 @@ def normalized_work_item_origin(issue: Mapping[str, Any]) -> WorkItemOrigin:
     return infer_work_item_origin(issue.get("detector", ""), detail=_detail_dict(issue))
 
 
-def normalized_issue_origin(issue: Mapping[str, Any]) -> WorkItemOrigin:
-    """Backward-compatible alias for canonical work-item origin normalization."""
-    return normalized_work_item_origin(issue)
-
-
-def ensure_issue_semantics(issue: dict[str, Any]) -> None:
+def ensure_work_item_semantics(issue: dict[str, Any]) -> None:
     """Populate canonical semantic fields in-place.
 
     Both ``work_item_kind`` and legacy ``issue_kind`` are written so current
-    in-repo callers can migrate incrementally while persisted state moves
-    toward the work-item terminology.
+    persisted data and old state files remain readable while canonical runtime
+    semantics use the work-item terminology.
     """
     kind = normalized_work_item_kind(issue)
     origin = normalized_work_item_origin(issue)
     issue["work_item_kind"] = kind
     issue["issue_kind"] = kind
     issue["origin"] = origin
-
-
-def ensure_work_item_semantics(issue: dict[str, Any]) -> None:
-    """Preferred name for semantic normalization."""
-    ensure_issue_semantics(issue)
 
 
 def is_defect_work_item(issue: Mapping[str, Any]) -> bool:
@@ -216,10 +173,6 @@ def is_assessment_request(issue: Mapping[str, Any]) -> bool:
     return normalized_work_item_kind(issue) == ASSESSMENT_REQUEST
 
 
-def is_review_request(issue: Mapping[str, Any]) -> bool:
-    return is_assessment_request(issue)
-
-
 def is_non_objective_issue(issue: Mapping[str, Any]) -> bool:
     return not is_objective_finding(issue)
 
@@ -244,27 +197,17 @@ def _detail_dict(issue: Mapping[str, Any]) -> Mapping[str, Any]:
 
 __all__ = [
     "ASSESSMENT_REQUEST",
-    "CONCERN_FINDING",
-    "ISSUE_KINDS",
-    "ISSUE_ORIGINS",
     "MECHANICAL_DEFECT",
-    "MECHANICAL_FINDING",
     "REVIEW_CONCERN",
     "REVIEW_DEFECT",
-    "REVIEW_FINDING",
     "REVIEW_IMPORT_ORIGIN",
-    "REVIEW_REQUEST",
     "SCAN_ORIGIN",
     "SCORING_EXCLUDED_DETECTORS",
     "SYNTHETIC_TASK_ORIGIN",
-    "SYNTHETIC_REQUEST_ORIGIN",
     "counts_toward_objective_backlog",
     "ensure_work_item_semantics",
-    "ensure_issue_semantics",
     "infer_work_item_kind",
     "infer_work_item_origin",
-    "infer_issue_kind",
-    "infer_issue_origin",
     "is_assessment_request",
     "is_concern_finding",
     "is_defect_work_item",
@@ -272,14 +215,11 @@ __all__ = [
     "is_non_objective_issue",
     "is_objective_finding",
     "is_review_finding",
-    "is_review_request",
     "is_review_work_item",
     "is_scoring_excluded_detector",
     "is_triage_finding",
     "normalized_work_item_kind",
     "normalized_work_item_origin",
-    "normalized_issue_kind",
-    "normalized_issue_origin",
     "WORK_ITEM_KINDS",
     "WORK_ITEM_ORIGINS",
 ]

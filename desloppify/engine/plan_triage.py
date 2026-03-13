@@ -84,12 +84,12 @@ def triage_phase_banner(
         if undispositioned:
             return (
                 "TRIAGE RECOVERY NEEDED — "
-                f"{undispositioned} review issue(s) still need cluster/skip dispositions. "
+                f"{undispositioned} review work item(s) still need cluster/skip dispositions. "
                 f"{run_hint}"
             )
         if resolved_snapshot.is_triage_stale or meta.get("triage_recommended"):
             return (
-                "TRIAGE RECOMMENDED — review issues changed since last triage. "
+                "TRIAGE RECOMMENDED — review work items changed since last triage. "
                 f"{run_hint}"
             )
         return ""
@@ -99,7 +99,7 @@ def triage_phase_banner(
         if undispositioned:
             return (
                 "TRIAGE PENDING — "
-                f"{undispositioned} review issue(s) still need cluster/skip dispositions after current work. "
+                f"{undispositioned} review work item(s) still need cluster/skip dispositions after current work. "
                 f"{run_hint}"
             )
         return (
@@ -113,7 +113,7 @@ def triage_phase_banner(
             f"complete all stages to exit. {run_hint}"
         )
     return (
-        "TRIAGE MODE — review issues need analysis before fixing. "
+        "TRIAGE MODE — review work items need analysis before fixing. "
         f"{run_hint}"
     )
 

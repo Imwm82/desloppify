@@ -6,6 +6,10 @@ from desloppify.engine._plan.auto_cluster import (
     _repair_ghost_cluster_refs,
     auto_cluster_issues,
 )
+from desloppify.engine._plan.cluster_semantics import (
+    EXECUTION_POLICY_EPHEMERAL_AUTOPROMOTE,
+    EXECUTION_POLICY_PLANNED_ONLY,
+)
 from desloppify.engine._plan.cluster_strategy import (
     cluster_name_from_key,
     grouping_key,
@@ -134,6 +138,8 @@ def test_auto_cluster_creates_cluster_from_issues():
     assert cluster["auto"] is True
     assert set(cluster["issue_ids"]) == {"u1", "u2", "u3"}
     assert cluster["action"] is not None  # should have fix command
+    assert cluster["action_type"] == "auto_fix"
+    assert cluster["execution_policy"] == EXECUTION_POLICY_EPHEMERAL_AUTOPROMOTE
 
 
 def test_auto_cluster_skips_singletons():
@@ -385,7 +391,25 @@ def test_ensure_plan_defaults_adds_cluster_fields():
     assert cluster["auto"] is False
     assert cluster["cluster_key"] == ""
     assert cluster["action"] is None
+    assert cluster["action_type"] == "manual_fix"
+    assert cluster["execution_policy"] == EXECUTION_POLICY_PLANNED_ONLY
     assert cluster["user_modified"] is False
+
+
+def test_ensure_plan_defaults_backfills_legacy_autofix_cluster_semantics():
+    plan = empty_plan()
+    plan["clusters"]["auto/unused"] = {
+        "name": "auto/unused",
+        "auto": True,
+        "issue_ids": ["u1"],
+        "action": "desloppify autofix unused-imports --dry-run",
+    }
+
+    ensure_plan_defaults(plan)
+
+    cluster = plan["clusters"]["auto/unused"]
+    assert cluster["action_type"] == "auto_fix"
+    assert cluster["execution_policy"] == EXECUTION_POLICY_EPHEMERAL_AUTOPROMOTE
 
 
 # ---------------------------------------------------------------------------

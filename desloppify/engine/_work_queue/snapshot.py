@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE
+from desloppify.engine._plan.cluster_semantics import (
+    cluster_allows_ephemeral_execution,
+)
 from desloppify.engine._plan.constants import (
     WORKFLOW_DEFERRED_DISPOSITION_ID,
     WORKFLOW_RUN_SCAN_ID,
@@ -19,7 +22,7 @@ from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._state.filtering import path_scoped_issues
 from desloppify.engine._state.issue_semantics import (
     counts_toward_objective_backlog,
-    is_review_request,
+    is_assessment_request,
     is_triage_finding,
 )
 from desloppify.engine._state.schema import StateModel
@@ -41,6 +44,7 @@ from desloppify.engine._work_queue.types import WorkQueueItem
 PHASE_REVIEW_INITIAL = "review_initial"
 PHASE_EXECUTE = "execute"
 PHASE_SCAN = "scan"
+PHASE_ASSESSMENT_POSTFLIGHT = "assessment_postflight"
 PHASE_REVIEW_POSTFLIGHT = "review_postflight"
 PHASE_WORKFLOW_POSTFLIGHT = "workflow_postflight"
 PHASE_TRIAGE_POSTFLIGHT = "triage_postflight"
@@ -53,6 +57,7 @@ class QueueSnapshot:
     phase: str
     all_objective_items: tuple[WorkQueueItem, ...]
     all_initial_review_items: tuple[WorkQueueItem, ...]
+    all_postflight_assessment_items: tuple[WorkQueueItem, ...]
     all_postflight_review_items: tuple[WorkQueueItem, ...]
     all_scan_items: tuple[WorkQueueItem, ...]
     all_postflight_workflow_items: tuple[WorkQueueItem, ...]
@@ -64,6 +69,7 @@ class QueueSnapshot:
     objective_execution_count: int
     objective_backlog_count: int
     subjective_initial_count: int
+    assessment_postflight_count: int
     subjective_postflight_count: int
     workflow_postflight_count: int
     triage_pending_count: int
@@ -107,10 +113,10 @@ def _review_issue_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
     ]
 
 
-def _review_request_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
+def _assessment_request_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
     return [
         item for item in items
-        if is_review_request(item)
+        if is_assessment_request(item)
     ]
 
 
@@ -121,15 +127,59 @@ def _auto_promoted_autofix_ids(plan: dict | None) -> set[str]:
     autofix_ids: set[str] = set()
     skipped_ids = set(plan.get("skipped", {}).keys())
     for cluster in plan.get("clusters", {}).values():
-        if not isinstance(cluster, dict) or not cluster.get("auto"):
+        if not isinstance(cluster, dict):
             continue
-        action = str(cluster.get("action", ""))
-        if "desloppify autofix" not in action:
+        if not cluster_allows_ephemeral_execution(cluster):
             continue
         for issue_id in cluster.get("issue_ids", []):
             if isinstance(issue_id, str) and issue_id and issue_id not in skipped_ids:
                 autofix_ids.add(issue_id)
     return autofix_ids
+
+
+def _merge_execution_candidates(
+    *,
+    all_issue_items: list[WorkQueueItem],
+    explicit_objective_items: list[WorkQueueItem],
+    plan: dict | None,
+    skipped_ids: set[str],
+    review_issue_ids: set[str],
+    executable_review_ids: set[str],
+    assessment_request_ids: set[str],
+) -> tuple[list[WorkQueueItem], list[WorkQueueItem]]:
+    """Merge plan-anchored and auto-promoted execution candidates."""
+    explicit_queue_ids = {
+        str(issue_id)
+        for issue_id in (plan or {}).get("queue_order", [])
+        if isinstance(issue_id, str) and issue_id
+    } - skipped_ids
+    auto_promoted_ids = _auto_promoted_autofix_ids(plan)
+    explicit_queue_ids |= auto_promoted_ids
+
+    queued_non_review_items = [
+        item
+        for item in all_issue_items
+        if item.get("id", "") in explicit_queue_ids
+        and item.get("id", "") not in assessment_request_ids
+        and item.get("id", "") not in review_issue_ids
+    ]
+
+    execution_candidates: list[WorkQueueItem] = []
+    seen_execution_ids: set[str] = set()
+    for item in [*explicit_objective_items, *queued_non_review_items]:
+        item_id = str(item.get("id", ""))
+        if not item_id or item_id in seen_execution_ids:
+            continue
+        seen_execution_ids.add(item_id)
+        execution_candidates.append(item)
+
+    anchored_execution_ids = (_tracked_plan_ids(plan) | auto_promoted_ids) - skipped_ids
+    anchored_execution_items = [
+        item
+        for item in execution_candidates
+        if item.get("id", "") in anchored_execution_ids
+    ]
+    return execution_candidates, anchored_execution_items
 
 
 def _executable_review_issue_items(
@@ -198,6 +248,7 @@ def _phase_for_snapshot(
     anchored_execution_items: list[WorkQueueItem],
     explicit_queue_items: list[WorkQueueItem],
     scan_items: list[WorkQueueItem],
+    postflight_assessment_items: list[WorkQueueItem],
     postflight_review_items: list[WorkQueueItem],
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
@@ -212,6 +263,8 @@ def _phase_for_snapshot(
         return PHASE_EXECUTE
     if postflight_review_items:
         return PHASE_REVIEW_POSTFLIGHT
+    if postflight_assessment_items:
+        return PHASE_ASSESSMENT_POSTFLIGHT
     if postflight_workflow_items:
         return PHASE_WORKFLOW_POSTFLIGHT
     if triage_items:
@@ -225,6 +278,7 @@ def _execution_items_for_phase(
     explicit_queue_items: list[WorkQueueItem],
     initial_review_items: list[WorkQueueItem],
     scan_items: list[WorkQueueItem],
+    postflight_assessment_items: list[WorkQueueItem],
     postflight_review_items: list[WorkQueueItem],
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
@@ -244,6 +298,8 @@ def _execution_items_for_phase(
             item for item in scan_items
             if item.get("id") == WORKFLOW_RUN_SCAN_ID
         ]
+    if phase == PHASE_ASSESSMENT_POSTFLIGHT:
+        return postflight_assessment_items
     if phase == PHASE_REVIEW_POSTFLIGHT:
         return postflight_review_items
     if phase == PHASE_WORKFLOW_POSTFLIGHT:
@@ -291,7 +347,7 @@ def build_queue_snapshot(
         if item.get("id", "") in executable_objective_ids
     ]
     review_issue_items = _review_issue_items(all_issue_items)
-    review_request_items = _review_request_items(all_issue_items)
+    assessment_request_items = _assessment_request_items(all_issue_items)
     executable_review_items = _executable_review_issue_items(
         effective_plan,
         state,
@@ -299,45 +355,26 @@ def build_queue_snapshot(
     )
     review_issue_ids = {item.get("id", "") for item in review_issue_items}
     executable_review_ids = {item.get("id", "") for item in executable_review_items}
-    review_request_ids = {item.get("id", "") for item in review_request_items}
-    explicit_queue_ids = {
-        str(issue_id)
-        for issue_id in (effective_plan or {}).get("queue_order", [])
-        if isinstance(issue_id, str) and issue_id
-    } - skipped_ids
-    auto_promoted_ids = _auto_promoted_autofix_ids(effective_plan)
-    explicit_queue_ids |= auto_promoted_ids
-    queued_extra_items = [
-        item for item in all_issue_items
-        if item.get("id", "") in explicit_queue_ids
-        and (
-            item.get("id", "") not in review_issue_ids
-            or item.get("id", "") in executable_review_ids
-        )
-        and item.get("id", "") not in review_issue_ids
-        and item.get("id", "") not in review_request_ids
-    ]
-    explicit_queue_items: list[WorkQueueItem] = []
-    seen_execution_ids: set[str] = set()
-    for item in [*explicit_objective_items, *queued_extra_items]:
-        item_id = str(item.get("id", ""))
-        if not item_id or item_id in seen_execution_ids:
-            continue
-        seen_execution_ids.add(item_id)
-        explicit_queue_items.append(item)
-    anchored_execution_ids = (_tracked_plan_ids(effective_plan) | auto_promoted_ids) - skipped_ids
-    anchored_execution_items = [
-        item for item in explicit_queue_items
-        if item.get("id", "") in anchored_execution_ids
-    ]
+    assessment_request_ids = {item.get("id", "") for item in assessment_request_items}
+    explicit_queue_items, anchored_execution_items = _merge_execution_candidates(
+        all_issue_items=all_issue_items,
+        explicit_objective_items=explicit_objective_items,
+        plan=effective_plan,
+        skipped_ids=skipped_ids,
+        review_issue_ids=review_issue_ids,
+        executable_review_ids=executable_review_ids,
+        assessment_request_ids=assessment_request_ids,
+    )
     initial_review_items, subjective_postflight_items = _subjective_partitions(
         state,
         scoped_issues=scoped_issues,
         threshold=target_strict,
     )
-    postflight_review_items = [
+    postflight_assessment_items = [
         *subjective_postflight_items,
-        *review_request_items,
+        *assessment_request_items,
+    ]
+    postflight_review_items = [
         *executable_review_items,
     ]
     scan_items, postflight_workflow_items, triage_items = _workflow_partitions(
@@ -352,6 +389,7 @@ def build_queue_snapshot(
         anchored_execution_items=anchored_execution_items,
         explicit_queue_items=explicit_queue_items,
         scan_items=scan_items,
+        postflight_assessment_items=postflight_assessment_items,
         postflight_review_items=postflight_review_items,
         postflight_workflow_items=postflight_workflow_items,
         triage_items=triage_items,
@@ -361,6 +399,7 @@ def build_queue_snapshot(
         explicit_queue_items=explicit_queue_items,
         initial_review_items=initial_review_items,
         scan_items=scan_items,
+        postflight_assessment_items=postflight_assessment_items,
         postflight_review_items=postflight_review_items,
         postflight_workflow_items=postflight_workflow_items,
         triage_items=triage_items,
@@ -372,8 +411,7 @@ def build_queue_snapshot(
             [
                 *objective_items,
                 *initial_review_items,
-                *subjective_postflight_items,
-                *review_request_items,
+                *postflight_assessment_items,
                 *review_issue_items,
                 *scan_items,
                 *postflight_workflow_items,
@@ -391,6 +429,7 @@ def build_queue_snapshot(
         phase=phase,
         all_objective_items=tuple(objective_items),
         all_initial_review_items=tuple(initial_review_items),
+        all_postflight_assessment_items=tuple(postflight_assessment_items),
         all_postflight_review_items=tuple(postflight_review_items),
         all_scan_items=tuple(scan_items),
         all_postflight_workflow_items=tuple(postflight_workflow_items),
@@ -407,7 +446,8 @@ def build_queue_snapshot(
         ),
         objective_backlog_count=objective_backlog_count,
         subjective_initial_count=len(initial_review_items),
-        subjective_postflight_count=len(postflight_review_items),
+        assessment_postflight_count=len(postflight_assessment_items),
+        subjective_postflight_count=len(subjective_postflight_items),
         workflow_postflight_count=len(postflight_workflow_items),
         triage_pending_count=len(triage_items),
         has_unplanned_objective_blockers=has_unplanned_objective_blockers,
@@ -416,7 +456,11 @@ def build_queue_snapshot(
 
 def coarse_phase_name(phase: str) -> str:
     """Map internal queue phases to the persisted coarse lifecycle value."""
-    if phase == PHASE_REVIEW_INITIAL or phase == PHASE_REVIEW_POSTFLIGHT:
+    if phase in {
+        PHASE_REVIEW_INITIAL,
+        PHASE_ASSESSMENT_POSTFLIGHT,
+        PHASE_REVIEW_POSTFLIGHT,
+    }:
         return "review"
     if phase == PHASE_WORKFLOW_POSTFLIGHT:
         return "workflow"
@@ -426,6 +470,7 @@ def coarse_phase_name(phase: str) -> str:
 
 
 __all__ = [
+    "PHASE_ASSESSMENT_POSTFLIGHT",
     "PHASE_EXECUTE",
     "PHASE_REVIEW_INITIAL",
     "PHASE_REVIEW_POSTFLIGHT",

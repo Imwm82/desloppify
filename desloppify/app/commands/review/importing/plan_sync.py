@@ -11,7 +11,7 @@ from desloppify.base.config import target_strict_score_from_config
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.auto_cluster import auto_cluster_issues
-from desloppify.engine._plan.constants import QueueSyncResult
+from desloppify.engine._plan.constants import QueueSyncResult, is_triage_id
 from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.persistence import (
     has_living_plan,
@@ -40,7 +40,7 @@ from desloppify.engine.plan_triage import (
     TRIAGE_CMD_RUN_STAGES_CODEX,
 )
 from desloppify.engine._state.issue_semantics import (
-    is_review_request,
+    is_assessment_request,
     is_triage_finding,
 )
 from desloppify.intelligence.review.importing.contracts_types import (
@@ -80,7 +80,7 @@ def _has_postflight_review_work(state: dict, *, policy) -> bool:
     if any(
         isinstance(issue, dict)
         and issue.get("status") == "open"
-        and (is_triage_finding(issue) or is_review_request(issue))
+        and (is_triage_finding(issue) or is_assessment_request(issue))
         for issue in issues.values()
     ):
         return True
@@ -113,7 +113,7 @@ def _sync_lifecycle_phase_after_import(plan: dict, state: dict, *, policy) -> bo
             )
         ),
         has_triage=any(
-            isinstance(item_id, str) and item_id.startswith("triage::")
+            isinstance(item_id, str) and is_triage_id(item_id)
             for item_id in plan.get("queue_order", [])
         ),
         has_deferred=_has_deferred_disposition_work(plan),
@@ -139,7 +139,7 @@ def _print_new_review_items(state: dict, new_ids: list[str]) -> None:
     if not new_ids:
         return
     print(colorize(
-        f"  Plan updated: {len(new_ids)} new review issue(s) added to queue.",
+        f"  Plan updated: {len(new_ids)} new review work item(s) added to queue.",
         "bold",
     ))
     issues = (state.get("work_items") or state.get("issues", {}))
@@ -154,7 +154,7 @@ def _print_stale_review_prunes(stale_pruned: list[str]) -> None:
     if not stale_pruned:
         return
     print(colorize(
-        f"  Plan updated: {len(stale_pruned)} stale review issue(s) removed from queue.",
+        f"  Plan updated: {len(stale_pruned)} stale review work item(s) removed from queue.",
         "bold",
     ))
 

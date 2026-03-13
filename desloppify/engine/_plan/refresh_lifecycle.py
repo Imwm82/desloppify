@@ -12,6 +12,7 @@ from typing import Iterable
 
 from desloppify.engine._plan.constants import SYNTHETIC_PREFIXES
 from desloppify.engine._plan.schema import PlanModel, ensure_plan_defaults
+from desloppify.engine._state.issue_semantics import counts_toward_objective_backlog
 
 _POSTFLIGHT_SCAN_KEY = "postflight_scan_completed_at_scan_count"
 _LIFECYCLE_PHASE_KEY = "lifecycle_phase"
@@ -43,6 +44,38 @@ def _refresh_state(plan: PlanModel) -> dict[str, object]:
 
 def _is_real_queue_issue(issue_id: str) -> bool:
     return not any(str(issue_id).startswith(prefix) for prefix in SYNTHETIC_PREFIXES)
+
+
+def _touches_objective_issue(
+    *,
+    issue_ids: Iterable[str] | None,
+    state: dict[str, object] | None,
+) -> bool:
+    if issue_ids is None:
+        return True
+
+    real_issue_ids = [
+        issue_id
+        for issue_id in issue_ids
+        if _is_real_queue_issue(str(issue_id))
+    ]
+    if not real_issue_ids:
+        return False
+    if not isinstance(state, dict):
+        return True
+
+    issues = state.get("work_items") or state.get("issues", {})
+    if not isinstance(issues, dict):
+        return True
+
+    objective_seen = False
+    for issue_id in real_issue_ids:
+        issue = issues.get(issue_id)
+        if not isinstance(issue, dict):
+            return True
+        if counts_toward_objective_backlog(issue):
+            objective_seen = True
+    return objective_seen
 
 
 def current_lifecycle_phase(plan: PlanModel) -> str | None:
@@ -151,11 +184,10 @@ def clear_postflight_scan_completion(
     plan: PlanModel,
     *,
     issue_ids: Iterable[str] | None = None,
+    state: dict[str, object] | None = None,
 ) -> bool:
-    """Require a fresh scan after queue-changing work on real issues."""
-    if issue_ids is not None and not any(
-        _is_real_queue_issue(issue_id) for issue_id in issue_ids
-    ):
+    """Require a fresh scan after queue-changing work on objective issues."""
+    if not _touches_objective_issue(issue_ids=issue_ids, state=state):
         return False
     refresh_state = _refresh_state(plan)
     if _POSTFLIGHT_SCAN_KEY not in refresh_state:

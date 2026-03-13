@@ -222,28 +222,27 @@ class TestScanAfterReviewsInjectsWorkflow:
         assert WORKFLOW_COMMUNICATE_SCORE_ID not in ids
 
         # After completing objectives, postflight sequence begins.
-        # Subjective reruns come before workflow items in the lifecycle.
+        # Workflow items surface before subjective follow-up.
         state["work_items"]["obj-1"]["status"] = "fixed"
         state["work_items"]["obj-2"]["status"] = "fixed"
-        ids = _queue_ids(state, plan)
-        # Subjective reruns visible first (stale assessments)
-        assert any(fid.startswith("subjective::") for fid in ids), f"Expected subjective: {ids}"
-
-        # After completing subjective reruns, workflow items become visible
-        _complete_endgame_subjective_reruns(state)
         ids = _queue_ids(state, plan)
         assert WORKFLOW_COMMUNICATE_SCORE_ID in ids
         assert WORKFLOW_CREATE_PLAN_ID in ids
         assert ids.index(WORKFLOW_COMMUNICATE_SCORE_ID) < ids.index(WORKFLOW_CREATE_PLAN_ID)
 
+        # After completing workflow items, subjective follow-up becomes visible
+        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID, WORKFLOW_CREATE_PLAN_ID])
+        ids = _queue_ids(state, plan)
+        assert any(fid.startswith("subjective::") for fid in ids), f"Expected subjective: {ids}"
+
 
 # ---------------------------------------------------------------------------
-# Phase-order contract: subjective -> score -> triage (after objective drains)
+# Phase-order contract: score -> triage -> review -> assessment (after objective drains)
 # ---------------------------------------------------------------------------
 
 class TestPhaseOrderInvariant:
 
-    def test_subjective_then_score_then_triage(self):
+    def test_score_then_assessment_when_no_review_followup(self):
         """Endgame queue order is fixed once objective backlog is drained."""
         state = _build_state(
             [],
@@ -262,19 +261,22 @@ class TestPhaseOrderInvariant:
         # Mark postflight scan as done so it doesn't block
         plan["refresh_state"] = {"postflight_scan_completed_at_scan_count": 1}
 
-        # Subjective reruns must block score + triage until completed.
+        # Workflow items surface before subjective follow-up.
+        ids = _queue_ids(state, plan)
+        assert ids == [WORKFLOW_COMMUNICATE_SCORE_ID]
+
+        # After workflow completion, subjective follow-up appears.
+        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID])
         ids = _queue_ids(state, plan)
         assert ids == ["subjective::naming_quality"]
 
-        # After subjective rerun completion, score workflow appears (triage gated behind it).
+        # After subjective follow-up completion, triage becomes visible.
         state["subjective_assessments"]["naming_quality"]["needs_review_refresh"] = False
         state["subjective_assessments"]["naming_quality"]["score"] = 100.0
         state["dimension_scores"][DIM_DISPLAY["naming_quality"]]["score"] = 100.0
         state["dimension_scores"][DIM_DISPLAY["naming_quality"]]["strict"] = 100.0
         ids = _queue_ids(state, plan)
-        assert WORKFLOW_COMMUNICATE_SCORE_ID in ids
-        # Triage is gated behind workflow items in lifecycle
-        assert "triage::observe" not in ids
+        assert ids == ["triage::observe"]
 
 
 # ---------------------------------------------------------------------------
@@ -305,15 +307,9 @@ class TestTriageInjectedOnScan:
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
         # Once objective queue drains, lifecycle enters postflight.
-        # Review issues are non-objective, but they stay behind triage.
+        # Workflow surfaces before triage/review/assessment.
         state["work_items"]["obj-1"]["status"] = "fixed"
         state["work_items"]["obj-2"]["status"] = "fixed"
-        ids = _queue_ids(state, plan)
-        # Subjective reruns surface first.
-        assert any(fid.startswith("subjective::") for fid in ids), ids
-
-        # After subjective reruns complete, workflow items surface before triage.
-        _complete_endgame_subjective_reruns(state)
         ids = _queue_ids(state, plan)
         workflow_ids = [fid for fid in ids if fid.startswith("workflow::")]
         assert len(workflow_ids) > 0, f"Expected workflow items: {ids}"
@@ -371,19 +367,19 @@ class TestFullLifecycleGoldenPath:
         state["work_items"]["obj-1"]["status"] = "fixed"
         state["work_items"]["obj-2"]["status"] = "fixed"
         ids = _queue_ids(state, plan)
-        # Subjective reruns come first in postflight
-        assert any(fid.startswith("subjective::") for fid in ids), f"Post-objectives: {ids}"
-
-        # ── Complete subjective reruns to unlock workflow ──
-        _complete_endgame_subjective_reruns(state)
-        ids = _queue_ids(state, plan)
+        # Workflow comes first in postflight
         assert WORKFLOW_COMMUNICATE_SCORE_ID in ids, f"Post-subjective: {ids}"
         assert WORKFLOW_CREATE_PLAN_ID in ids, f"Post-subjective: {ids}"
 
         # ── Complete workflow items ──
         purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID, WORKFLOW_CREATE_PLAN_ID])
         ids = _queue_ids(state, plan)
-        assert not any(fid.startswith("workflow::") for fid in ids), f"Post-workflow: {ids}"
+        assert any(fid.startswith("subjective::") for fid in ids), f"Post-workflow: {ids}"
+
+        # ── Complete subjective follow-up ──
+        _complete_endgame_subjective_reruns(state)
+        ids = _queue_ids(state, plan)
+        assert not any(fid.startswith("workflow::") for fid in ids), f"Post-subjective: {ids}"
 
         # ── Scan 3: add review issues + reopen objectives for mid-cycle test ──
         state["work_items"]["obj-1"]["status"] = "open"

@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 from desloppify.base.discovery.file_paths import rel
-from desloppify.engine._state.issue_semantics import ensure_issue_semantics
+from desloppify.engine._state.issue_semantics import ensure_work_item_semantics
 from desloppify.engine._state.schema import (
     Issue,
     StateModel,
@@ -175,7 +175,7 @@ def make_issue(
         "resolved_at": None,
         "reopen_count": 0,
     }
-    ensure_issue_semantics(issue)
+    ensure_work_item_semantics(issue)
     return issue
 
 

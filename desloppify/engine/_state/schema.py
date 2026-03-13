@@ -9,7 +9,7 @@ from typing import Any, cast
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.enums import Status, canonical_issue_status, issue_status_tokens
 from desloppify.engine._state.issue_semantics import (
-    ensure_issue_semantics,
+    ensure_work_item_semantics,
     WORK_ITEM_KINDS,
     WORK_ITEM_ORIGINS,
 )
@@ -222,7 +222,7 @@ def ensure_state_defaults(state: StateModel | dict) -> None:
 
         issue.setdefault("id", issue_id)
         issue.setdefault("detector", "unknown")
-        ensure_issue_semantics(issue)
+        ensure_work_item_semantics(issue)
         issue.setdefault("file", "")
         issue.setdefault("tier", 3)
         issue.setdefault("confidence", "low")

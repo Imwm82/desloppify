@@ -6,7 +6,7 @@ from desloppify.base.discovery.file_paths import matches_exclusion
 from desloppify.engine._state.filtering import matched_ignore_pattern
 from desloppify.engine._state.issue_semantics import (
     is_import_only_issue,
-    is_review_request,
+    is_assessment_request,
 )
 
 
@@ -221,7 +221,7 @@ def upsert_issues(
             # completed by an agent import, skip reopening to avoid a
             # resolve-then-reopen loop on the same scan cycle.
             if (
-                is_review_request(previous)
+                is_assessment_request(previous)
                 and previous["status"] in {"fixed", "auto_resolved"}
                 and (previous.get("resolution_attestation") or {}).get("kind") == "agent_import"
             ):

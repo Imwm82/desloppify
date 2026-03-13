@@ -15,7 +15,7 @@ from desloppify.base.config import (
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.engine._state.issue_semantics import (
     is_review_finding,
-    is_review_request,
+    is_assessment_request,
 )
 from desloppify.intelligence.narrative._constants import STRUCTURAL_MERGE
 from desloppify.intelligence.narrative.types import (
@@ -108,8 +108,8 @@ def count_open_by_detector(issues: dict) -> dict[str, int]:
         by_detector[detector] = by_detector.get(detector, 0) + 1
         if is_review_finding(issue) and issue.get("detail", {}).get("holistic"):
             by_detector["review_holistic"] = by_detector.get("review_holistic", 0) + 1
-        if is_review_request(issue):
-            by_detector["review_request"] = by_detector.get("review_request", 0) + 1
+        if is_assessment_request(issue):
+            by_detector["assessment_request"] = by_detector.get("assessment_request", 0) + 1
     if by_detector.get("review", 0) > 0:
         by_detector["review_uninvestigated"] = sum(
             1

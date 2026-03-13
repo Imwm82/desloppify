@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from desloppify.app.commands.helpers.issue_id_display import short_issue_id
+from desloppify.engine._plan.constants import is_synthetic_id
 from desloppify.engine.plan_triage import TriageSnapshot
 from desloppify.engine.plan_triage import (
     TRIAGE_CMD_CLUSTER_ADD,
@@ -302,7 +303,7 @@ def show_plan_summary(plan: dict, state: dict) -> None:
     queue_order = [
         fid
         for fid in plan.get("queue_order", [])
-        if not fid.startswith("triage::") and not fid.startswith("workflow::")
+        if not is_synthetic_id(fid)
     ]
     if queue_order:
         show = min(15, len(queue_order))

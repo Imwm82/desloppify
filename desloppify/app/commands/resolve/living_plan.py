@@ -60,6 +60,7 @@ def update_living_plan_after_resolve(
     args: argparse.Namespace,
     all_resolved: list[str],
     attestation: str | None,
+    state: dict | None = None,
     state_file: Path | str | None = None,
 ) -> tuple[dict | None, ClusterContext]:
     """Apply resolve side effects to the living plan when it exists."""
@@ -95,7 +96,7 @@ def update_living_plan_after_resolve(
             add_uncommitted_issues(plan, all_resolved)
         elif args.status == "open":
             purge_uncommitted_ids(plan, all_resolved)
-        clear_postflight_scan_completion(plan, issue_ids=all_resolved)
+        clear_postflight_scan_completion(plan, issue_ids=all_resolved, state=state)
         save_plan(plan, plan_path)
         if purged:
             print(colorize(f"  Plan updated: {purged} item(s) removed from queue.", "dim"))

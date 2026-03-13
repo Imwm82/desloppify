@@ -719,6 +719,33 @@ def test_queue_snapshot_enforces_phase_boundaries() -> None:
     assert "unused::a" in backlog_ids
 
 
+def test_queue_snapshot_keeps_executing_real_queue_items_before_postflight_scan() -> None:
+    state = {
+        "issues": {
+            "unused::a": {
+                "id": "unused::a",
+                "detector": "unused",
+                "status": "open",
+                "file": "src/a.py",
+                "tier": 1,
+                "confidence": "high",
+                "summary": "unused import",
+                "detail": {},
+            }
+        }
+    }
+    plan = {
+        "queue_order": ["unused::a", "workflow::communicate-score", "triage::observe"],
+        "plan_start_scores": {"strict": 80.0},
+        "refresh_state": {"lifecycle_phase": "execute"},
+    }
+
+    snapshot = snapshot_mod.build_queue_snapshot(state, plan=plan)
+
+    assert snapshot.phase == snapshot_mod.PHASE_EXECUTE
+    assert [item["id"] for item in snapshot.execution_items] == ["unused::a"]
+
+
 def test_queue_snapshot_allows_autofix_cluster_to_execute_without_manual_queueing() -> None:
     state = {
         "issues": {
@@ -741,6 +768,8 @@ def test_queue_snapshot_allows_autofix_cluster_to_execute_without_manual_queuein
                 "issue_ids": ["unused::a"],
                 "auto": True,
                 "action": "desloppify autofix unused-imports --dry-run",
+                "action_type": "auto_fix",
+                "execution_policy": "ephemeral_autopromote",
             }
         },
         "plan_start_scores": {"strict": 80.0},
@@ -751,6 +780,76 @@ def test_queue_snapshot_allows_autofix_cluster_to_execute_without_manual_queuein
     assert snapshot.phase == snapshot_mod.PHASE_EXECUTE
     assert [item["id"] for item in snapshot.execution_items] == ["unused::a"]
     assert "unused::a" not in {item["id"] for item in snapshot.backlog_items}
+
+
+def test_queue_snapshot_legacy_autofix_cluster_still_executes_via_normalized_semantics() -> None:
+    state = {
+        "issues": {
+            "unused::a": {
+                "id": "unused::a",
+                "detector": "unused",
+                "status": "open",
+                "file": "src/a.py",
+                "tier": 1,
+                "confidence": "high",
+                "summary": "unused import",
+                "detail": {},
+            }
+        }
+    }
+    plan = {
+        "queue_order": [],
+        "clusters": {
+            "auto/unused": {
+                "name": "auto/unused",
+                "issue_ids": ["unused::a"],
+                "auto": True,
+                "action": "desloppify autofix unused-imports --dry-run",
+            }
+        },
+        "plan_start_scores": {"strict": 80.0},
+    }
+
+    snapshot = snapshot_mod.build_queue_snapshot(state, plan=plan)
+
+    assert snapshot.phase == snapshot_mod.PHASE_EXECUTE
+    assert [item["id"] for item in snapshot.execution_items] == ["unused::a"]
+
+
+def test_queue_snapshot_non_autofix_auto_cluster_does_not_execute_without_queueing() -> None:
+    state = {
+        "issues": {
+            "dict_keys::a": {
+                "id": "dict_keys::a",
+                "detector": "dict_keys",
+                "status": "open",
+                "file": "src/a.py",
+                "tier": 1,
+                "confidence": "high",
+                "summary": "dict key mismatch",
+                "detail": {},
+            }
+        }
+    }
+    plan = {
+        "queue_order": [],
+        "clusters": {
+            "auto/dict_keys": {
+                "issue_ids": ["dict_keys::a"],
+                "auto": True,
+                "action": "review and refactor each issue",
+                "action_type": "refactor",
+                "execution_policy": "planned_only",
+            }
+        },
+        "plan_start_scores": {"strict": 80.0},
+    }
+
+    snapshot = snapshot_mod.build_queue_snapshot(state, plan=plan)
+
+    assert snapshot.phase != snapshot_mod.PHASE_EXECUTE
+    assert "dict_keys::a" not in [item["id"] for item in snapshot.execution_items]
+    assert "dict_keys::a" in {item["id"] for item in snapshot.backlog_items}
 
 
 def test_queue_snapshot_orders_scan_review_and_workflow_postflight() -> None:
@@ -767,6 +866,47 @@ def test_queue_snapshot_orders_scan_review_and_workflow_postflight() -> None:
                 "detail": {"dimension": "naming_quality"},
             }
         }
+    }
+    assessment_state = {
+        "issues": {
+            "review::src/a.py::naming": {
+                "id": "review::src/a.py::naming",
+                "detector": "review",
+                "status": "open",
+                "file": "src/a.py",
+                "tier": 1,
+                "confidence": "high",
+                "summary": "review finding",
+                "detail": {"dimension": "naming_quality"},
+            },
+            "subjective_review::naming_quality": {
+                "id": "subjective_review::naming_quality",
+                "detector": "subjective_review",
+                "status": "open",
+                "file": "src/a.py",
+                "tier": 1,
+                "confidence": "high",
+                "summary": "rerun request",
+                "detail": {"dimension": "naming_quality"},
+            },
+        },
+        "dimension_scores": {
+            "Naming quality": {
+                "score": 70.0,
+                "strict": 70.0,
+                "failing": 1,
+                "detectors": {
+                    "subjective_assessment": {"dimension_key": "naming_quality"},
+                },
+            },
+        },
+        "subjective_assessments": {
+            "naming_quality": {
+                "score": 70.0,
+                "needs_review_refresh": True,
+                "stale_since": "2026-01-01T00:00:00+00:00",
+            },
+        },
     }
     scan_plan = {
         "queue_order": ["workflow::run-scan", "workflow::communicate-score", "triage::observe"],
@@ -796,6 +936,54 @@ def test_queue_snapshot_orders_scan_review_and_workflow_postflight() -> None:
     )
     assert triage_snapshot.phase == snapshot_mod.PHASE_TRIAGE_POSTFLIGHT
     assert [item["id"] for item in triage_snapshot.execution_items] == ["triage::observe"]
+
+    assessment_with_review_snapshot = snapshot_mod.build_queue_snapshot(
+        assessment_state,
+        plan={
+            "queue_order": [],
+            "plan_start_scores": {"strict": 80.0},
+            "refresh_state": {"postflight_scan_completed_at_scan_count": 1},
+            "epic_triage_meta": {"triaged_ids": ["review::src/a.py::naming"]},
+        },
+    )
+    assert assessment_with_review_snapshot.phase == snapshot_mod.PHASE_REVIEW_POSTFLIGHT
+    assert [item["id"] for item in assessment_with_review_snapshot.execution_items] == [
+        "review::src/a.py::naming"
+    ]
+    assert "subjective::naming_quality" in {
+        item["id"] for item in assessment_with_review_snapshot.backlog_items
+    }
+    assert "subjective_review::naming_quality" in {
+        item["id"] for item in assessment_with_review_snapshot.backlog_items
+    }
+
+    assessment_only_snapshot = snapshot_mod.build_queue_snapshot(
+        {
+            key: value
+            for key, value in assessment_state.items()
+            if key != "issues"
+        }
+        | {
+            "issues": {
+                "subjective_review::naming_quality": assessment_state["issues"][
+                    "subjective_review::naming_quality"
+                ]
+            }
+        },
+        plan={
+            "queue_order": [],
+            "plan_start_scores": {"strict": 80.0},
+            "refresh_state": {"postflight_scan_completed_at_scan_count": 1},
+        },
+    )
+    assert assessment_only_snapshot.phase == snapshot_mod.PHASE_ASSESSMENT_POSTFLIGHT
+    assert [item["id"] for item in assessment_only_snapshot.execution_items] == [
+        "subjective::naming_quality",
+        "subjective_review::naming_quality",
+    ]
+    assert "review::src/a.py::naming" not in {
+        item["id"] for item in assessment_only_snapshot.backlog_items
+    }
 
     post_triage_snapshot = snapshot_mod.build_queue_snapshot(
         review_state,
@@ -847,6 +1035,7 @@ def test_queue_snapshot_prefers_deferred_disposition_over_run_scan() -> None:
 
 def test_coarse_phase_name_collapses_internal_review_workflow_and_triage() -> None:
     assert snapshot_mod.coarse_phase_name(snapshot_mod.PHASE_REVIEW_INITIAL) == "review"
+    assert snapshot_mod.coarse_phase_name(snapshot_mod.PHASE_ASSESSMENT_POSTFLIGHT) == "review"
     assert snapshot_mod.coarse_phase_name(snapshot_mod.PHASE_REVIEW_POSTFLIGHT) == "review"
     assert snapshot_mod.coarse_phase_name(snapshot_mod.PHASE_WORKFLOW_POSTFLIGHT) == "workflow"
     assert snapshot_mod.coarse_phase_name(snapshot_mod.PHASE_TRIAGE_POSTFLIGHT) == "triage"

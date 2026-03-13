@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from desloppify.base.output.terminal import colorize
+from desloppify.engine._plan.constants import is_synthetic_id
 from desloppify.engine._state.issue_semantics import is_triage_finding
 from desloppify.engine.plan_triage import TRIAGE_IDS
 
@@ -107,7 +108,7 @@ def unclustered_review_issues(plan: dict, state: dict | None = None) -> list[str
     else:
         review_ids = [
             fid for fid in plan.get("queue_order", [])
-            if not fid.startswith("triage::") and not fid.startswith("workflow::")
+            if not is_synthetic_id(fid)
             and (fid.startswith("review::") or fid.startswith("concerns::"))
         ]
 

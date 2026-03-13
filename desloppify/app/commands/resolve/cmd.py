@@ -134,6 +134,7 @@ def cmd_resolve(args: argparse.Namespace) -> None:
         args=args,
         all_resolved=all_resolved,
         attestation=attestation,
+        state=state,
         state_file=state_file,
     )
     mid_cluster = (

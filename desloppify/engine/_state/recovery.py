@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.engine._state.issue_semantics import ensure_issue_semantics
+from desloppify.engine._state.issue_semantics import ensure_work_item_semantics
 from desloppify.engine._state.schema import ensure_state_defaults, scan_source
 
 
@@ -115,7 +115,7 @@ def _hydrate_saved_issue_ids(
                 "recovered_from_plan": True,
             },
         }
-        ensure_issue_semantics(recovered_issues[issue_id])
+        ensure_work_item_semantics(recovered_issues[issue_id])
 
     recovered["work_items"] = recovered_issues
     recovered["issues"] = recovered_issues

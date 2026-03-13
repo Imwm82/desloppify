@@ -6,6 +6,7 @@ from desloppify.app.commands.plan.shared.cluster_membership import cluster_issue
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.constants import (
     confirmed_triage_stage_names,
+    is_synthetic_id,
     recorded_unconfirmed_triage_stage_names,
 )
 from desloppify.engine.plan_triage import (
@@ -69,17 +70,6 @@ def print_cluster_guard(cluster_name: str, issue_ids: list[str], state: dict) ->
             "dim",
         )
     )
-
-
-def is_synthetic_id(issue_id: str) -> bool:
-    """Return True if the ID is a synthetic workflow/triage item."""
-    return (
-        issue_id.startswith("triage::")
-        or issue_id.startswith("workflow::")
-        or issue_id.startswith("subjective::")
-    )
-
-
 def split_synthetic_patterns(patterns: list[str]) -> tuple[list[str], list[str]]:
     """Partition synthetic workflow/triage patterns from real issue patterns."""
     synthetic = [pattern for pattern in patterns if is_synthetic_id(pattern)]

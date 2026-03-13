@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from desloppify.engine._plan.cluster_semantics import (
+    ACTION_TYPE_MANUAL_FIX,
+    EXECUTION_POLICY_PLANNED_ONLY,
+)
 from desloppify.engine._plan.operations.lifecycle import clear_focus_if_cluster_empty
 from desloppify.engine._plan.operations.queue import move_items
 from desloppify.engine._plan.schema import Cluster, PlanModel, ensure_plan_defaults
@@ -79,6 +83,8 @@ def create_cluster(
         "auto": False,
         "cluster_key": "",
         "action": action,
+        "action_type": ACTION_TYPE_MANUAL_FIX,
+        "execution_policy": EXECUTION_POLICY_PLANNED_ONLY,
         "user_modified": False,
     }
     plan["clusters"][name] = cluster

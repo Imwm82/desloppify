@@ -12,9 +12,12 @@ from desloppify.engine._scoring.results.core import (
 )
 from desloppify.engine._state.issue_semantics import (
     is_review_finding,
-    is_review_request,
+    is_assessment_request,
 )
-from desloppify.engine._work_queue.helpers import workflow_stage_name
+from desloppify.engine._work_queue.helpers import (
+    is_auto_fix_item,
+    workflow_stage_name,
+)
 
 from .render_support import is_auto_fix_command
 from .render_support import render_cluster_item as _render_cluster_item
@@ -195,16 +198,16 @@ def _render_item_type(item: dict) -> None:
     if is_review_finding(item):
         print(colorize("  Type: Design review (requires judgment)", "dim"))
         return
-    if is_review_request(item):
-        print(colorize("  Type: Review request", "dim"))
+    if is_assessment_request(item):
+        print(colorize("  Type: Assessment request", "dim"))
         return
-    if is_auto_fix_command(item.get("primary_command")):
+    if is_auto_fix_item(item):
         print(colorize("  Type: Auto-fixable", "dim"))
 
 
 def _render_auto_fix_batch_hint(item: dict, issues_scoped: dict) -> None:
     auto_fix_command = item.get("primary_command")
-    if not is_auto_fix_command(auto_fix_command):
+    if not is_auto_fix_item(item) or not is_auto_fix_command(auto_fix_command):
         return
     detector_name = item.get("detector", "")
     similar_count = sum(

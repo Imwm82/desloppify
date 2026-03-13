@@ -257,6 +257,102 @@ def test_legacy_force_visible_triage_stage_is_ignored_during_execute():
     assert ids == ["smells::src/a.py::x"]
 
 
+def test_triaged_review_findings_stay_postflight_while_objective_work_remains():
+    """Completed triage should not mix review findings into execute."""
+    from desloppify.engine._plan.schema import empty_plan
+
+    state = _state(
+        [
+            _issue("smells::src/a.py::x", detector="smells", tier=3),
+            _issue(
+                "review::src/a.py::naming",
+                detector="review",
+                tier=1,
+                confidence="high",
+                detail={"dimension": "naming_quality"},
+            ),
+        ]
+    )
+    plan = empty_plan()
+    plan["plan_start_scores"] = {"strict": 80.0}
+    plan["queue_order"] = ["review::src/a.py::naming", "smells::src/a.py::x"]
+    plan["epic_triage_meta"] = {
+        "triaged_ids": ["review::src/a.py::naming"],
+        "last_completed_at": "2026-03-13T00:00:00+00:00",
+    }
+    plan["refresh_state"] = {"postflight_scan_completed_at_scan_count": 1}
+
+    queue = build_execution_queue(
+        state,
+        options=QueueBuildOptions(
+            count=None,
+            include_subjective=False,
+            plan=plan,
+        ),
+    )
+    ids = [item["id"] for item in queue["items"]]
+    assert ids == ["smells::src/a.py::x"]
+
+
+def test_postflight_review_findings_stay_ahead_of_assessment_followup():
+    """Concrete review findings should stay ahead of subjective follow-up work."""
+    from desloppify.engine._plan.schema import empty_plan
+
+    state = _state(
+        [
+            _issue(
+                "review::src/a.py::naming",
+                detector="review",
+                tier=1,
+                confidence="high",
+                detail={"dimension": "naming_quality"},
+            ),
+            _issue(
+                "subjective_review::naming_quality",
+                detector="subjective_review",
+                tier=1,
+                confidence="high",
+                detail={"dimension": "naming_quality"},
+            ),
+        ],
+        dimension_scores={
+            "Naming quality": {
+                "score": 70.0,
+                "strict": 70.0,
+                "failing": 1,
+                "detectors": {
+                    "subjective_assessment": {"dimension_key": "naming_quality"},
+                },
+            },
+        },
+    )
+    state["subjective_assessments"] = {
+        "naming_quality": {
+            "score": 70.0,
+            "needs_review_refresh": True,
+            "stale_since": "2026-01-01T00:00:00+00:00",
+        }
+    }
+    plan = empty_plan()
+    plan["plan_start_scores"] = {"strict": 80.0}
+    plan["epic_triage_meta"] = {
+        "triaged_ids": ["review::src/a.py::naming"],
+        "last_completed_at": "2026-03-13T00:00:00+00:00",
+    }
+    plan["refresh_state"] = {"postflight_scan_completed_at_scan_count": 1}
+
+    queue = build_execution_queue(
+        state,
+        options=QueueBuildOptions(
+            count=None,
+            include_subjective=True,
+            plan=plan,
+        ),
+    )
+    ids = [item["id"] for item in queue["items"]]
+    assert ids == ["review::src/a.py::naming"]
+
+
 def test_execution_queue_excludes_unplanned_objective_items():
     """Unplanned objective items don't appear in execution — only planned items do."""
     from desloppify.engine._plan.schema import empty_plan

@@ -245,7 +245,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
         note=note,
         detail={"kind": kind, "reason": reason},
     )
-    clear_postflight_scan_completion(plan, issue_ids=issue_ids)
+    clear_postflight_scan_completion(plan, issue_ids=issue_ids, state=state)
     _save_skip_plan_state(
         plan=plan,
         plan_file=plan_file,
@@ -304,7 +304,7 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
         actor="user",
         detail={"need_reopen": need_reopen},
     )
-    clear_postflight_scan_completion(plan, issue_ids=unskipped_ids)
+    clear_postflight_scan_completion(plan, issue_ids=unskipped_ids, state=state)
 
     reopened: list[str] = []
     if need_reopen:
@@ -374,7 +374,7 @@ def cmd_plan_backlog(args: argparse.Namespace) -> None:
         issue_ids=removed,
         actor="user",
     )
-    clear_postflight_scan_completion(plan, issue_ids=removed)
+    clear_postflight_scan_completion(plan, issue_ids=removed, state=state_data)
 
     if reopen_ids:
         save_plan_state_transactional(

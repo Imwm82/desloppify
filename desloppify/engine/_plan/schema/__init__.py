@@ -56,6 +56,8 @@ class Cluster(TypedDict, total=False):
     auto: bool  # True for auto-generated clusters
     cluster_key: str  # Deterministic grouping key (for regeneration)
     action: str | None  # Primary resolution command/guidance text
+    action_type: str
+    execution_policy: str
     user_modified: bool  # True when user manually edits membership
     optional: bool
     thesis: str
@@ -345,6 +347,7 @@ def executable_objective_ids(
         if issue_id not in skipped_ids
         and not any(issue_id.startswith(prefix) for prefix in SYNTHETIC_PREFIXES)
     }
+    queued_objective_ids = all_objective_ids & queued_ids
     has_active_plan_structure = bool(
         plan.get("queue_order") or plan.get("clusters") or plan.get("overrides")
     )
@@ -352,8 +355,8 @@ def executable_objective_ids(
         return set(all_objective_ids) - skipped_ids
     if not tracked_objective_ids:
         return set(all_objective_ids) - skipped_ids
-    if queued_ids:
-        return all_objective_ids & queued_ids
+    if queued_objective_ids:
+        return queued_objective_ids
     if not has_active_plan_structure:
         return set(all_objective_ids) - skipped_ids
     return set()

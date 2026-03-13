@@ -236,6 +236,7 @@ def _snapshot_item_ids(snapshot: object) -> set[str] | None:
     partition_names = (
         "all_objective_items",
         "all_initial_review_items",
+        "all_postflight_assessment_items",
         "all_postflight_review_items",
         "all_scan_items",
         "all_postflight_workflow_items",

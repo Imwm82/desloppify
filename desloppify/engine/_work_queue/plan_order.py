@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from desloppify.base.registry import DETECTORS
+from desloppify.engine._plan.cluster_semantics import (
+    cluster_autofix_hint,
+    infer_cluster_action_type,
+    infer_cluster_execution_policy,
+)
 from desloppify.engine.plan_ops import (
     get_issue_description,
     get_issue_note,
@@ -141,28 +145,12 @@ def stamp_positions(items: list[WorkQueueItem], plan: dict) -> None:
                     item["plan_skip_reason"] = skip_reason
 
 
-def action_type_for_detector(detector: str) -> str:
-    """Look up the action_type for a detector from the registry."""
-    meta = DETECTORS.get(detector)
-    if meta:
-        return meta.action_type
-    return "manual_fix"
-
-
 def _build_cluster_meta(
     cluster_name: str, members: list[WorkQueueItem], cluster_data: dict[str, Any]
 ) -> WorkQueueItem:
     """Build a cluster meta-item from its member items."""
     detector = members[0].get("detector", "") if members else ""
-    action = cluster_data.get("action") or ""
-    if "desloppify autofix" in action:
-        action_type = "auto_fix"
-    elif "desloppify move" in action:
-        action_type = "reorganize"
-    else:
-        action_type = action_type_for_detector(detector)
-        if action_type == "auto_fix" and "desloppify autofix" not in action:
-            action_type = "refactor"
+    action_type = infer_cluster_action_type(cluster_data, detector=detector)
 
     stored_desc = cluster_data.get("description") or ""
     total_in_cluster = len(_cluster_issue_ids(cluster_data))
@@ -172,12 +160,11 @@ def _build_cluster_meta(
         summary = stored_desc or f"{len(members)} issues"
 
     action = cluster_data.get("action") or ""
-    if "desloppify autofix" in action:
+    autofix_hint = cluster_autofix_hint(cluster_data, detector=detector)
+    if autofix_hint:
         primary_command = f"desloppify next --cluster {cluster_name} --count 10"
-        autofix_hint = action
     else:
         primary_command = action or f"desloppify next --cluster {cluster_name} --count 10"
-        autofix_hint = None
 
     estimated_impact = max(
         (m.get("estimated_impact", 0.0) for m in members), default=0.0
@@ -195,6 +182,10 @@ def _build_cluster_meta(
         "cluster_name": cluster_name,
         "cluster_auto": bool(cluster_data.get("auto")),
         "cluster_optional": bool(cluster_data.get("optional")),
+        "execution_policy": infer_cluster_execution_policy(
+            cluster_data,
+            detector=detector,
+        ),
         "confidence": "high",
         "detector": detector,
         "file": "",

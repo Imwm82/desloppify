@@ -37,7 +37,7 @@ def _review_queue_reminders(
                 {
                     "type": "review_issues_pending",
                     "message": (
-                        f"{len(uninvestigated)} review issue(s) need investigation. "
+                        f"{len(uninvestigated)} review work item(s) need investigation. "
                         "Run `desloppify show review --status open` to see the work queue."
                     ),
                     "command": "desloppify show review --status open",
