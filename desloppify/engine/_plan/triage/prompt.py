@@ -107,6 +107,16 @@ class ContradictionNote:
     reason: str
 
 @dataclass
+class AutoClusterDecision:
+    """A triage decision for an auto-cluster."""
+
+    cluster: str
+    action: str  # "promote", "skip", or "break_up"
+    reason: str = ""
+    priority: str = ""  # e.g. "after dead-code-fixes", "last", "first"
+    sub_clusters: list[str] = field(default_factory=list)  # for break_up action
+
+@dataclass
 class TriageResult:
     """Parsed and validated LLM triage output."""
 
@@ -115,6 +125,7 @@ class TriageResult:
     dismissed_issues: list[DismissedIssue] = field(default_factory=list)
     contradiction_notes: list[ContradictionNote] = field(default_factory=list)
     priority_rationale: str = ""
+    auto_cluster_decisions: list[AutoClusterDecision] = field(default_factory=list)
 
     @property
     def clusters(self) -> list[dict]:
@@ -285,7 +296,12 @@ Respond with a single JSON object matching this schema:
   "contradiction_notes": [
     {"kept": "issue_id", "dismissed": "issue_id", "reason": "why"}
   ],
-  "priority_rationale": "why the dependency_order is what it is"
+  "priority_rationale": "why the dependency_order is what it is",
+  "auto_cluster_decisions": [
+    {"cluster": "auto/security", "action": "promote", "priority": "first", "reason": "high-value security fixes"},
+    {"cluster": "auto/unused", "action": "skip", "reason": "mostly test assert noise"},
+    {"cluster": "auto/test_coverage", "action": "break_up", "reason": "split by module", "sub_clusters": ["auto/test_coverage_api", "auto/test_coverage_core"]}
+  ]
 }
 """
 
@@ -463,7 +479,13 @@ def _append_mechanical_backlog_section(
     parts.append(
         "These detector-created items stay in backlog unless you explicitly promote them into the active queue."
     )
-    parts.append("Silence means leave the item or cluster in backlog.")
+    parts.append(
+        "You MUST make an explicit decision for each auto-cluster listed below. "
+        "Include every auto-cluster in your `auto_cluster_decisions` output with one of: "
+        "promote (add to active queue with a priority position), "
+        "skip (leave in backlog with a reason), or "
+        "break_up (split into smaller sub-clusters with a reason)."
+    )
 
     rendered_clusters: list[tuple[str, dict, int]] = []
     for name, cluster in auto_clusters.items():
@@ -479,10 +501,11 @@ def _append_mechanical_backlog_section(
         rendered_clusters.append((name, cluster, member_count))
 
     if rendered_clusters:
-        parts.append("### Auto-clusters")
+        parts.append("### Auto-clusters (decision required for each)")
         parts.append(
-            "These are pre-grouped detector findings. Promote whole clusters with "
-            "`desloppify plan promote auto/<name>`."
+            "These are pre-grouped detector findings. You must decide for each cluster: "
+            "promote (into active queue), skip (with reason), or break_up (into sub-clusters). "
+            "Include your decisions in the `auto_cluster_decisions` array in your response."
         )
         rendered_clusters.sort(key=lambda item: (-item[2], item[0]))
         visible_clusters = rendered_clusters[:15]
@@ -589,6 +612,7 @@ def build_triage_prompt(si: TriageInput) -> str:
 
 __all__ = [
     "_TRIAGE_SYSTEM_PROMPT",
+    "AutoClusterDecision",
     "ContradictionNote",
     "DismissedIssue",
     "TriageInput",
