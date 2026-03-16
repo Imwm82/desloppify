@@ -28,7 +28,10 @@ from desloppify.engine._plan.sync import (
 )
 from desloppify.engine._plan.sync.dimensions import current_unscored_ids
 from desloppify.engine._plan.sync.context import is_mid_cycle
-from desloppify.engine._plan.sync.workflow import clear_score_communicated_sentinel
+from desloppify.engine._plan.sync.workflow import (
+    clear_create_plan_sentinel,
+    clear_score_communicated_sentinel,
+)
 from desloppify.engine.work_queue import build_deferred_disposition_item
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,8 @@ def _reset_cycle_for_force_rescan(plan: dict[str, object]) -> bool:
     for item in synthetic:
         order.remove(item)
     clear_score_communicated_sentinel(plan)
+    clear_create_plan_sentinel(plan)
+    plan.pop("scan_count_at_plan_start", None)
     meta = plan.get("epic_triage_meta", {})
     if isinstance(meta, dict):
         meta.pop("triage_recommended", None)
@@ -103,6 +108,7 @@ def _seed_plan_start_scores(plan: dict[str, object], state: state_mod.StateModel
         "verified": scores.verified,
     }
     clear_score_communicated_sentinel(plan)
+    clear_create_plan_sentinel(plan)
     plan["scan_count_at_plan_start"] = int(state.get("scan_count", 0) or 0)
     return True
 
@@ -149,6 +155,7 @@ def _clear_plan_start_scores_if_queue_empty(
     state["_plan_start_scores_for_reveal"] = dict(plan["plan_start_scores"])
     plan["plan_start_scores"] = {}
     clear_score_communicated_sentinel(plan)
+    clear_create_plan_sentinel(plan)
     return True
 
 

@@ -28,7 +28,10 @@ from desloppify.engine._plan.sync import (
     reconcile_plan,
 )
 from desloppify.engine._plan.sync.workflow_gates import sync_import_scores_needed
-from desloppify.engine._plan.sync.workflow import clear_score_communicated_sentinel
+from desloppify.engine._plan.sync.workflow import (
+    clear_create_plan_sentinel,
+    clear_score_communicated_sentinel,
+)
 from desloppify.engine._plan.refresh_lifecycle import mark_subjective_review_completed
 from desloppify.engine.plan_triage import (
     TRIAGE_CMD_RUN_STAGES_CLAUDE,
@@ -247,6 +250,7 @@ def _apply_import_plan_transitions(
     )
     if trusted:
         clear_score_communicated_sentinel(plan)
+        clear_create_plan_sentinel(plan)
         if sync_inputs.covered_ids:
             mark_subjective_review_completed(
                 plan,
