@@ -170,15 +170,29 @@ def _recurring_dimensions(
 def _split_open_issue_buckets(
     issues: dict[str, dict],
 ) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Split open issues into review (individual triage) and mechanical (cluster triage).
+
+    With the unified pipeline, all defects are triage findings. Review issues
+    get individual treatment; mechanical defects flow through auto-cluster
+    summaries.
+    """
     open_review: dict[str, dict] = {}
     open_mechanical: dict[str, dict] = {}
     for issue_id, issue in issues.items():
         if issue.get("status") != "open":
             continue
-        if is_triage_finding(issue):
+        kind = issue.get("work_item_kind", issue.get("issue_kind", ""))
+        if kind in ("review_defect", "review_concern"):
             open_review[issue_id] = issue
-            continue
-        open_mechanical[issue_id] = issue
+        elif kind == "mechanical_defect":
+            open_mechanical[issue_id] = issue
+        elif is_triage_finding(issue):
+            # Fallback for items without explicit kind — infer from semantics
+            from desloppify.engine._state.issue_semantics import is_review_work_item
+            if is_review_work_item(issue):
+                open_review[issue_id] = issue
+            else:
+                open_mechanical[issue_id] = issue
     return open_review, open_mechanical
 
 
@@ -262,10 +276,10 @@ Available plan tools (the agent executing your plan has access to these):
 - `desloppify scan` — re-scan after making changes to verify progress
 - `desloppify show review --status open` — see all open review issues
 
-Your output defines the active work plan for review findings and any explicitly
-promoted backlog work. Mechanical backlog items you do not mention remain in
-backlog by default. Dismissed issues will be removed from the queue with your
-stated reason.
+Your output defines the active work plan for all open defects. Review issues are
+triaged individually; auto-clusters are triaged at the cluster level (promote/skip/break_up).
+Every auto-cluster must have an explicit decision. Dismissed issues will be removed from
+the queue with your stated reason.
 
 Respond with a single JSON object matching this schema:
 {
@@ -472,18 +486,19 @@ def _append_mechanical_backlog_section(
     )
 
     parts.append(
-        "## Mechanical backlog "
+        "## Auto-cluster candidates "
         f"({len(objective_backlog_issues)} items: {clustered_issue_count} in "
         f"{auto_cluster_count} auto-clusters, {len(unclustered)} unclustered)"
     )
     parts.append(
-        "These detector-created items stay in backlog unless you explicitly promote them into the active queue."
+        "These are detector-created findings grouped by rule type. Each auto-cluster "
+        "is a first-class triage candidate — decide its fate just like review issues."
     )
     parts.append(
         "You MUST make an explicit decision for each auto-cluster listed below. "
         "Include every auto-cluster in your `auto_cluster_decisions` output with one of: "
         "promote (add to active queue with a priority position), "
-        "skip (leave in backlog with a reason), or "
+        "skip (with a specific reason — e.g. 'mostly false positives per sampling'), or "
         "break_up (split into smaller sub-clusters with a reason)."
     )
 
@@ -503,9 +518,8 @@ def _append_mechanical_backlog_section(
     if rendered_clusters:
         parts.append("### Auto-clusters (decision required for each)")
         parts.append(
-            "These are pre-grouped detector findings. You must decide for each cluster: "
-            "promote (into active queue), skip (with reason), or break_up (into sub-clusters). "
-            "Include your decisions in the `auto_cluster_decisions` array in your response."
+            "Each cluster below includes a statistical summary with severity breakdown "
+            "and sample issues. Decide for each: promote, skip (with reason), or break_up."
         )
         rendered_clusters.sort(key=lambda item: (-item[2], item[0]))
         visible_clusters = rendered_clusters[:15]
@@ -515,6 +529,10 @@ def _append_mechanical_backlog_section(
             summary = _cluster_backlog_summary(name, cluster, member_count)
             parts.append(f"- {name} ({member_count} items){hint_suffix}")
             parts.append(f"  {summary}")
+            # Statistical summary: severity/confidence breakdown + samples
+            stats = _cluster_stats(cluster, objective_backlog_issues)
+            if stats:
+                parts.append(f"  {stats}")
         if len(rendered_clusters) > len(visible_clusters):
             remaining = rendered_clusters[len(visible_clusters):]
             remaining_issues = sum(item[2] for item in remaining)
@@ -550,6 +568,57 @@ def _append_mechanical_backlog_section(
     parts.append("Inspect a cluster: `desloppify plan cluster show auto/<name>`")
     parts.append("Inspect an issue: `desloppify show <issue-id>`")
     parts.append("")
+
+
+def _cluster_stats(cluster: dict[str, Any], all_issues: dict[str, dict]) -> str:
+    """Build a compact statistical summary for an auto-cluster."""
+    issue_ids = cluster.get("issue_ids", [])
+    if not isinstance(issue_ids, list):
+        return ""
+    members = [
+        all_issues[iid] for iid in issue_ids
+        if isinstance(iid, str) and iid in all_issues
+    ]
+    if not members:
+        return ""
+
+    # Severity/confidence breakdown
+    from collections import Counter
+    severities: Counter[str] = Counter()
+    confidences: Counter[str] = Counter()
+    rules: Counter[str] = Counter()
+    for m in members:
+        detail = m.get("detail") or {}
+        if isinstance(detail, dict):
+            severities[detail.get("severity", "unknown")] += 1
+            rules[detail.get("kind", detail.get("test_name", "unknown"))] += 1
+        confidences[str(m.get("confidence", "medium"))] += 1
+
+    parts: list[str] = []
+    if severities:
+        sev_str = ", ".join(f"{k}: {v}" for k, v in severities.most_common(3))
+        parts.append(f"severity=[{sev_str}]")
+    if confidences:
+        conf_str = ", ".join(f"{k}: {v}" for k, v in confidences.most_common(3))
+        parts.append(f"confidence=[{conf_str}]")
+    if rules:
+        top_rules = rules.most_common(5)
+        rule_str = ", ".join(f"{k}({v})" for k, v in top_rules)
+        if len(rules) > 5:
+            rule_str += f", +{len(rules) - 5} more"
+        parts.append(f"top_rules=[{rule_str}]")
+
+    # Sample issues (3-5)
+    samples = members[:5]
+    sample_strs = []
+    for s in samples:
+        f = s.get("file", "")
+        summary = str(s.get("summary", ""))[:80]
+        sample_strs.append(f"{f}: {summary}")
+    if sample_strs:
+        parts.append("samples: " + " | ".join(sample_strs))
+
+    return " ".join(parts)
 
 
 def _cluster_autofix_hint(cluster: dict[str, Any]) -> str:

@@ -445,19 +445,19 @@ def validate_backlog_decisions(
     report: str,
     auto_cluster_names: list[str],
 ) -> tuple[bool, list[str]]:
-    """Warn when auto-clusters exist but no backlog decisions section is found.
+    """Require every auto-cluster to have an explicit backlog decision.
 
-    Returns ``(ok, warnings)`` — always ``ok=True`` (non-blocking), but
-    populates warnings when backlog decisions are missing or incomplete.
+    Returns ``(ok, messages)`` — ``ok=False`` (blocking) when auto-clusters
+    are missing decisions. Every auto-cluster must be accounted for.
     """
     if not auto_cluster_names:
         return True, []
 
     found_section, _ = _iter_backlog_decisions_lines(report)
     if not found_section:
-        return True, [
-            f"Reflect report has {len(auto_cluster_names)} auto-cluster(s) in the backlog "
-            "but no `## Backlog Decisions` section. Each auto-cluster should have an "
+        return False, [
+            f"Reflect report has {len(auto_cluster_names)} auto-cluster(s) "
+            "but no `## Backlog Decisions` section. Every auto-cluster must have an "
             "explicit decision: promote, skip (with reason), or supersede."
         ]
 
@@ -467,7 +467,7 @@ def validate_backlog_decisions(
     if missing:
         missing_str = ", ".join(missing[:10])
         suffix = f" (and {len(missing) - 10} more)" if len(missing) > 10 else ""
-        return True, [
+        return False, [
             f"Backlog Decisions section is missing decisions for {len(missing)} "
             f"auto-cluster(s): {missing_str}{suffix}"
         ]
