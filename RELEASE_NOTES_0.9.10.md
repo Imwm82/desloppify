@@ -6,7 +6,7 @@ This release adds **experimental Hermes Agent integration** for fully autonomous
 
 ---
 
-**141 files changed | 47 commits | 5,438 tests passing**
+**152 files changed | 54 commits | 5,466 tests passing**
 
 ## Hermes Agent Integration (Experimental)
 
@@ -68,6 +68,14 @@ Massive contribution from **@MacHatter1** (PR #414). A new `FrameworkSpec` abstr
 
 Thanks to **@klausagnoletti** for adding SCSS/Sass support via stylelint integration (PR #428). Detects code smells, unused variables, and style issues in `.scss` and `.sass` files. @klausagnoletti has also submitted a follow-up PR (#452) with bug fixes, tests, and honest documentation — expected to land shortly after release.
 
+## Plugin Tests, Docs, and Ruby Improvements
+
+**@klausagnoletti** also contributed across multiple language plugins:
+
+- **Ruby plugin improvements** (PR #462) — expanded exclusions, detect markers (`Gemfile`, `Rakefile`, `.ruby-version`, `*.gemspec`), `default_src="lib"`, `spec/` + `test/` support, and 13 wiring tests. Also adds `external_test_dirs` and `test_file_extensions` params to the generic plugin framework.
+- **JavaScript plugin tests + README** (PR #458) — 12 sanity tests covering ESLint integration, command construction, fixer registration, and output parsing.
+- **Python plugin README** (PR #459) — user-facing documentation covering phases, requirements, and usage.
+
 ## R Language Improvements
 
 **@sims1253** has been steadily building out R support and contributed four PRs to this release:
@@ -112,7 +120,7 @@ This release wouldn't exist without the community. Seriously — thank you all.
 
 **@sims1253** has been the driving force behind R language support, with four PRs spanning linting, tree-sitter queries, and harness support. The R plugin is becoming genuinely useful thanks to this sustained effort.
 
-**@klausagnoletti** added SCSS support and has a follow-up PR (#452) with bug fixes and honest documentation — replacing a hallucinated 455-line README with an accurate 31-line one. The kind of contributor who makes the codebase more trustworthy.
+**@klausagnoletti** added SCSS support, improved the Ruby plugin, and contributed tests and documentation for JavaScript and Python plugins — seven PRs total (#428, #452, #457, #458, #459, #462). The kind of contributor who makes the codebase more trustworthy across the board.
 
 **@cdunda-perchwell** fixed two separate workflow re-injection bugs that were causing phantom plan items. **@nickperkins** shipped a clean PHPStan parser fix.
 
