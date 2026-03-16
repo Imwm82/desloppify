@@ -6,7 +6,7 @@ This release adds **experimental Hermes Agent integration** for fully autonomous
 
 ---
 
-**124 files changed | 26 commits | 5,425 tests passing**
+**141 files changed | 47 commits | 5,438 tests passing**
 
 ## Hermes Agent Integration (Experimental)
 
@@ -66,7 +66,7 @@ Massive contribution from **@MacHatter1** (PR #414). A new `FrameworkSpec` abstr
 
 ## SCSS Language Plugin
 
-Thanks to **@klausagnoletti** for adding SCSS/Sass support via stylelint integration (PR #428). Detects code smells, unused variables, and style issues in `.scss` and `.sass` files. @klausagnoletti also followed up with bug fixes and tests (PR #452) that caught three runtime issues — a placeholder in the command string, a wrong formatter flag, and dead config keys — any of which would have meant zero findings at runtime.
+Thanks to **@klausagnoletti** for adding SCSS/Sass support via stylelint integration (PR #428). Detects code smells, unused variables, and style issues in `.scss` and `.sass` files. @klausagnoletti has also submitted a follow-up PR (#452) with bug fixes, tests, and honest documentation — expected to land shortly after release.
 
 ## R Language Improvements
 
@@ -96,18 +96,11 @@ Another big one from **@MacHatter1** (PR #432). Cold and full scan times reduced
 - **PHPStan parser fixes** — @nickperkins (PR #420). stderr output and malformed JSON from PHPStan no longer crash the parser. Clean, focused fix.
 - **Preserve plan_start_scores during force-rescan** — manual clusters are no longer wiped when force-rescanning.
 - **Import run project root** — `--scan-after-import` now derives the project root correctly from the state file path.
-- **C++ detector scoping** (PR #415) — narrowed detection rules to reduce false positives.
-
-## Pending (expected before release)
-
-These PRs are open, reviewed, and passing tests:
-
-- **Windows codex runner fix** (PR #453) — proper `cmd /c` argument quoting + UTF-8 log encoding. Reported by **@DenysAshikhin**.
+- **Windows codex runner** (PR #453) — proper `cmd /c` argument quoting + UTF-8 log encoding for Windows. Reported by **@DenysAshikhin**.
 - **Scan after queue drain** (PR #454) — `score_display_mode` now returns LIVE when queue is empty, fixing the UX contradiction where `next` says "run scan" but scan refuses. Reported by **@kgelpes**.
-- **SKILL.md cleanup** (PR #455) — removes unsupported `allowed-tools` frontmatter, fixes batch naming inconsistency, adds pip fallback alongside uvx. Three issues all reported by **@willfrey**.
+- **SKILL.md cleanup** (PR #455) — removes unsupported `allowed-tools` frontmatter, fixes batch naming inconsistency (`.raw.txt` not `.json`), adds pip fallback alongside uvx. Three issues all reported by **@willfrey**.
 - **Batch retry coverage gate** (PR #456) — partial retries now bypass the full-coverage requirement instead of being rejected. Reported by **@imetandy**.
-- **Dead shim cleanup** (PR #460) — removes unused backward-compat wrapper from Rust inline-test filtering.
-- **R anonymous function extraction** (PR #461) — follow-up fix so the tree-sitter anonymous function pattern actually works (extractor now handles missing `@name` capture).
+- **R anonymous function extraction** (PR #461) — the tree-sitter anonymous function pattern from PR #449 now actually works (extractor handles missing `@name` capture with `<anonymous>` fallback).
 
 ## Community
 
@@ -119,7 +112,7 @@ This release wouldn't exist without the community. Seriously — thank you all.
 
 **@sims1253** has been the driving force behind R language support, with four PRs spanning linting, tree-sitter queries, and harness support. The R plugin is becoming genuinely useful thanks to this sustained effort.
 
-**@klausagnoletti** added SCSS support and immediately followed up with bug fixes and honest documentation — replacing a hallucinated 455-line README with an accurate 31-line one. The kind of contributor who makes the codebase more trustworthy.
+**@klausagnoletti** added SCSS support and has a follow-up PR (#452) with bug fixes and honest documentation — replacing a hallucinated 455-line README with an accurate 31-line one. The kind of contributor who makes the codebase more trustworthy.
 
 **@cdunda-perchwell** fixed two separate workflow re-injection bugs that were causing phantom plan items. **@nickperkins** shipped a clean PHPStan parser fix.
 
