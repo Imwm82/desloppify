@@ -52,7 +52,6 @@ def _reset_cycle_for_force_rescan(plan: dict[str, object]) -> bool:
         order.remove(item)
     clear_score_communicated_sentinel(plan)
     clear_create_plan_sentinel(plan)
-    plan.pop("scan_count_at_plan_start", None)
     meta = plan.get("epic_triage_meta", {})
     if isinstance(meta, dict):
         meta.pop("triage_recommended", None)
