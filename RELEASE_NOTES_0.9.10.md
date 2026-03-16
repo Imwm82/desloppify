@@ -1,0 +1,126 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/peteromallet/desloppify/main/assets/mascot-no-bg.png" width="180" alt="Desloppify mascot">
+</p>
+
+This release adds **experimental Hermes Agent integration** for fully autonomous cleanup loops, **framework-aware detection** with a full Next.js spec, **SCSS language support**, significant **R language improvements**, and a **scan performance boost** from detector prefetch + caching — alongside a batch of bug fixes from the community.
+
+---
+
+**124 files changed | 26 commits | 5,425 tests passing**
+
+## Hermes Agent Integration (Experimental)
+
+We've been exploring what it looks like when a codebase health tool can actually *drive* an AI agent — not just generate reports, but orchestrate the entire cleanup loop autonomously. This release ships our first experimental integration with [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+
+The core idea: desloppify already knows what needs to be done (scan, triage, review, fix). Instead of printing instructions for a human, it can now tell the agent directly — switch to a cheap model for mechanical fixes, switch to an expensive one for architectural review, reset context between tasks, and keep the agent working via `/autoreply`, all without a human in the loop.
+
+What the integration enables:
+
+- **Autonomous review loops** — desloppify orchestrates blind reviews via `delegate_task` subagents (up to 3 concurrent), no human needed
+- **Model switching at phase boundaries** — cheap models for execution, expensive for planning/review, switched automatically
+- **Context management** — automatic resets between tasks to keep the agent focused on long sessions
+- **Lifecycle transitions** — desloppify tells Hermes what to do next via the Control API
+
+### How to try it
+
+**This requires the Control API branch of Hermes** ([NousResearch/hermes-agent#1508](https://github.com/NousResearch/hermes-agent/pull/1508)), which hasn't been merged upstream yet. Without it, Hermes works as a normal harness but can't do autonomous model switching or self-prompting.
+
+**Step 1 — Install Hermes from the Control API branch:**
+
+```bash
+git clone -b feat/control-api-autoreply https://github.com/peteromallet/hermes-agent.git
+cd hermes-agent
+pip install -e .
+```
+
+**Step 2 — Install desloppify and set up the Hermes skill doc:**
+
+```bash
+pip install desloppify[full]
+cd /path/to/your/project
+desloppify update-skill hermes
+```
+
+This writes a `AGENTS.md` skill document into your project that teaches Hermes how to use desloppify.
+
+**Step 3 — Start Hermes with the Control API enabled, pointed at your project:**
+
+```bash
+cd /path/to/your/project
+HERMES_CONTROL_API=1 hermes
+```
+
+**Step 4 — Tell it to scan.** In the Hermes session, type:
+
+```
+Run desloppify scan, then follow its coaching output to clean up the codebase.
+```
+
+Desloppify will guide Hermes through the full lifecycle — scanning, triaging findings, running blind reviews with subagents, and fixing issues. It switches models and resets context automatically at phase boundaries.
+
+**This is experimental and we're iterating fast.** We'd love feedback on the approach, rough edges, and what you'd want to see next. If you try it, please open an issue — every report helps.
+
+## Framework-Aware Detection
+
+Massive contribution from **@MacHatter1** (PR #414). A new `FrameworkSpec` abstraction layer for framework-specific detection, shipping with a full Next.js spec that understands App Router conventions, server components, `use client`/`use server` directives, and Next.js-specific lint rules. This means dramatically fewer false positives when scanning Next.js projects — framework idioms are recognized, not flagged. The spec system is extensible, so adding support for other frameworks (Remix, SvelteKit, etc.) is now a matter of writing a spec, not changing the engine.
+
+## SCSS Language Plugin
+
+Thanks to **@klausagnoletti** for adding SCSS/Sass support via stylelint integration (PR #428). Detects code smells, unused variables, and style issues in `.scss` and `.sass` files. @klausagnoletti also followed up with bug fixes and tests (PR #452) that caught three runtime issues — a placeholder in the command string, a wrong formatter flag, and dead config keys — any of which would have meant zero findings at runtime.
+
+## R Language Improvements
+
+**@sims1253** has been steadily building out R support and contributed four PRs to this release:
+
+- **Jarl linter** with autofix support (PR #425) — adds a fast R linter as an alternative to lintr
+- **Shell quote escaping fix** for lintr commands (PR #424) — prevents command injection on paths with special characters
+- **Tree-sitter query improvements** (PR #449) — captures anonymous functions in `lapply`/`sapply` calls and `pkg::fn` namespace imports
+- **Factory Droid harness support** (PR #451) — adds Droid as a new skill target, following the existing harness pattern exactly
+
+## Scan Performance: Detector Prefetch + Cache
+
+Another big one from **@MacHatter1** (PR #432). Cold and full scan times reduced significantly. Detectors now prefetch file contents and cache results across detection phases, avoiding redundant I/O. On large codebases this is a noticeable improvement.
+
+## Lifecycle & Triage
+
+- **Lifecycle transition messages** — the tool now tells agents what phase they're in and what to do next, with structured directives for each transition
+- **Unified triage pipeline** with step detail display
+- **Staged triage** now requires explicit decisions for auto-clusters before proceeding — no more accidentally skipping triage steps
+
+## Bug Fixes
+
+- **Binding-aware unused import detection for JS/TS** — @MacHatter1 (PR #433). No longer flags imports used via destructuring, `as` renames, or re-export patterns. This was a significant source of false positives in real JS/TS projects.
+- **Rust dep graph hangs** — @fluffypony (PR #429). String literals that look like import paths (e.g., `"path/to/thing"`) no longer cause the dependency graph builder to hang. @fluffypony also contributed Rust inline-test filtering (PR #440), which prevents `#[cfg(test)]` diagnostic noise from inflating production debt scores.
+- **Project root detection** (PR #439) — fixed cases where the project root was derived incorrectly, plus force-rescan now properly wipes stale plan data, and manual clusters are visible in triage.
+- **workflow::create-plan re-injection** — @cdunda-perchwell (PR #435). Resolved workflow items no longer reappear in the execution queue after reconciliation. @cdunda-perchwell also identified the related communicate-score cycle-boundary sentinel issue (#447, fix in PR #448).
+- **PHPStan parser fixes** — @nickperkins (PR #420). stderr output and malformed JSON from PHPStan no longer crash the parser. Clean, focused fix.
+- **Preserve plan_start_scores during force-rescan** — manual clusters are no longer wiped when force-rescanning.
+- **Import run project root** — `--scan-after-import` now derives the project root correctly from the state file path.
+- **C++ detector scoping** (PR #415) — narrowed detection rules to reduce false positives.
+
+## Pending (expected before release)
+
+These PRs are open, reviewed, and passing tests:
+
+- **Windows codex runner fix** (PR #453) — proper `cmd /c` argument quoting + UTF-8 log encoding. Reported by **@DenysAshikhin**.
+- **Scan after queue drain** (PR #454) — `score_display_mode` now returns LIVE when queue is empty, fixing the UX contradiction where `next` says "run scan" but scan refuses. Reported by **@kgelpes**.
+- **SKILL.md cleanup** (PR #455) — removes unsupported `allowed-tools` frontmatter, fixes batch naming inconsistency, adds pip fallback alongside uvx. Three issues all reported by **@willfrey**.
+- **Batch retry coverage gate** (PR #456) — partial retries now bypass the full-coverage requirement instead of being rejected. Reported by **@imetandy**.
+- **Dead shim cleanup** (PR #460) — removes unused backward-compat wrapper from Rust inline-test filtering.
+- **R anonymous function extraction** (PR #461) — follow-up fix so the tree-sitter anonymous function pattern actually works (extractor now handles missing `@name` capture).
+
+## Community
+
+This release wouldn't exist without the community. Seriously — thank you all.
+
+**@MacHatter1** delivered three major PRs (framework-aware detection, detector prefetch + cache, binding-aware unused imports) that each individually would have been a headline feature. The framework spec system in particular opens up a whole new category of detection accuracy.
+
+**@fluffypony** contributed both the Rust dep graph hang fix and the inline-test filtering — the latter being 1,000+ lines of carefully tested Rust syntax parsing with conservative cfg predicate handling and thorough edge-case coverage.
+
+**@sims1253** has been the driving force behind R language support, with four PRs spanning linting, tree-sitter queries, and harness support. The R plugin is becoming genuinely useful thanks to this sustained effort.
+
+**@klausagnoletti** added SCSS support and immediately followed up with bug fixes and honest documentation — replacing a hallucinated 455-line README with an accurate 31-line one. The kind of contributor who makes the codebase more trustworthy.
+
+**@cdunda-perchwell** fixed two separate workflow re-injection bugs that were causing phantom plan items. **@nickperkins** shipped a clean PHPStan parser fix.
+
+Bug reporters **@willfrey**, **@DenysAshikhin**, **@kgelpes**, and **@imetandy** filed detailed, actionable issues that made fixes straightforward. Every one of those reports saved debugging time.
