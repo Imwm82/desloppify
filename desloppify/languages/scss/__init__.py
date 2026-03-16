@@ -8,11 +8,11 @@ generic_lang(
     tools=[
         {
             "label": "stylelint",
-            "cmd": "stylelint {file_path} --formatter json --max-warnings 1000",
-            "fmt": "json",
+            "cmd": "stylelint '**/*.scss' '**/*.sass' --formatter unix --max-warnings 1000",
+            "fmt": "gnu",
             "id": "stylelint_issue",
             "tier": 2,
-            "fix_cmd": "stylelint --fix {file_path}",
+            "fix_cmd": "stylelint --fix '**/*.scss' '**/*.sass'",
         },
     ],
     exclude=["node_modules", "_output", ".quarto", "vendor"],
