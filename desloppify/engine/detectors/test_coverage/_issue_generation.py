@@ -12,6 +12,26 @@ from ._issue_quality import select_direct_test_quality_issue
 from .metrics import _file_loc, _loc_weight
 
 
+def _build_test_importer_index(
+    parsed_imports_by_test: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    """Build a reverse index: production_file -> set of test files that import it."""
+    index: dict[str, set[str]] = {}
+    for test_path, prod_files in parsed_imports_by_test.items():
+        for prod_file in prod_files:
+            index.setdefault(prod_file, set()).add(test_path)
+    return index
+
+
+def _combined_importer_count(
+    filepath: str, graph: dict, test_importer_index: dict[str, set[str]]
+) -> int:
+    """Combined count of production-file and test-file importers."""
+    prod_importers = graph.get(filepath, {}).get("importer_count", 0)
+    test_importers = len(test_importer_index.get(filepath, set()))
+    return prod_importers + test_importers
+
+
 def generate_issues(
     scorable: set[str],
     directly_tested: set[str],
@@ -31,10 +51,11 @@ def generate_issues(
         production_scope,
         lang_name,
     )
+    test_importer_index = _build_test_importer_index(parsed_imports_by_test)
 
     for filepath in scorable:
         loc = _file_loc(filepath)
-        importer_count = graph.get(filepath, {}).get("importer_count", 0)
+        importer_count = _combined_importer_count(filepath, graph, test_importer_index)
         loc_weight = _loc_weight(loc)
 
         if filepath in directly_tested:
